@@ -1,0 +1,22 @@
+
+    <div class="card">
+      <div class="brand"><span class="brand-mark">P</span><span style="margin-inline-start:8px">{{ 'portal.title' | translate: 'Customer and supplier portal' }}</span></div>
+      <h1>{{ 'portal.signIn' | translate: 'Sign in' }}</h1>
+      <p class="sub">{{ sent() ? 'If this email is on file with us, a 6-digit code is on its way. It can take a minute, so check your spam folder too.' : 'No password needed. We email you a one-time code.' }}</p>
+      @if (error()) { <nz-alert nzType="error" [nzMessage]="error()!" nzShowIcon style="margin-bottom:16px" data-testid="portal-error"></nz-alert> }
+      <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
+        <nz-form-item><nz-form-label nzRequired>{{ 'portal.workspace' | translate: 'Workspace code' }}</nz-form-label><nz-form-control nzErrorTip="Enter the workspace code" nzExtra="The company you deal with gives you this code."><input nz-input formControlName="workspace" autocomplete="organization" data-testid="portal-workspace" /></nz-form-control></nz-form-item>
+        <label nz-checkbox formControlName="vendor" style="margin-bottom:12px" data-testid="portal-vendor">I am a vendor / supplier</label>
+        <nz-form-item><nz-form-label nzRequired>{{ 'common.email' | translate: 'Email' }}</nz-form-label><nz-form-control nzErrorTip="Enter your email"><input nz-input type="email" formControlName="email" autocomplete="email" data-testid="portal-email" /></nz-form-control></nz-form-item>
+        @if (sent()) {
+          <nz-form-item><nz-form-label nzRequired>Code</nz-form-label><nz-form-control nzErrorTip="Enter the 6-digit code"><input nz-input formControlName="code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" data-testid="portal-code" /></nz-form-control></nz-form-item>
+        }
+        <button nz-button nzType="primary" nzBlock [nzLoading]="busy()" data-testid="portal-submit">{{ sent() ? ('portal.signIn' | translate: 'Sign in') : ('portal.emailCode' | translate: 'Email me a code') }}</button>
+      </form>
+      @if (sent()) {
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px">
+          <button nz-button nzType="link" type="button" [disabled]="busy()" (click)="resend()" data-testid="portal-resend">Send a new code</button>
+          <button nz-button nzType="link" type="button" [disabled]="busy()" (click)="restart()" data-testid="portal-restart">Use another email</button>
+        </div>
+      }
+    </div>

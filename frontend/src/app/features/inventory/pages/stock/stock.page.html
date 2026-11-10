@@ -1,0 +1,61 @@
+
+    <h1 class="erp-page-title">Stock on hand</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" *erpHasPermission="'inventory.stock.write'">
+      @for (a of actions; track a.key) { <button nz-button [nzType]="a.key === 'receive' ? 'primary' : 'default'" (click)="open(a.key)" [attr.data-testid]="'stock-' + a.key">{{ a.label }}</button> }
+    </div>
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="stock-kpis">
+      <erp-stat-card label="Stock value" [loading]="!data()" [value]="data()?.totalValue" format="money" [tone]="0" />
+      <erp-stat-card label="Item lines" [loading]="!data()" [value]="data()?.rows?.length" format="number" caption="item / warehouse" [tone]="2" />
+      <erp-stat-card label="Low stock" [loading]="!data()" [value]="low().length" format="number" [caption]="low().length ? 'at or below the reorder level' : 'nothing at or below its reorder level'" [tone]="low().length > 0 ? 'danger' : 'neutral'" testId="stock-low-kpi" />
+    </div>
+    @if (low().length) {
+      <section class="low-panel" aria-label="Low stock" data-testid="low-stock">
+        <div class="low-head">
+          <span nz-icon nzType="warning" aria-hidden="true"></span>
+          <span class="grow">{{ low().length === 1 ? '1 item needs' : low().length + ' items need' }} reordering</span>
+          <button nz-button nzSize="small" [attr.aria-pressed]="lowOnly()" (click)="lowOnly.set(!lowOnly())" data-testid="stock-low-only">{{ lowOnly() ? 'Show all stock' : 'Show only these below' }}</button>
+        </div>
+        <nz-table [nzData]="low()" nzSize="small" [nzFrontPagination]="false" [nzShowPagination]="false" data-testid="low-stock-table">
+          <thead><tr><th>SKU</th><th>Item</th><th class="num">On hand</th><th class="num">Reorder at</th><th class="num">Order quantity</th></tr></thead>
+          <tbody>
+            @for (l of low(); track l.itemId) {
+              <tr><td><span class="code-pill">{{ l.sku }}</span></td><td>{{ l.item }}</td><td class="num"><b>{{ l.onHand | number: '1.0-4' }}</b></td><td class="num">{{ l.reorderLevel | number: '1.0-4' }}</td><td class="num">{{ l.reorderQuantity | number: '1.0-4' }}</td></tr>
+            }
+          </tbody>
+        </nz-table>
+      </section>
+    }
+    <erp-table-tools [(search)]="q" (refresh)="load()" testId="stock">
+      <nz-select [ngModel]="warehouseId()" (ngModelChange)="filterWarehouse($event)" nzAllowClear nzShowSearch [nzPlaceHolder]="'ui.common.filterWarehouse' | translate: 'Filter by warehouse'" style="width:200px" data-testid="stock-warehouse-filter">
+        @for (w of warehouses(); track w.id) { <nz-option [nzValue]="w.id" [nzLabel]="w.name"></nz-option> }
+      </nz-select>
+    </erp-table-tools>
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Stock could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
+    } @else {
+    <div class="erp-card" style="overflow:hidden">
+      <nz-table [nzData]="shown()" [nzLoading]="!data()" nzSize="middle" [nzFrontPagination]="false" [nzShowPagination]="false" [nzNoResult]="noStock" data-testid="stock-table">
+        <thead><tr><th>SKU</th><th>Item</th><th>Warehouse</th><th style="text-align:end">Quantity</th><th style="text-align:end">Avg cost</th><th style="text-align:end">Value</th></tr></thead>
+        <tbody>
+          @for (r of shown(); track r.warehouseId + r.itemId) {
+            <tr [class.low-row]="lowIds().has(r.itemId)">
+              <td><span class="code-pill">{{ r.sku }}</span></td>
+              <td><span class="name-cell">{{ r.item }}</span></td>
+              <td><nz-tag>{{ r.warehouse }}</nz-tag></td>
+              <td style="text-align:end;white-space:nowrap">@if (lowIds().has(r.itemId)) { <nz-tag class="low-tag" nzColor="orange">Low</nz-tag> }{{ r.quantity | number: '1.0-4' }} {{ r.uom }}</td>
+              <td style="text-align:end;white-space:nowrap">{{ currency() }} {{ r.averageCost | number: '1.2-2' }}</td>
+              <td style="text-align:end;white-space:nowrap"><b>{{ currency() }} {{ r.value | number: '1.2-2' }}</b></td>
+            </tr>
+          }
+        </tbody>
+        @if (data(); as d) { <tfoot><tr><td colspan="5"><b>Total value</b></td><td style="text-align:end;white-space:nowrap"><b data-testid="stock-total">{{ currency() }} {{ d.totalValue | number: '1.2-2' }}</b></td></tr></tfoot> }
+      </nz-table>
+    </div>
+    <ng-template #noStock>
+      @if (lowOnly()) { <span>These items have no stock in any warehouse.</span> }
+      @else if (data()?.rows?.length) { <span>No stock matches this search.</span> }
+      @else { <erp-state-panel title="No stock yet" hint="Receive stock to get started." icon="inbox" [actionLabel]="canWrite ? 'Receive stock' : null" (action)="open('receive')" /> }
+    </ng-template>
+    }
+    <erp-record-drawer [title]="title()" [open]="current() !== null" [fields]="fields()" [value]="null" [saving]="saving()" [errors]="errors()" testId="stock-form" [width]="480"
+                       (submitted)="submit($event)" (closed)="current.set(null)" />

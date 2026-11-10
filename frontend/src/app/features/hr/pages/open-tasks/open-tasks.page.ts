@@ -14,24 +14,7 @@ import { ErpDatePipe } from '@shared/pipes/display.pipes';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpDatePipe, HasPermissionDirective, StatePanelComponent, NzTableModule, NzTagModule],
-  template: `
-    <h1 class="erp-page-title">HR tasks</h1>
-    @if (failed()) {
-      <erp-state-panel kind="error" title="HR tasks could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
-    } @else {
-    <nz-table [nzData]="tasks()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="Nothing is waiting. Onboarding and offboarding steps appear here." data-testid="open-tasks">
-      <thead><tr><th>Employee</th><th>Task</th><th>Kind</th><th>Due</th><th></th></tr></thead>
-      <tbody>
-        @for (t of tasks(); track t.id) {
-          <tr>
-            <td>{{ t.employeeName }}</td><td>{{ t.title }}</td><td>{{ t.kind === 'onboarding' ? 'Onboarding' : 'Offboarding' }}</td>
-            <td>@if (t.dueDate) { <nz-tag [nzColor]="t.overdue ? 'red' : 'default'">{{ t.dueDate | erpDate }}</nz-tag> }</td>
-            <td><a *erpHasPermission="'hr.employees.manage'" (click)="done(t)" data-testid="task-done">Mark done</a></td>
-          </tr>
-        }
-      </tbody>
-    </nz-table>
-    }`,
+  templateUrl: './open-tasks.page.html',
 })
 export class OpenTasksPage {
   private readonly api = inject(EmployeeLifeApi);

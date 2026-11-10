@@ -26,72 +26,8 @@ import { ErpDatePipe } from '@shared/pipes/display.pipes';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpDatePipe, DecimalPipe, RecordDrawerComponent, StatePanelComponent, StatusTagComponent, NzButtonModule, NzIconModule, NzSkeletonModule, NzTableModule, NzTabsModule, NzTagModule],
-  styles: [`.num { text-align: end; white-space: nowrap; } .muted { color: var(--erp-color-text-secondary); } .gap { margin-inline-end: 10px; }`],
-  template: `
-    <h1 class="erp-page-title">My HR</h1>
-    @if (notLinked()) {
-      <div data-testid="my-not-linked">
-        <erp-state-panel title="Your sign-in is not linked to an employee record" icon="user"
-                         [hint]="canOpenEmployees ? 'My HR shows your own leave, payslips and profile, so it needs an employee record. Open your employee record and choose your sign-in under Sign-in account.' : 'My HR shows your own leave, payslips and profile, so it needs an employee record. Ask HR to choose your sign-in under Sign-in account on your employee record.'"
-                         [actionLabel]="canOpenEmployees ? 'Open employees' : null" (action)="openEmployees()" />
-      </div>
-    } @else if (failed()) {
-      <erp-state-panel kind="error" title="My HR could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="start()" />
-    } @else if (me(); as m) {
-      <p><b>{{ m.fullName }}</b> · {{ m.designation }} @if (m.department) { · {{ m.department }} } · {{ m.number }}
-        @if (m.onLeaveToday) { <nz-tag nzColor="blue">On leave today</nz-tag> }</p>
-      <p class="muted">Joined {{ m.joinDate | erpDate }} · {{ m.serviceYears | number: '1.1-1' }} years @if (m.managerName) { · Manager: {{ m.managerName }} }</p>
-      <nz-tabs>
-        <nz-tab nzTitle="Leave balances">
-          <nz-table [nzData]="balances()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="No leave balances for this year yet" data-testid="my-balances">
-            <thead><tr><th>Type</th><th class="num">Entitled</th><th class="num">Carried</th><th class="num">Taken</th><th class="num">Pending</th><th class="num">Remaining</th></tr></thead>
-            <tbody>@for (b of balances(); track b.leaveTypeId) { <tr><td>{{ b.leaveTypeName }}</td><td class="num">{{ b.entitled }}</td><td class="num">{{ b.carried }}</td><td class="num">{{ b.taken }}</td><td class="num">{{ b.pending }}</td><td class="num"><b>{{ b.remaining }}</b></td></tr> }</tbody>
-          </nz-table>
-        </nz-tab>
-        <nz-tab nzTitle="My leave">
-          <button nz-button nzType="primary" (click)="requesting.set(true)" data-testid="my-leave-new"><span nz-icon nzType="plus"></span>Request leave</button>
-          <nz-table [nzData]="leave()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="No leave requests yet" style="margin-top:12px" data-testid="my-leave">
-            <thead><tr><th>From</th><th>To</th><th class="num">Days</th><th>Status</th><th>Reason</th><th></th></tr></thead>
-            <tbody>
-              @for (r of leave(); track r.id) {
-                <tr>
-                  <td>{{ r.fromDate | erpDate }}</td><td>{{ r.toDate | erpDate }}</td><td class="num">{{ r.days }}</td>
-                  <td><erp-status [value]="r.status" [label]="statusLabel(r.status)" /></td><td>{{ r.reason }}</td>
-                  <td>
-                    @if (r.status === 'draft') { <a class="gap" (click)="act(r, 'submit')">Submit</a> }
-                    @if (r.status === 'draft' || r.status === 'submitted' || r.status === 'approved') { <a (click)="act(r, 'cancel')">Cancel</a> }
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </nz-table>
-        </nz-tab>
-        <nz-tab nzTitle="Payslips">
-          <nz-table [nzData]="payslips()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="No payslips yet" data-testid="my-payslips">
-            <thead><tr><th>Month</th><th class="num">Gross ({{ currency() }})</th><th class="num">Deductions ({{ currency() }})</th><th class="num">Net pay ({{ currency() }})</th><th>Status</th></tr></thead>
-            <tbody>@for (p of payslips(); track p.lineId) { <tr><td>{{ month(p.month) }} {{ p.year }}</td><td class="num">{{ p.grossEarnings | number: '1.2-2' }}</td><td class="num">{{ p.deductions | number: '1.2-2' }}</td><td class="num"><b>{{ p.netPay | number: '1.2-2' }}</b></td><td><erp-status [value]="p.status" /></td></tr> }
-            </tbody>
-          </nz-table>
-        </nz-tab>
-        @if (team().length || isManager()) {
-          <nz-tab nzTitle="Team approvals">
-            <nz-table [nzData]="team()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="Nothing waiting for your decision" data-testid="my-team">
-              <thead><tr><th>Employee</th><th>From</th><th>To</th><th class="num">Days</th><th>Reason</th><th></th></tr></thead>
-              <tbody>
-                @for (r of team(); track r.id) {
-                  <tr>
-                    <td>{{ r.employeeName }}</td><td>{{ r.fromDate | erpDate }}</td><td>{{ r.toDate | erpDate }}</td><td class="num">{{ r.days }}</td><td>{{ r.reason }}</td>
-                    <td><a class="gap" (click)="decide(r, 'approve')" data-testid="team-approve">Approve</a><a (click)="decide(r, 'reject')" data-testid="team-reject">Reject</a></td>
-                  </tr>
-                }
-              </tbody>
-            </nz-table>
-          </nz-tab>
-        }
-      </nz-tabs>
-      <erp-record-drawer title="Request leave" [open]="requesting()" [fields]="fields()" [saving]="saving()" [errors]="errors()" [width]="440" testId="my-leave-form" submitLabel="Send request"
-                         (submitted)="request($event)" (closed)="requesting.set(false)" />
-    } @else { <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 6 }"></nz-skeleton> }`,
+  styleUrl: './my-hr.page.scss',
+  templateUrl: './my-hr.page.html',
 })
 export class MyHrPage {
   private readonly api = inject(MyHrApi);

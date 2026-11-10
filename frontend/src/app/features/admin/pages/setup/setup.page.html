@@ -1,0 +1,94 @@
+
+    <h1 class="erp-page-title">Business setup</h1>
+    <p class="intro">Tell the system what kind of business this is, which parts of it you use, and how your documents are numbered.</p>
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load the setup" hint="The server did not return your business profile." actionLabel="Try again" (action)="load()" />
+    } @else if (profile(); as p) {
+      <nz-card nzTitle="Business type" data-testid="setup-industry">
+        <p>Your business is set up as <b data-testid="setup-current-industry">{{ p.industryLabel || p.industryCode }}</b>@if (p.industryGroup) { <span class="muted"> · {{ p.industryGroup }}</span> }.</p>
+        @if (p.missingModules.length) {
+          <nz-alert nzType="info" nzShowIcon nzMessage="Some modules for this business type are off" [nzDescription]="'Not enabled yet: ' + p.missingModules.join(', ') + '.'" style="margin-bottom:12px"></nz-alert>
+        }
+        <div class="row" *erpHasPermission="'core.modules.manage'">
+          <nz-select style="min-width:320px" nzShowSearch nzPlaceHolder="Choose a business type" [ngModel]="industry()" (ngModelChange)="industry.set($event)" aria-label="Business type" data-testid="setup-industry-select">
+            @for (g of groups(); track g.group) {
+              <nz-option-group [nzLabel]="g.group">
+                @for (i of g.items; track i.key) { <nz-option [nzValue]="i.key" [nzLabel]="i.label"></nz-option> }
+              </nz-option-group>
+            }
+          </nz-select>
+          <button nz-button nzType="primary" type="button" [disabled]="!industry() || industry() === p.industryCode" (click)="confirming.set(true)" data-testid="setup-industry-change">Change business type</button>
+        </div>
+        @if (result(); as r) {
+          <nz-alert class="result" style="margin-top:16px" nzType="success" nzShowIcon nzMessage="Business type changed" data-testid="setup-industry-result" [nzDescription]="resultBody"></nz-alert>
+          <ng-template #resultBody>
+            <ul class="plain">
+              <li>Modules turned on: {{ list(r.modulesEnabled) }}</li>
+              <li>Roles added: {{ list(r.rolesAdded) }}</li>
+              <li>Accounts added: {{ list(r.accountsAdded) }}</li>
+              @if (r.modulesNotAllowed.length) { <li>Not allowed by your plan: {{ list(r.modulesNotAllowed) }}</li> }
+            </ul>
+          </ng-template>
+        }
+      </nz-card>
+
+      <nz-modal [nzVisible]="confirming()" nzTitle="Change business type?" nzOkText="Change business type" nzCancelText="Cancel" [nzOkLoading]="changing()" (nzOnOk)="applyIndustry()" (nzOnCancel)="confirming.set(false)">
+        <ng-container *nzModalContent>
+          <p data-testid="setup-industry-confirm">Changing the business type only adds modules, roles and accounts that this type needs. It never removes or turns off anything you already have, and your data is kept.</p>
+        </ng-container>
+      </nz-modal>
+
+      <nz-card nzTitle="Parts of the system you use" data-testid="setup-capabilities">
+        @for (c of p.capabilities; track c.key) {
+          <div class="capability">
+            <div><b>{{ c.label }}</b><p>{{ c.description }}</p></div>
+            <nz-switch [ngModel]="isOn(c.key)" (ngModelChange)="toggle(c.key, $event)" [nzDisabled]="!canWrite()" [attr.aria-label]="c.label" [attr.data-testid]="'setup-capability-' + c.key"></nz-switch>
+          </div>
+        }
+        <div style="margin-top:12px" *erpHasPermission="'core.settings.write'">
+          <button nz-button nzType="primary" type="button" [disabled]="!capabilitiesDirty()" [nzLoading]="saving() === 'capabilities'" (click)="saveCapabilities()" data-testid="setup-capabilities-save">Save</button>
+        </div>
+      </nz-card>
+
+      <nz-card nzTitle="Units and item categories" data-testid="setup-lists">
+        <div class="lists">
+          <div>
+            <label for="setup-units">Units of measure</label>
+            <nz-select nzId="setup-units" nzMode="tags" nzPlaceHolder="Type a unit and press Enter" [ngModel]="units()" (ngModelChange)="units.set($event)" [nzDisabled]="!canWrite()" data-testid="setup-units"></nz-select>
+          </div>
+          <div>
+            <label for="setup-categories">Item categories</label>
+            <nz-select nzId="setup-categories" nzMode="tags" nzPlaceHolder="Type a category and press Enter" [ngModel]="categories()" (ngModelChange)="categories.set($event)" [nzDisabled]="!canWrite()" data-testid="setup-categories"></nz-select>
+          </div>
+        </div>
+        <div style="margin-top:12px" *erpHasPermission="'core.settings.write'">
+          <button nz-button nzType="primary" type="button" [disabled]="!listsDirty()" [nzLoading]="saving() === 'lists'" (click)="saveLists()" data-testid="setup-lists-save">Save lists</button>
+        </div>
+      </nz-card>
+
+      <nz-card nzTitle="Document numbers" data-testid="setup-sequences">
+        <p class="muted">The pattern may use <code>{{ '{prefix}' }}</code>, <code>{{ '{yyyy}' }}</code>, <code>{{ '{yy}' }}</code> and must contain <code>{{ '{seq:6}' }}</code> (the number of digits can change).</p>
+        <nz-table [nzData]="sequences()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
+          <thead><tr><th>Document</th><th>Prefix</th><th>Pattern</th><th>Restart every year</th><th>Next</th><th>Example</th><th></th></tr></thead>
+          <tbody>
+            @for (s of sequences(); track s.documentType) {
+              <tr [attr.data-testid]="'setup-seq-' + s.documentType">
+                <td>{{ s.documentType }}</td>
+                <td><input nz-input style="width:100px" [ngModel]="s.prefix" (ngModelChange)="edit(s.documentType, { prefix: $event })" [disabled]="!canWrite()" [attr.aria-label]="'Prefix of ' + s.documentType" [attr.data-testid]="'setup-seq-prefix-' + s.documentType" /></td>
+                <td><input nz-input style="width:200px" [ngModel]="s.pattern" (ngModelChange)="edit(s.documentType, { pattern: $event })" [disabled]="!canWrite()" [attr.aria-label]="'Pattern of ' + s.documentType" [attr.data-testid]="'setup-seq-pattern-' + s.documentType" /></td>
+                <td><nz-switch [ngModel]="s.resetYearly" (ngModelChange)="edit(s.documentType, { resetYearly: $event })" [nzDisabled]="!canWrite()" [attr.aria-label]="'Restart every year: ' + s.documentType"></nz-switch></td>
+                <td>{{ s.nextValue }}</td>
+                <td class="example" [attr.data-testid]="'setup-seq-example-' + s.documentType">{{ exampleOf(s) }}</td>
+                <td>
+                  <button *erpHasPermission="'core.settings.write'" nz-button nzSize="small" type="button" [disabled]="!sequenceDirty(s) || s.saving" (click)="saveSequence(s)" [attr.data-testid]="'setup-seq-save-' + s.documentType">Save</button>
+                  @if (s.error) { <div style="color:var(--erp-color-error-text);font-size:12px" role="alert">{{ s.error }}</div> }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      </nz-card>
+    } @else {
+      <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 8 }" data-testid="setup-loading"></nz-skeleton>
+    }

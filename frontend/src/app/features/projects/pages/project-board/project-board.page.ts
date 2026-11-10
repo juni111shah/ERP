@@ -25,73 +25,7 @@ type Group = 'none' | 'assignee' | 'priority' | 'project';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpDatePipe, DragDropModule, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputModule, NzSelectModule, ProjectTagComponent, TaskDrawerComponent],
-  template: `
-    <div class="prj-toolbar">
-      @if (!projectId()) {
-        <label class="prj-sr" for="board-project">Project</label>
-        <nz-select nzId="board-project" [ngModel]="pickedProject()" (ngModelChange)="pickProject($event)" nzShowSearch nzAllowClear nzPlaceHolder="All projects" style="width:280px" data-testid="board-project">
-          @for (p of projects().items; track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="p.number + ' · ' + p.name"></nz-option> }
-        </nz-select>
-      }
-      <label class="prj-sr" for="board-assignee">Assignee</label>
-      <nz-select nzId="board-assignee" [ngModel]="who()" (ngModelChange)="who.set($event)" nzAllowClear nzPlaceHolder="Everyone" style="width:180px" data-testid="board-assignee">
-        <nz-option nzValue="__none" nzLabel="Unassigned"></nz-option>
-        @for (n of assignees(); track n) { <nz-option [nzValue]="n" [nzLabel]="n"></nz-option> }
-      </nz-select>
-      <input nz-input [ngModel]="term()" (ngModelChange)="term.set($event)" placeholder="Search tasks" aria-label="Search tasks" style="width:180px" data-testid="board-search" />
-      <button type="button" class="prj-chip" [class.on]="mineOnly()" (click)="mineOnly.set(!mineOnly())" data-testid="board-mine">My tasks</button>
-      <label class="prj-sr" for="board-group">Group rows by</label>
-      <nz-select nzId="board-group" [ngModel]="group()" (ngModelChange)="group.set($event)" style="width:170px" data-testid="board-group">
-        <nz-option nzValue="none" nzLabel="One row"></nz-option><nz-option nzValue="assignee" nzLabel="Row per person"></nz-option><nz-option nzValue="priority" nzLabel="Row per priority"></nz-option>
-        @if (!projectId()) { <nz-option nzValue="project" nzLabel="Row per project"></nz-option> }
-      </nz-select>
-      <span class="prj-spacer"></span>
-      @if (canManage()) { <button nz-button nzType="primary" (click)="drawer()?.create({ projectId: projectId() || pickedProject() })" data-testid="board-new"><span nz-icon nzType="plus"></span> New task</button> }
-    </div>
-
-    <div class="scroller" data-testid="board">
-      <div class="heads">
-        @for (col of columns; track col.value) { <div class="head">{{ col.label }} <span class="count" [attr.data-testid]="'count-' + col.value">{{ countOf(col.value) }}</span></div> }
-      </div>
-      <div cdkDropListGroup>
-        @for (lane of lanes(); track lane.key) {
-          @if (group() !== 'none') { <div class="lane-title">{{ lane.label }} <span class="prj-muted">{{ lane.tasks.length }}</span></div> }
-          <div class="lane">
-            @for (col of columns; track col.value) {
-              <section class="col" [attr.data-testid]="'col-' + col.value">
-                <div class="list" cdkDropList [cdkDropListData]="$any(col.value)" [cdkDropListEnterPredicate]="canEnter" [cdkDropListDisabled]="!canManage()" (cdkDropListDropped)="drop($event, lane.key)">
-                  @for (t of inColumn(lane.tasks, col.value); track t.id) {
-                    <article class="card erp-lift" cdkDrag [cdkDragData]="t" [cdkDragDisabled]="!canManage()" [attr.data-testid]="'card-' + t.number" tabindex="0" (click)="drawer()?.open(t.id)" (keydown.enter)="drawer()?.open(t.id)">
-                      <div class="top"><span class="num">{{ t.number }}</span><erp-prj-tag kind="priority" [value]="t.priority" /></div>
-                      <div class="title">@if (t.parentTaskId) { <span class="prj-muted" title="Subtask">↳ </span> }{{ t.title }}</div>
-                      @if (!projectId() && group() !== 'project') { <a class="project" [routerLink]="['/projects', t.projectId]" [queryParams]="{ tab: 'tasks' }" (click)="$event.stopPropagation()">{{ t.projectName }}</a> }
-                      <div class="meta">
-                        @if (t.assignedTo) { <span class="who" [title]="t.assignedTo">{{ initials(t.assignedTo) }}</span> }
-                        @if (t.dueDate) { <span [class.late]="isLate(t)">{{ t.dueDate | erpDate }}</span> }
-                        @if (t.estimatedHours) { <span>{{ t.actualHours }}/{{ t.estimatedHours }} h</span> }
-                      </div>
-                      @if (labels(t).length) { <div class="labels">@for (l of labels(t); track l) { <span>{{ l }}</span> }</div> }
-                      @if (canManage()) {
-                        <label class="prj-sr" [for]="'board-move-' + t.id">Move {{ t.number }} to</label>
-                        <nz-select [nzId]="'board-move-' + t.id" [ngModel]="t.status" (ngModelChange)="move(t, $event)" nzSize="small" class="mover" (click)="$event.stopPropagation()">
-                          @for (s of moves(t); track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.value === t.status ? s.label : 'Move to: ' + s.label"></nz-option> }
-                        </nz-select>
-                      }
-                    </article>
-                  } @empty { <div class="empty">Nothing here</div> }
-                </div>
-                @if (canManage() && col.value === 'todo' && (projectId() || pickedProject()) && lane.key === lanes()[0].key) {
-                  <input nz-input nzSize="small" class="quick" placeholder="+ Add a task and press Enter" aria-label="Add a task" maxlength="200" #quick (keyup.enter)="quickAdd(quick)" data-testid="board-quick-add" />
-                }
-              </section>
-            }
-          </div>
-        } @empty { <div class="prj-empty">No tasks yet.</div> }
-      </div>
-    </div>
-    @if (truncated()) { <p class="prj-muted">Showing the first 200 tasks. Choose a project to narrow the board.</p> }
-    <erp-task-drawer (changed)="load()" />
-  `,
+  templateUrl: './project-board.page.html',
   styles: [PRJ_STYLES + `
     .prj-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     :host { display:block; min-width:0; } .scroller { overflow-x:auto; padding-bottom:6px; max-width:100%; } .heads, .lane { display:grid; grid-template-columns:repeat(5, minmax(210px, 1fr)); gap:10px; min-width:1090px; }

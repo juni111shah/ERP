@@ -1,0 +1,131 @@
+
+    <div class="bar" erpReveal>
+      @if (searchable()) {
+        <erp-expand-search class="search" [placeholder]="searchPlaceholder()" [label]="searchPlaceholder()" [value]="list().query().search ?? ''" (valueChange)="onSearch($event)" testId="table-search" />
+      }
+      @if (activeCount() > 0) {
+        <button nz-button nzType="link" (click)="clearFilters()" data-testid="table-clear-filters"><span nz-icon nzType="clear"></span>{{ t('table.clearFilters', 'Clear filters') }} ({{ activeCount() }})</button>
+        @if (clientFiltered()) { <span class="note" data-testid="table-filter-note">{{ t('table.pageFilterNote', 'Showing') }} {{ rows().length }} / {{ list().items().length }} {{ t('table.onThisPage', 'on this page') }}</span> }
+      }
+      <span class="spacer"></span>
+      @if (refreshable()) {
+        <button nz-button nzType="default" type="button" (click)="list().reload()" [disabled]="list().loading()" data-testid="table-refresh">
+          <span nz-icon nzType="reload"></span> {{ t('ui.common.refresh', 'Refresh') }}
+        </button>
+      }
+      @if (exportable()) {
+        <button nz-button nzType="default" (click)="exportCsv()" [disabled]="!hasRows()">
+          <span nz-icon nzType="download"></span> {{ t('table.exportCsv', 'Export CSV') }}
+        </button>
+      }
+      <button nz-button nz-dropdown nzTrigger="click" nzPlacement="bottomRight" [nzDropdownMenu]="densityMenu" nz-tooltip [nzTooltipTitle]="t('table.rowHeight', 'Row height')"
+              [attr.aria-label]="t('table.rowHeight', 'Row height')" data-testid="table-density"><span nz-icon nzType="column-height"></span></button>
+      <nz-dropdown-menu #densityMenu="nzDropdownMenu">
+        <ul nz-menu>
+          @for (d of densities; track d.key) {
+            <li nz-menu-item [nzSelected]="density.mode() === d.key" (click)="density.set(d.key)" [attr.data-testid]="'table-density-' + d.key">{{ t(d.labelKey, d.label) }}<span class="density-size"><bdi dir="ltr">{{ d.height }}</bdi></span></li>
+          }
+        </ul>
+      </nz-dropdown-menu>
+      @if (configurable()) {
+        <button nz-button nz-popover nzPopoverTrigger="click" [nzPopoverContent]="colPanel" [nzPopoverTitle]="t('table.columns', 'Columns')" nzPopoverPlacement="bottomRight" data-testid="table-columns">
+          <span nz-icon nzType="setting"></span> {{ t('table.columns', 'Columns') }}
+        </button>
+      }
+      <ng-content select="[toolbar]" />
+    </div>
+    <ng-template #colPanel>
+      <div class="cols" cdkDropList (cdkDropListDropped)="drop($event)" data-testid="table-columns-panel">
+        @for (v of allColumns(); track v.key) {
+          <div class="col" cdkDrag cdkDragLockAxis="y" [attr.data-testid]="'col-' + v.key">
+            <span class="handle" cdkDragHandle nz-icon nzType="holder" [attr.aria-label]="t('table.dragToReorder', 'Drag to reorder')"></span>
+            <label nz-checkbox [ngModel]="!v.hidden" (ngModelChange)="setVisible(v.key, $event)" [nzDisabled]="!v.hidden && visibleCount() <= 1">{{ v.col.label }}</label>
+            <button nz-button nzType="text" nzSize="small" class="pin erp-reveal" [class.on]="v.pin === 'left'" (click)="setPin(v.key, v.pin === 'left' ? null : 'left')"
+                    [attr.aria-pressed]="v.pin === 'left'" [attr.data-testid]="'pin-left-' + v.key"><span nz-icon nzType="vertical-right"></span><span>{{ t('table.pinStartShort', 'Start') }}</span></button>
+            <button nz-button nzType="text" nzSize="small" class="pin erp-reveal" [class.on]="v.pin === 'right'" (click)="setPin(v.key, v.pin === 'right' ? null : 'right')"
+                    [attr.aria-pressed]="v.pin === 'right'" [attr.data-testid]="'pin-right-' + v.key"><span nz-icon nzType="vertical-left"></span><span>{{ t('table.pinEndShort', 'End') }}</span></button>
+          </div>
+        }
+      </div>
+      <button class="reset" nz-button nzSize="small" nzBlock (click)="resetLayout()" data-testid="table-reset-layout"><span nz-icon nzType="undo"></span>{{ t('table.resetLayout', 'Reset layout') }}</button>
+    </ng-template>
+    <div #grid class="grid" [class.proxied]="overflowX()" tabindex="0" role="region" [attr.aria-label]="t('table.region', 'Table') + (tableName() !== 'table' ? ' ' + tableName() : '')" (keydown)="onGridKey($event)" data-testid="paged-table-region">
+    <nz-table #tbl [nzData]="rows()" [nzTotal]="list().total()" [nzPageIndex]="list().query().page" [nzPageSize]="list().query().pageSize"
+              [nzFrontPagination]="false" [nzShowPagination]="false" [nzLoading]="list().loading()"
+              nzSize="middle" [nzScroll]="scroll()" [nzNoResult]="empty" (nzQueryParams)="onQuery($event)" data-testid="paged-table">
+      <thead>
+        <tr>
+          @for (v of visibleColumns(); track v.key) {
+            <th [nzColumnKey]="v.col.sortField ?? v.key" [nzShowSort]="!!v.col.sortField" [nzSortFn]="!!v.col.sortField" [nzWidth]="v.col.width ?? null" [nzAlign]="aligns()[v.key]"
+                [nzLeft]="v.pin === 'left'" [nzRight]="v.pin === 'right'" [nzCustomFilter]="!!kinds()[v.key]">
+              @if (v.key === 'actions') { <span class="erp-visually-hidden">{{ v.col.label || t('table.rowActions', 'Row actions') }}</span> } @else { {{ v.col.label }} }
+              @if (kinds()[v.key]; as kind) {
+                <ng-container ngProjectAs="nz-filter-trigger">
+                <nz-filter-trigger [nzVisible]="openKey() === v.key" (nzVisibleChange)="onFilterOpen(v.key, $event)" [nzActive]="isActive(v.key)" [nzDropdownMenu]="menu" [attr.data-testid]="'filter-' + v.key">
+                  <span nz-icon nzType="filter" nzTheme="fill"></span><span class="erp-reveal-label">{{ t('table.filter', 'Filter') }}</span>
+                </nz-filter-trigger>
+                <nz-dropdown-menu #menu="nzDropdownMenu">
+                  <div class="flt ant-table-filter-dropdown" (click)="$event.stopPropagation()" [attr.data-testid]="'filter-panel-' + v.key">
+                    @switch (kind) {
+                      @case ('text') { <input [attr.aria-label]="t('table.contains', 'Contains…')" nz-input [(ngModel)]="draft.text" [placeholder]="t('table.contains', 'Contains…')" (keyup.enter)="apply(v.key)" /> }
+                      @case ('select') {
+                        <nz-select nzMode="multiple" [(ngModel)]="draft.values" [nzPlaceHolder]="t('table.any', 'Any')" nzAllowClear style="width:100%">
+                          @for (o of options()[v.key] ?? []; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }
+                        </nz-select>
+                      }
+                      @case ('date') { <nz-range-picker [(ngModel)]="draft.range" style="width:100%"></nz-range-picker> }
+                      @case ('number') {
+                        <div class="row">
+                          <nz-input-number [ngModel]="draft.min ?? null" (ngModelChange)="draft.min = $event" [nzPlaceHolder]="t('table.min', 'Min')"></nz-input-number>
+                          <nz-input-number [ngModel]="draft.max ?? null" (ngModelChange)="draft.max = $event" [nzPlaceHolder]="t('table.max', 'Max')"></nz-input-number>
+                        </div>
+                      }
+                    }
+                    <div class="btns">
+                      <button nz-button nzSize="small" (click)="clear(v.key)">{{ t('table.reset', 'Reset') }}</button>
+                      <button nz-button nzSize="small" nzType="primary" (click)="apply(v.key)" [attr.data-testid]="'filter-apply-' + v.key">{{ t('table.apply', 'Apply') }}</button>
+                    </div>
+                  </div>
+                </nz-dropdown-menu>
+                </ng-container>
+              }
+            </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of tbl.data; track $index) {
+          <tr [erpKeyboardClick]="clickable()" erpKeyboardClickRole="" [class.clickable]="clickable()" (click)="rowClick.emit(row)" [attr.data-testid]="'row-' + $index">
+            @for (v of visibleColumns(); track v.key) {
+              <td [nzAlign]="aligns()[v.key]" [nzLeft]="v.pin === 'left'" [nzRight]="v.pin === 'right'" [class.erp-cell-actions]="v.key === 'actions'">
+                @if (v.key === 'actions' && cell(); as tpl) {
+                  <erp-row-actions><ng-container *ngTemplateOutlet="tpl; context: { $implicit: row, column: v.col, value: display(row, v.col) }" /></erp-row-actions>
+                } @else if (cell(); as tpl) { <ng-container *ngTemplateOutlet="tpl; context: { $implicit: row, column: v.col, value: display(row, v.col) }" /> }
+                @else if (isStatusColumn(v.col)) { <erp-status [value]="read(row, v.col)" /> }
+                @else { {{ display(row, v.col) }} }
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </nz-table>
+    </div>
+    <div class="foot" [style.bottom.px]="stickyBottom()" data-testid="table-footer">
+      <div #hscroll class="hscroll" [hidden]="!overflowX()" aria-hidden="true" data-testid="table-hscroll"><div [style.width.px]="scrollWidth()"></div></div>
+      @if (list().total() > 0) {
+        <erp-pagination-bar [total]="list().total()" [page]="list().query().page" [pageSize]="list().query().pageSize" [loading]="list().loading()"
+                            [storageKey]="pageSizeKey()" (pageChange)="onPage($event)" />
+      }
+    </div>
+    <ng-template #empty>
+      @if (list().error()) {
+        <div role="alert" data-testid="table-error">
+          <nz-empty [nzNotFoundContent]="t('table.loadFailed', 'The data could not be loaded.')"></nz-empty>
+          <button nz-button nzSize="small" type="button" (click)="list().reload()" data-testid="table-retry">{{ t('table.retry', 'Try again') }}</button>
+        </div>
+      } @else if (list().query().search || activeCount() > 0) {
+        <nz-empty [nzNotFoundContent]="t('table.noMatches', 'No results match your search or filters.')" data-testid="table-no-matches"></nz-empty>
+      } @else {
+        <nz-empty [nzNotFoundContent]="emptyText()"></nz-empty>
+      }
+    </ng-template>

@@ -1,0 +1,12 @@
+
+    .toolbar { display: flex; justify-content: flex-end; margin-block-end: 16px; }
+    .detail-card { height: 100%; }
+    .metric-head { display: flex; justify-content: space-between; gap: 12px; margin-block-end: 6px; color: var(--erp-color-text-muted); }
+    .metric-head strong { color: var(--erp-color-text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .rows { margin-block-start: 12px; border-block-start: 1px solid var(--erp-color-border-subtle); }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding-block: 8px; border-block-end: 1px solid var(--erp-color-border-subtle); }
+    .row:last-child { border-block-end: 0; }
+    .row.total { font-weight: 600; }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .note { margin: 0; color: var(--erp-color-text-muted); }
+  

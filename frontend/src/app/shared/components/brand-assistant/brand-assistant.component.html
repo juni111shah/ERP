@@ -1,0 +1,72 @@
+
+    @if (status()?.visible) {
+      @if (!open()) {
+        <button type="button" class="launcher" [attr.dir]="dir()" [attr.aria-label]="w().open" [attr.title]="w().open" (click)="show()" data-testid="brand-assistant-open"><img src="highersquare-assistant.svg" alt="" /></button>
+      } @else {
+        <!-- data-no-i18n: the page translator must never rewrite what the visitor or the model wrote. -->
+        <section class="panel" role="dialog" [attr.aria-label]="w().title" [attr.dir]="dir()" [attr.lang]="lang()" data-no-i18n (keydown.escape)="open.set(false)" data-testid="brand-assistant">
+          <div class="head">
+            <img src="highersquare-assistant.svg" alt="" />
+            <strong>{{ w().title }}</strong>
+            <button type="button" (click)="toggleLang()" [attr.aria-label]="w().language" data-testid="brand-assistant-lang">{{ w().languageShort }}</button>
+            <button type="button" (click)="open.set(false)" [attr.aria-label]="w().close" data-testid="brand-assistant-close"><span nz-icon nzType="close" aria-hidden="true"></span></button>
+          </div>
+          <div class="notice">{{ w().notice }} <a routerLink="/privacy">{{ w().privacy }}</a></div>
+
+          @if (view() === 'contact') {
+            <form class="form" (ngSubmit)="submitLead()" data-testid="brand-lead-form">
+              <strong>{{ w().contactTitle }}</strong>
+              <label>{{ w().name }}<input nz-input name="name" required maxlength="120" autocomplete="name" [ngModel]="lead().name" (ngModelChange)="setLead('name', $event)" data-testid="brand-lead-name" /></label>
+              <label>{{ w().email }}<input nz-input type="email" name="email" required maxlength="256" autocomplete="email" dir="ltr" [ngModel]="lead().email" (ngModelChange)="setLead('email', $event)" data-testid="brand-lead-email" /></label>
+              <label>{{ w().phone }}<input nz-input type="tel" name="phone" maxlength="40" autocomplete="tel" dir="ltr" [ngModel]="lead().phone" (ngModelChange)="setLead('phone', $event)" /></label>
+              <label>{{ w().company }}<input nz-input name="company" maxlength="200" autocomplete="organization" [ngModel]="lead().company" (ngModelChange)="setLead('company', $event)" /></label>
+              <label>{{ w().need }}<textarea nz-input name="need" rows="3" maxlength="1000" dir="auto" [ngModel]="lead().need" (ngModelChange)="setLead('need', $event)"></textarea></label>
+              <div class="trap" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off" [ngModel]="trap()" (ngModelChange)="trap.set($event)" /></label></div>
+              <label nz-checkbox name="consent" [ngModel]="lead().consent" (ngModelChange)="setLead('consent', $event)" data-testid="brand-lead-consent">{{ w().consent }}</label>
+              @if (leadError(); as e) { <div class="error" role="alert" data-testid="brand-lead-error">{{ e }}</div> }
+              <button nz-button nzType="primary" [nzLoading]="leadSaving()" data-testid="brand-lead-submit">{{ w().submit }}</button>
+              <button nz-button type="button" (click)="view.set('chat')">{{ w().back }}</button>
+            </form>
+          } @else {
+            <div class="log" #log aria-live="polite" data-testid="brand-assistant-log">
+              @if (!messages().length) {
+                <div class="bubble assistant">{{ w().hello }}</div>
+                <div class="chips">
+                  @for (s of w().suggestions; track s) { <button type="button" (click)="send(s)" data-testid="brand-assistant-suggestion">{{ s }}</button> }
+                </div>
+              }
+              @for (m of messages(); track $index) {
+                @if (m.plans?.length) {
+                  <div class="plans" data-testid="brand-assistant-plans">
+                    @for (p of m.plans; track p.id) {
+                      <div class="plan">
+                        <div dir="auto"><strong>{{ p.name }}</strong><small><bdi>{{ money(p.monthlyPrice, p) }}</bdi> {{ w().perMonth }} · {{ p.maxUsers ? w().users(p.maxUsers) : w().noLimit }}</small></div>
+                        @if (m.canStart) { <a nz-button nzSize="small" routerLink="/register" [queryParams]="{ plan: p.code, cycle: 'monthly' }" (click)="open.set(false)">{{ p.trialDays > 0 ? w().start : w().choose }}</a> }
+                      </div>
+                    }
+                  </div>
+                }
+                @if (m.text) {
+                  <div class="bubble" [class.visitor]="m.role === 'visitor'" [class.assistant]="m.role === 'assistant'" [attr.data-testid]="'brand-assistant-' + m.role">
+                    @if (m.role === 'visitor') { <span dir="auto">{{ m.text }}</span> } @else { <erp-assistant-text [text]="m.text" (navigated)="open.set(false)" /> }
+                  </div>
+                }
+                @if (m.contact) { <button nz-button nzSize="small" type="button" class="contact-link" (click)="view.set('contact')" data-testid="brand-assistant-contact-offer">{{ w().contact }}</button> }
+              }
+              @if (thinking()) { <div class="status" data-testid="brand-assistant-status">{{ thinking() }}...</div> }
+              @if (error(); as e) { <div class="error" role="alert" data-testid="brand-assistant-error">{{ e }}</div> }
+              @if (leadSent()) { <div class="bubble assistant" data-testid="brand-lead-sent">{{ w().sent }}</div> }
+            </div>
+            <div class="send">
+              <textarea #box nz-input rows="2" maxlength="1000" dir="auto" [attr.aria-label]="w().placeholder" [placeholder]="w().placeholder" [ngModel]="draft()" (ngModelChange)="draft.set($event)" (keydown.enter)="enter($any($event))" data-testid="brand-assistant-input"></textarea>
+              @if (sending()) {
+                <button nz-button type="button" (click)="stop()" data-testid="brand-assistant-stop">{{ w().stop }}</button>
+              } @else {
+                <button nz-button nzType="primary" type="button" [disabled]="!draft().trim()" (click)="send(draft())" data-testid="brand-assistant-send">{{ w().send }}</button>
+              }
+            </div>
+            @if (!leadSent()) { <div style="padding:0 14px 10px"><a role="button" tabindex="0" style="font-size:12.5px;text-decoration:underline;cursor:pointer" (click)="view.set('contact')" (keydown.enter)="view.set('contact')" data-testid="brand-assistant-contact">{{ w().contact }}</a></div> }
+          }
+        </section>
+      }
+    }

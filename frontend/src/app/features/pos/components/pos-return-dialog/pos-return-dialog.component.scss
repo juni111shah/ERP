@@ -1,0 +1,27 @@
+
+    .stack { display: flex; flex-direction: column; gap: 14px; }
+    .find { display: flex; align-items: center; gap: 8px; }
+    .find-icon { font-size: 22px; color: var(--erp-color-text-muted); }
+    .sale { display: flex; flex-direction: column; padding: 8px 12px; border-radius: 8px; background: var(--erp-color-bg-subtle); }
+    .muted { color: var(--erp-color-text-muted); }
+    .rows { display: flex; flex-direction: column; gap: 6px; }
+    .row { display: grid; grid-template-columns: 1fr auto auto 76px; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--erp-color-border-subtle); border-radius: 8px; }
+    .row.off { opacity: .55; }
+    .what { display: flex; flex-direction: column; min-width: 0; }
+    .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .qty { display: flex; align-items: center; gap: 6px; }
+    .step { width: 40px; height: 40px; font-size: 18px; font-weight: 700; color: var(--erp-color-text-primary); background: var(--erp-color-bg-subtle); border: 1px solid var(--erp-color-border-default); border-radius: 8px; cursor: pointer; }
+    .step:disabled { opacity: .4; cursor: not-allowed; }
+    .qty-val { min-width: 26px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .restock { display: flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }
+    .amt { text-align: end; font-variant-numeric: tabular-nums; }
+    .field { display: block; margin-bottom: 4px; font-weight: 600; }
+    .methods { display: flex; flex-wrap: wrap; gap: 8px; }
+    .method { flex: 1 1 90px; min-height: 46px; font: inherit; font-weight: 600; color: var(--erp-color-text-primary); background: var(--erp-color-bg-surface); border: 2px solid var(--erp-color-border-default); border-radius: 8px; cursor: pointer; }
+    .method.on { border-color: var(--erp-color-primary); background: var(--erp-color-primary-subtle); color: var(--erp-color-primary-text); }
+    .ref { margin-top: 8px; }
+    .total { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 12px; border-radius: 8px; background: var(--erp-color-error-bg); color: var(--erp-color-error-text); }
+    .total strong { font-size: 24px; font-variant-numeric: tabular-nums; }
+    .split { margin: 0; font-size: 13px; color: var(--erp-color-text-secondary); }
+    @media (max-width: 640px) { .row { grid-template-columns: 1fr auto; } }
+  

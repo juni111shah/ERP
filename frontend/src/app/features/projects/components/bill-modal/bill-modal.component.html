@@ -1,0 +1,66 @@
+
+    <nz-modal [nzVisible]="projectId() !== null" [nzTitle]="'Bill ' + projectName()" [nzWidth]="880" (nzOnCancel)="close()" [nzFooter]="footer">
+      <ng-container *nzModalContent>
+        @if (work(); as w) {
+          <div class="lines" data-testid="bill-lines">
+            @if (w.milestones.length) {
+              <h4>Milestones ready to bill</h4>
+              @for (m of w.milestones; track m.id) {
+                <label class="line"><input type="checkbox" [checked]="pickedMilestones().has(m.id)" (change)="toggle(pickedMilestones, m.id, $any($event.target).checked)" [attr.aria-label]="'Bill ' + m.title" />
+                  <span class="what">{{ m.title }}</span><span class="prj-muted">{{ m.achievedDate | erpDate }}</span><span class="prj-num">{{ m.amount | number: '1.2-2' }}</span></label>
+              }
+            }
+            @if (w.time.length) {
+              <h4>Time <button nz-button nzType="link" nzSize="small" type="button" (click)="all(pickedTime, w.time, true)">All</button><button nz-button nzType="link" nzSize="small" type="button" (click)="all(pickedTime, w.time, false)">None</button></h4>
+              @for (t of w.time; track t.id) {
+                <label class="line"><input type="checkbox" [checked]="pickedTime().has(t.id)" (change)="toggle(pickedTime, t.id, $any($event.target).checked)" [attr.aria-label]="'Bill time of ' + t.worker + ' on ' + t.date" />
+                  <span class="what">{{ t.worker }}{{ t.task ? ' · ' + t.task : '' }}{{ t.description ? ' · ' + t.description : '' }}</span><span class="prj-muted">{{ t.date | erpDate }} · {{ t.hours | number: '1.0-2' }} h</span><span class="prj-num">{{ t.amount | number: '1.2-2' }}</span></label>
+              }
+            }
+            @if (w.expenses.length) {
+              <h4>Expenses</h4>
+              @for (e of w.expenses; track e.id) {
+                <label class="line"><input type="checkbox" [checked]="pickedExpenses().has(e.id)" (change)="toggle(pickedExpenses, e.id, $any($event.target).checked)" [attr.aria-label]="'Bill ' + e.description" />
+                  <span class="what">{{ e.category | erpLabel }} · {{ e.description }}</span><span class="prj-muted">{{ e.date | erpDate }}</span><span class="prj-num">{{ e.amount | number: '1.2-2' }}</span></label>
+              }
+            }
+            @if (!w.time.length && !w.expenses.length && !w.milestones.length && w.billingType !== 'fixedFee') { <p class="prj-empty">Nothing is ready to bill on this project.</p> }
+          </div>
+
+          <div class="options" data-testid="bill-options">
+            <label>Group the time by
+              <nz-select [(ngModel)]="grouping" (ngModelChange)="preview()" aria-label="Group by">
+                <nz-option nzValue="detailed" nzLabel="Each entry"></nz-option><nz-option nzValue="person" nzLabel="Person"></nz-option><nz-option nzValue="task" nzLabel="Task"></nz-option><nz-option nzValue="project" nzLabel="One line"></nz-option>
+              </nz-select>
+            </label>
+            <label>Discount %<nz-input-number [(ngModel)]="discount" [nzMin]="0" [nzMax]="100" (ngModelChange)="preview()" aria-label="Discount percent"></nz-input-number></label>
+            @if (w.billingType === 'fixedFee') {
+              <label>Share of the fee %<nz-input-number [(ngModel)]="progress" [nzMin]="0" [nzMax]="100" (ngModelChange)="preview()" aria-label="Share of the fixed fee in percent" data-testid="bill-progress"></nz-input-number>
+                <span class="prj-muted">{{ currency() }} {{ w.fixedFeeRemaining | number: '1.0-0' }} of {{ w.fee | number: '1.0-0' }} still to bill</span></label>
+            }
+            <label>Due date<nz-date-picker [(ngModel)]="dueDate" nzPlaceHolder="Customer's terms" aria-label="Invoice due date"></nz-date-picker></label>
+            <label class="wide">Note on the invoice<input nz-input [(ngModel)]="notes" maxlength="500" aria-label="Invoice note" /></label>
+          </div>
+        }
+
+        @if (previewError()) { <p class="prj-danger" role="alert">{{ previewError() }}</p> }
+        @if (previewData(); as pv) {
+          <h4>The invoice will say</h4>
+          <div class="prj-table-wrap">
+            <table class="pv" data-testid="bill-preview">
+              <thead><tr><th>Line</th><th class="prj-num">Quantity</th><th class="prj-num">Price</th><th class="prj-num">Amount</th></tr></thead>
+              <tbody>@for (l of pv.lines; track $index) { <tr><td>{{ l.description }}</td><td class="prj-num">{{ l.quantity | number: '1.0-2' }}</td><td class="prj-num">{{ l.price | number: '1.2-2' }}</td><td class="prj-num">{{ l.amount | number: '1.2-2' }}</td></tr> }</tbody>
+            </table>
+          </div>
+          <p class="totals">Subtotal {{ currency() }} {{ pv.subtotal | number: '1.2-2' }}
+            @if (pv.discount > 0) { · discount {{ pv.discount | number: '1.2-2' }} }
+            · <b data-testid="bill-total">Total before tax {{ currency() }} {{ pv.total | number: '1.2-2' }}</b></p>
+        }
+      </ng-container>
+    </nz-modal>
+    <ng-template #footer>
+      <button nz-button nzDanger type="button" (click)="writeOff()" [disabled]="!hasWork()" data-testid="bill-writeoff" title="Do not charge for the unbilled time and expenses of this project">Write off unbilled work</button>
+      <button nz-button type="button" (click)="close()">Cancel</button>
+      <button nz-button nzType="primary" type="button" (click)="generate()" [disabled]="!previewData()" [nzLoading]="busy()" data-testid="bill-generate">Create invoice</button>
+    </ng-template>
+  

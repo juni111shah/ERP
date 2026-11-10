@@ -1,0 +1,93 @@
+
+    <!-- The server allows no search or sorting on milestones yet, so neither is offered. -->
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number or title" [clickable]="false" emptyText="No milestones yet. Add one to bill an engagement in stages.">
+      <button toolbar *erpHasPermission="'services.milestones.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="milestone-new">
+        <span nz-icon nzType="plus"></span> Add Milestone
+      </button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('milestoneCode') { <span class="code strong">{{ row.milestoneCode }}</span> }
+          @case ('title') {
+            <div>{{ row.title }}</div>
+            @if (engagementOf(row); as eng) {
+              <div class="sub"><span class="code">{{ eng.engagementCode }}</span> &middot; {{ eng.title }} &middot; {{ eng.clientName }}</div>
+            }
+          }
+          @case ('dueDate') { <span class="nowrap">{{ row.dueDate | erpDate }}</span> }
+          @case ('amount') { <span class="num strong">{{ currency() }} {{ row.amount | number:'1.2-2' }}</span> }
+          @case ('status') { <erp-status [value]="row.status" /> }
+          @case ('actions') {
+            <div class="table-actions">
+              @if (row.status === 'planned') {
+                <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="link" nzSize="small" (click)="updateStatus(row, 'readyToInvoice')">
+                  <span nz-icon nzType="check-circle"></span> Ready to invoice
+                </button>
+              }
+              @if (row.status === 'readyToInvoice') {
+                <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="link" nzSize="small"
+                        nz-popconfirm [nzPopconfirmTitle]="'Create an invoice for ' + row.milestoneCode + '?'" (nzOnConfirm)="invoiceMilestone(row)">
+                  <span nz-icon nzType="file-text"></span> Create invoice
+                </button>
+                <button *erpHasPermission="'services.milestones.manage'" nz-button nzType="link" nzSize="small" (click)="updateStatus(row, 'planned')">
+                  <span nz-icon nzType="rollback"></span> Back to planned
+                </button>
+              }
+            </div>
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
+
+    <!-- Create Milestone Drawer -->
+    <nz-drawer [nzVisible]="drawerVisible()" nzTitle="Add milestone" [nzWidth]="480" (nzOnClose)="drawerVisible.set(false)">
+      <ng-container *nzDrawerContent>
+        <form nz-form [formGroup]="form" (ngSubmit)="submitMilestone()" nzLayout="vertical">
+          <nz-form-item>
+            <nz-form-label nzRequired>Engagement</nz-form-label>
+            <nz-form-control nzErrorTip="Choose an engagement">
+              <nz-select formControlName="engagementId" nzShowSearch nzPlaceHolder="Choose an engagement" nzNotFoundContent="No open engagements. Create one first.">
+                @for (eng of openEngagements(); track eng.id) {
+                  <nz-option [nzValue]="eng.id" [nzLabel]="eng.engagementCode + ' - ' + eng.title + ' (' + eng.clientName + ')'"></nz-option>
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+
+          <nz-form-item>
+            <nz-form-label nzRequired>Title</nz-form-label>
+            <nz-form-control nzErrorTip="Enter a title">
+              <input nz-input formControlName="title" placeholder="e.g. Phase 1 sign-off" />
+            </nz-form-control>
+          </nz-form-item>
+
+          <div class="row-2">
+            <nz-form-item>
+              <nz-form-label nzRequired>Amount ({{ currency() }})</nz-form-label>
+              <nz-form-control nzErrorTip="Enter an amount above zero">
+                <nz-input-number formControlName="amount" [nzMin]="0.01" [nzStep]="1000" class="full"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Due date</nz-form-label>
+              <nz-form-control nzErrorTip="Choose a due date">
+                <nz-date-picker formControlName="dueDate" class="full"></nz-date-picker>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+
+          <nz-form-item>
+            <nz-form-label>Notes</nz-form-label>
+            <nz-form-control>
+              <textarea nz-input formControlName="notes" rows="3" placeholder="Acceptance criteria, customer contacts"></textarea>
+            </nz-form-control>
+          </nz-form-item>
+
+          <div class="drawer-footer">
+            <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
+            <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit" [disabled]="form.invalid">Save</button>
+          </div>
+        </form>
+      </ng-container>
+    </nz-drawer>
+  

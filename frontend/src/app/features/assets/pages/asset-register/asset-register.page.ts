@@ -22,22 +22,7 @@ import { assetFields, businessUnitLookup } from '../../asset-form';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, NzButtonModule, NzIconModule, HasPermissionDirective, PagedTableComponent, RecordDrawerComponent, StatusTagComponent],
-  template: `
-    <h1 class="erp-page-title">Asset register</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, name or custodian" emptyText="No assets yet. Add an asset, then capitalise it to start depreciation." (rowClick)="open($event)">
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @switch (column.key) {
-          @case ('number') { <span class="code-pill">{{ row.number }}</span> }
-          @case ('status') { <erp-status [value]="row.status" [label]="statusLabel(row.status)" /> }
-          @case ('cost') { {{ row.cost | number: '1.2-2' }} }
-          @case ('netBookValue') { <b>{{ row.netBookValue | number: '1.2-2' }}</b> }
-          @default { {{ value }} }
-        }
-      </ng-template>
-      <button toolbar *erpHasPermission="'assets.register.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="asset-new"><span nz-icon nzType="plus"></span>New asset</button>
-    </erp-paged-table>
-    <erp-record-drawer [title]="state.editing() ? 'Edit asset' : 'New asset'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="asset-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
+  templateUrl: './asset-register.page.html',
 })
 export class AssetRegisterPage {
   private readonly api = inject(AssetsApi);

@@ -1,0 +1,190 @@
+
+    <erp-paged-table [list]="list" [columns]="columns" (rowClick)="viewDetail($event)" searchPlaceholder="Search by code or name" emptyText="No bills of materials yet. Add one to plan production.">
+      <button toolbar *erpHasPermission="'manufacturing.boms.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="bom-new">
+        <span nz-icon nzType="plus"></span> Add BOM
+      </button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('code') { <span class="code strong">{{ row.code }}</span> }
+          @case ('name') {
+            <div>{{ row.name }}</div>
+            <div class="sub">Makes {{ row.producedItemName }}</div>
+          }
+          @case ('outputQuantity') { <span class="num">{{ row.outputQuantity | number:'1.0-4' }} {{ row.uom }}</span> }
+          @case ('totalUnitCost') { <span class="num strong">{{ currency() }} {{ row.totalUnitCost | number:'1.2-2' }}</span> }
+          @case ('version') { <span class="nowrap">v{{ row.version }}</span> }
+          @case ('componentCount') { <span class="num">{{ row.componentCount }}</span> }
+          @case ('isActive') { <erp-status [value]="row.isActive ? 'active' : 'inactive'" /> }
+          @case ('actions') {
+            <div class="table-actions" (click)="$event.stopPropagation()">
+              <button *erpHasPermission="'manufacturing.boms.manage'" nz-button nzType="link" nzSize="small" (click)="openEditDrawer(row)">
+                <span nz-icon nzType="edit"></span> Edit
+              </button>
+              <button *erpHasPermission="'manufacturing.boms.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                      nz-popconfirm [nzPopconfirmTitle]="'Delete ' + row.code + '?'" (nzOnConfirm)="deleteBom(row)">
+                <span nz-icon nzType="delete"></span> Delete
+              </button>
+            </div>
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
+
+    <!-- Detail Drawer -->
+    <nz-drawer [nzVisible]="detailVisible()" [nzWidth]="650" [nzTitle]="selectedBom()?.code ?? 'Bill of materials'" (nzOnClose)="detailVisible.set(false)">
+      <ng-container *nzDrawerContent>
+        @if (selectedBom(); as bom) {
+          <dl class="facts">
+            <div><dt>Name</dt><dd>{{ bom.name }}</dd></div>
+            <div><dt>Status</dt><dd><erp-status [value]="bom.isActive ? 'active' : 'inactive'" /></dd></div>
+            <div><dt>Product</dt><dd>{{ bom.producedItemName }} <span class="code sub">{{ bom.producedItemCode }}</span></dd></div>
+            <div><dt>Batch output</dt><dd>{{ bom.outputQuantity | number:'1.0-4' }} {{ bom.uom }}</dd></div>
+            <div><dt>Version</dt><dd>v{{ bom.version }}</dd></div>
+            <div><dt>Materials per batch</dt><dd>{{ currency() }} {{ bom.totalMaterialCost | number:'1.2-2' }}</dd></div>
+            <div><dt>Labor per unit</dt><dd>{{ currency() }} {{ bom.laborCostPerUnit | number:'1.2-2' }}</dd></div>
+            <div><dt>Overhead per unit</dt><dd>{{ currency() }} {{ bom.overheadCostPerUnit | number:'1.2-2' }}</dd></div>
+            <div><dt>Standard cost per unit</dt><dd class="strong">{{ currency() }} {{ bom.totalUnitCost | number:'1.2-2' }}</dd></div>
+          </dl>
+          @if (bom.description) { <p class="sub">{{ bom.description }}</p> }
+
+          <h4 class="section-title">Components</h4>
+          <nz-table #compTable [nzData]="bom.components" [nzShowPagination]="false" [nzFrontPagination]="false" nzSize="small" nzNoResult="This bill of materials has no components yet.">
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th nzAlign="right">Quantity</th>
+                <th nzAlign="right">Scrap</th>
+                <th nzAlign="right">Unit cost</th>
+                <th nzAlign="right">Cost with scrap</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of compTable.data; track c.id) {
+                <tr>
+                  <td><strong>{{ c.componentItemName }}</strong><div class="code sub">{{ c.componentItemCode }}</div></td>
+                  <td nzAlign="right" class="num">{{ c.quantityRequired | number:'1.0-4' }} {{ c.uom }}</td>
+                  <td nzAlign="right" class="num">{{ c.scrapPercentage | number:'1.0-2' }}%</td>
+                  <td nzAlign="right" class="num">{{ currency() }} {{ c.unitCost | number:'1.2-2' }}</td>
+                  <td nzAlign="right" class="num">{{ currency() }} {{ c.extendedCost | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </nz-table>
+        }
+      </ng-container>
+    </nz-drawer>
+
+    <!-- Create / Edit Drawer -->
+    <nz-drawer [nzVisible]="createVisible()" [nzWidth]="760" [nzTitle]="editingBom() ? 'Edit ' + editingBom()!.code : 'Add bill of materials'" (nzOnClose)="createVisible.set(false)">
+      <ng-container *nzDrawerContent>
+        <form [formGroup]="bomForm" nz-form nzLayout="vertical" (ngSubmit)="saveBom()">
+          @if (!editingBom()) {
+            <nz-form-item>
+              <nz-form-label nzRequired>Legal entity</nz-form-label>
+              <nz-form-control nzErrorTip="Choose a legal entity">
+                <nz-select formControlName="legalEntityId" nzPlaceHolder="Choose a legal entity">
+                  @for (e of legalEntities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Code</nz-form-label>
+              <nz-form-control nzErrorTip="Enter a code">
+                <input nz-input formControlName="code" placeholder="e.g. BOM-PROD-001" />
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Product to produce</nz-form-label>
+              <nz-form-control nzErrorTip="Choose a product">
+                <nz-select formControlName="producedItemId" nzShowSearch nzPlaceHolder="Choose a product" (ngModelChange)="onProducedItemSelected($event)">
+                  @for (it of products(); track it.id) { <nz-option [nzValue]="it.id" [nzLabel]="it.sku + ' - ' + it.name"></nz-option> }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          }
+          <nz-form-item>
+            <nz-form-label nzRequired>Name</nz-form-label>
+            <nz-form-control nzErrorTip="Enter a name">
+              <input nz-input formControlName="name" placeholder="e.g. Office desk, standard build" />
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label nzRequired>Batch output</nz-form-label>
+            <nz-form-control nzErrorTip="Enter a quantity above zero">
+              <nz-input-number formControlName="outputQuantity" [nzMin]="0.01" class="full"></nz-input-number>
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label nzRequired>Unit of measure</nz-form-label>
+            <nz-form-control nzErrorTip="Enter a unit">
+              <input nz-input formControlName="uom" placeholder="e.g. PCS" />
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label>Version</nz-form-label>
+            <nz-form-control>
+              <input nz-input formControlName="version" placeholder="1.0" />
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label>Labor cost per unit ({{ currency() }})</nz-form-label>
+            <nz-form-control>
+              <nz-input-number formControlName="laborCostPerUnit" [nzMin]="0" class="full"></nz-input-number>
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label>Overhead cost per unit ({{ currency() }})</nz-form-label>
+            <nz-form-control>
+              <nz-input-number formControlName="overheadCostPerUnit" [nzMin]="0" class="full"></nz-input-number>
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-control>
+              <label><nz-switch formControlName="isActive"></nz-switch><span class="switch-label">Active, can be used on new work orders</span></label>
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label>Description</nz-form-label>
+            <nz-form-control>
+              <textarea nz-input formControlName="description" rows="2" placeholder="Instructions and specifications"></textarea>
+            </nz-form-control>
+          </nz-form-item>
+
+          <div class="components" formArrayName="components">
+            <div class="components-header">
+              <h4 class="section-title">Components</h4>
+              <button nz-button nzType="dashed" nzSize="small" type="button" (click)="addComponent()">
+                <span nz-icon nzType="plus"></span> Add component
+              </button>
+            </div>
+            @if (componentsArray.length === 0) {
+              <p class="sub">No components yet. Add the materials one batch uses.</p>
+            } @else {
+              <div class="component-grid component-head" aria-hidden="true">
+                <span>Component</span><span>Quantity per batch</span><span>Scrap %</span><span>Unit cost</span><span></span>
+              </div>
+            }
+            @for (comp of componentsArray.controls; track comp; let i = $index) {
+              <div class="component-grid" [formGroupName]="i">
+                <nz-select formControlName="componentItemId" nzShowSearch nzPlaceHolder="Choose a product" (ngModelChange)="onComponentItemSelected(i, $event)" [attr.aria-label]="'Component ' + (i + 1)" [nzStatus]="lineStatus(comp, 'componentItemId')">
+                  @for (it of products(); track it.id) { <nz-option [nzValue]="it.id" [nzLabel]="it.sku + ' - ' + it.name"></nz-option> }
+                </nz-select>
+                <nz-input-number formControlName="quantityRequired" [nzMin]="0.0001" class="full" nzPlaceHolder="Quantity" [nzStatus]="lineStatus(comp, 'quantityRequired')"></nz-input-number>
+                <nz-input-number formControlName="scrapPercentage" [nzMin]="0" [nzMax]="100" class="full" nzPlaceHolder="Scrap %"></nz-input-number>
+                <nz-input-number formControlName="unitCost" [nzMin]="0" class="full" nzPlaceHolder="Unit cost" [nzStatus]="lineStatus(comp, 'unitCost')"></nz-input-number>
+                <button nz-button nzType="text" nzDanger type="button" nz-tooltip nzTooltipTitle="Remove component" aria-label="Remove component" (click)="removeComponent(i)">
+                  <span nz-icon nzType="minus-circle"></span>
+                </button>
+              </div>
+            }
+          </div>
+
+          <div class="drawer-footer">
+            <button nz-button type="button" (click)="createVisible.set(false)">Cancel</button>
+            <button nz-button nzType="primary" type="submit" [nzLoading]="isSubmitting()">Save</button>
+          </div>
+        </form>
+      </ng-container>
+    </nz-drawer>
+  

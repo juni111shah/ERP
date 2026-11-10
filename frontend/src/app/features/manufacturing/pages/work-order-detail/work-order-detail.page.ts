@@ -30,68 +30,8 @@ const money = (v: number) => new Intl.NumberFormat('en-US', { minimumFractionDig
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, FormsModule, NzButtonModule, NzCardModule, NzInputNumberModule, NzModalModule, NzSpinModule, NzTableModule, DetailPageComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
-  styles: [`
-    .section { margin-top: 16px; }
-    .r { text-align: end; white-space: nowrap; }
-    .muted { color: var(--erp-color-text-muted); }
-    .banner { margin-top: 16px; padding: 12px 16px; border-radius: 8px; background: var(--erp-color-bg-subtle); border-inline-start: 3px solid var(--erp-color-warning-text, #d97706); }
-  `],
-  template: `
-    @if (loading()) {
-      <div style="text-align:center;padding:48px"><nz-spin nzSimple /></div>
-    } @else if (error()) {
-      <erp-state-panel kind="error" title="Could not load this work order" [hint]="error()" actionLabel="Try again" (action)="load()" />
-    } @else if (order(); as o) {
-      <erp-detail-page [backLink]="['/manufacturing/workorders']" backLabel="Back to Work orders" [title]="o.workOrderNumber + ' · ' + o.producedItemName" [status]="o.status" [actions]="actions()"
-                       [kpiCards]="kpis()" [descriptions]="descriptions()" entityName="Work order" recordType="WorkOrder" [recordId]="o.id" [showDocuments]="false" [createdAt]="o.startDate">
-        <div content>
-          @if (o.status === 'reversed') {
-            <div class="banner" data-testid="wo-reversed">This work order was reversed on {{ fmt(o.reversedAt) }}. The finished goods were taken back out of stock and the material returned at its issue cost.
-              @if (o.reversalReason) { <div>Reason: {{ o.reversalReason }}</div> }</div>
-          }
-          <nz-card class="section" nzTitle="Material issued" nzSize="small" data-testid="wo-materials">
-            @if (o.materialIssues?.length) {
-              <nz-table [nzData]="o.materialIssues!" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
-                <thead><tr><th>Date</th><th>Item</th><th class="r">Quantity</th><th class="r">Unit cost</th><th class="r">Value</th><th>Note</th></tr></thead>
-                <tbody>
-                  @for (m of o.materialIssues!; track m.id) {
-                    <tr>
-                      <td>{{ fmt(m.issueDate) }}</td><td>{{ m.itemCode }} · {{ m.itemName }}</td>
-                      <td class="r">{{ m.quantity | number: '1.0-4' }}</td><td class="r">{{ m.unitCost | number: '1.2-4' }}</td><td class="r">{{ m.value | number: '1.2-2' }}</td>
-                      <td>@if (m.quantity < 0) { Returned } @else if (m.backflushed) { Taken at completion } @else { Issued }@if (m.notes) { · {{ m.notes }} }</td>
-                    </tr>
-                  }
-                </tbody>
-              </nz-table>
-            } @else { <span class="muted">No material has been issued yet.</span> }
-          </nz-card>
-          <nz-card class="section" nzTitle="Operations" nzSize="small" data-testid="wo-operations">
-            @if (o.operations.length) {
-              <nz-table [nzData]="o.operations" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
-                <thead><tr><th>#</th><th>Operation</th><th>Work centre</th><th class="r">Planned hours</th><th>Actual hours</th><th>Status</th></tr></thead>
-                <tbody>
-                  @for (op of o.operations; track op.id) {
-                    <tr>
-                      <td>{{ op.sequenceOrder }}</td><td>{{ op.operationName }}</td><td>{{ op.workCenterName }}</td><td class="r">{{ op.plannedHours | number: '1.0-2' }}</td>
-                      <td>
-                        @if (o.status === 'inProgress' && canManage()) {
-                          <nz-input-number [ngModel]="hoursFor(op)" (ngModelChange)="setHours(op.id, $event)" [nzMin]="0" [nzPrecision]="2" style="width:100px" [attr.aria-label]="'Actual hours for ' + op.operationName" />
-                          <button nz-button nzSize="small" type="button" (click)="saveHours(op)" [disabled]="hoursFor(op) === op.actualHours" data-testid="op-save-hours" style="margin-inline-start:8px">Save hours</button>
-                        } @else { {{ op.actualHours | number: '1.0-2' }} }
-                      </td>
-                      <td><erp-status [value]="op.status" /></td>
-                    </tr>
-                  }
-                </tbody>
-              </nz-table>
-            } @else { <span class="muted">This order has no operations.</span> }
-          </nz-card>
-        </div>
-      </erp-detail-page>
-      <erp-record-drawer title="Issue material" submitLabel="Issue" [open]="issue.open()" [fields]="issueFields()" [saving]="issue.saving()" [errors]="issue.errors()" testId="wo-issue-form" (submitted)="issue.submit($event)" (closed)="issue.close()" />
-      <erp-record-drawer title="Return material" submitLabel="Return" [open]="giveBack.open()" [fields]="returnFields()" [saving]="giveBack.saving()" [errors]="giveBack.errors()" testId="wo-return-form" (submitted)="giveBack.submit($event)" (closed)="giveBack.close()" />
-      <erp-record-drawer title="Complete work order" submitLabel="Complete" [open]="complete.open()" [fields]="completeFields()" [saving]="complete.saving()" [errors]="complete.errors()" testId="wo-complete-form" (submitted)="complete.submit($event)" (closed)="complete.close()" />
-    }`,
+  styleUrl: './work-order-detail.page.scss',
+  templateUrl: './work-order-detail.page.html',
 })
 export class WorkOrderDetailPage implements OnInit {
   private readonly api = inject(ManufacturingWorkOrdersApi);

@@ -1,0 +1,94 @@
+
+    <h1 class="erp-page-title">Units</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="unit-stats">
+      <erp-stat-card label="Total units"
+                     [value]="list.total()"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
+                     [tone]="0" />
+      <erp-stat-card label="Occupied / leased"
+                     [value]="stats().occupied"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().partial ? 'on this page' : 'generating revenue'"
+                     [tone]="1" />
+      <erp-stat-card label="Vacant units"
+                     [value]="stats().vacant"
+                     format="number"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().partial ? 'on this page' : stats().vacant > 0 ? 'available to let' : 'none vacant'"
+                     [tone]="stats().vacant > 0 ? 2 : 'neutral'" />
+      <erp-stat-card label="Potential rent"
+                     [value]="stats().potentialRent"
+                     format="money"
+                     [loading]="list.loading() && list.items().length === 0"
+                     [caption]="stats().partial ? 'annual asking rent, on this page' : 'annual asking rent, all units'"
+                     [tone]="3" />
+    </div>
+
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search unit number" emptyText="No units yet" (rowClick)="open($event)">
+      <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="unit-status-filter">
+        @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
+      </nz-select>
+      <button toolbar *erpHasPermission="'realestate.units.manage'" nz-button (click)="bulkOpen.set(true)" data-testid="unit-bulk"><span nz-icon nzType="appstore-add"></span>Add many</button>
+      <button toolbar *erpHasPermission="'realestate.units.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="unit-new"><span nz-icon nzType="plus"></span>New unit</button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('unitNumber') {
+            <span class="code-pill">{{ row.unitNumber }}</span>
+          }
+          @case ('status') {
+            <erp-status-tag [status]="row.status" />
+          }
+          @case ('askingRent') {
+            <b>{{ currency() }} {{ row.askingRent | number: '1.2-2' }}</b>
+          }
+          @case ('currentRent') {
+            @if (row.currentRent) {
+              <b>{{ currency() }} {{ row.currentRent | number: '1.2-2' }}</b>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @case ('tenantName') {
+            @if (row.tenantName) {
+              <span class="name-cell">{{ row.tenantName }}</span>
+            } @else {
+              <span class="muted-text">—</span>
+            }
+          }
+          @default {
+            {{ value }}
+          }
+        }
+      </ng-template>
+    </erp-paged-table>
+
+    <erp-record-drawer [title]="state.editing() ? 'Unit ' + state.editing()!.unitNumber : 'New unit'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
+                       customFieldEntityType="realestate.unit" [saving]="state.saving()" [errors]="state.errors()" testId="unit-form"
+                       (submitted)="state.submit($event)" (closed)="state.close()">
+      @if (state.editing(); as u) {
+        <div drawerActions style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px" data-testid="unit-actions">
+          <erp-status-tag [status]="u.status" />
+          @if (u.status === 'unavailable' && u.unavailableReason) { <small>{{ u.unavailableReason }}</small> }
+          @if (u.status === 'vacant') {
+            <button *erpHasPermission="'realestate.units.reserve'" nz-button nzSize="small" (click)="startAction('reserve', u)" data-testid="unit-reserve">Reserve</button>
+          }
+          @if (u.status === 'reserved') {
+            <button *erpHasPermission="'realestate.units.reserve'" nz-button nzSize="small" (click)="startAction('releaseReservation', u)" data-testid="unit-release">Release</button>
+          }
+          @if (u.status === 'vacant' || u.status === 'reserved') {
+            <button *erpHasPermission="'realestate.units.manage'" nz-button nzSize="small" (click)="startAction('makeUnavailable', u)" data-testid="unit-unavailable">Make unavailable</button>
+          }
+          @if (u.status === 'unavailable') {
+            <button *erpHasPermission="'realestate.units.manage'" nz-button nzSize="small" (click)="startAction('makeAvailable', u)" data-testid="unit-available">Make available</button>
+          }
+        </div>
+      }
+    </erp-record-drawer>
+    <erp-record-drawer title="Add many units" [open]="bulkOpen()" [fields]="bulkFields" submitLabel="Create units" [saving]="bulkSaving()" [errors]="bulkErrors()" testId="unit-bulk-form"
+                       (submitted)="bulkCreate($event)" (closed)="bulkOpen.set(false)" />
+    <erp-record-drawer [title]="action()?.title ?? ''" [open]="!!action()" [fields]="action()?.fields ?? noFields" [saving]="actionSaving()" [errors]="actionErrors()" testId="unit-action-form"
+                       [width]="420" (submitted)="runAction($event)" (closed)="action.set(null)" />

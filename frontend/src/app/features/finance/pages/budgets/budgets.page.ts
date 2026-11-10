@@ -30,80 +30,8 @@ interface Row { accountId: string; label: string; type: string; months: number[]
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StatCardComponent, NzToolTipModule, RevealDirective, TranslatePipe, DecimalPipe, FormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule, NzTableModule, NzTabsModule],
-  styles: [`.bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px } .num { text-align:end } .bad { color: var(--erp-color-error, #cf1322) } .good { color: var(--erp-color-success, #389e0d) } .grid { overflow:auto }`],
-  template: `
-    @if (!editing()) {
-      <h1 class="erp-page-title">Budgets</h1>
-      <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search budgets" emptyText="No budgets yet" (rowClick)="open($event.id)">
-        <button toolbar *erpHasPermission="'finance.budgets.write'" nz-button nzType="primary" (click)="create()" data-testid="budget-new"><span nz-icon nzType="plus"></span> New budget</button>
-      </erp-paged-table>
-    } @else {
-      <div class="bar">
-        <button nz-button (click)="close()">Back</button>
-        <h1 class="erp-page-title" style="margin:0">{{ id() ? 'Budget' : 'New budget' }}</h1>
-        <span style="flex:1"></span>
-        @if (id()) { <button *erpHasPermission="'finance.budgets.write'" nz-button nzDanger (click)="remove()" data-testid="budget-delete">Delete</button> }
-        <button *erpHasPermission="'finance.budgets.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save()" data-testid="budget-save">Save</button>
-      </div>
-      <nz-tabset>
-        <nz-tab nzTitle="Plan">
-          <div class="bar">
-            <nz-select style="width:240px" nzPlaceHolder="Legal entity" [(ngModel)]="entityId" [nzDisabled]="!!id()" data-testid="budget-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
-            <input aria-label="Name" nz-input style="width:240px" placeholder="Name" [(ngModel)]="name" data-testid="budget-name" />
-            <nz-input-number [(ngModel)]="year" [nzMin]="2000" [nzMax]="2100" [nzPrecision]="0" data-testid="budget-year"></nz-input-number>
-            <nz-select style="width:280px" nzShowSearch nzPlaceHolder="Add an income/expense account" [ngModel]="null" (ngModelChange)="addRow($event)" data-testid="budget-add-account">
-              @for (a of addable(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }
-            </nz-select>
-          </div>
-          <div class="grid">
-            <table class="erp-grid" style="border-collapse:collapse;min-width:1200px" data-testid="budget-grid">
-              <thead><tr><th style="text-align:start;min-width:220px">Account</th>@for (m of months; track m) { <th class="num">{{ m }}</th> }<th class="num">Total</th><th></th></tr></thead>
-              <tbody>
-                @for (r of rows(); track r.accountId; let i = $index) {
-                  <tr>
-                    <td>{{ r.label }}</td>
-                    @for (m of months; track m; let mi = $index) {
-                      <td><nz-input-number [ngModel]="r.months[mi]" (ngModelChange)="setCell(i, mi, $event)" [nzMin]="0" [nzStep]="100" [nzPrecision]="0" style="width:84px" [attr.data-testid]="'cell-' + i + '-' + mi"></nz-input-number></td>
-                    }
-                    <td class="num"><b>{{ total(r) | number: '1.0-0' }}</b></td>
-                    <td><button aria-label="Remove row" nz-button nzType="text" nzSize="small" (click)="removeRow(i)"><span nz-icon nzType="delete"></span></button></td>
-                  </tr>
-                } @empty { <tr><td colspan="15">Add accounts to start planning.</td></tr> }
-              </tbody>
-            </table>
-          </div>
-        </nz-tab>
-        @if (id()) {
-          <nz-tab nzTitle="Budget vs actual" (nzSelect)="loadActual()">
-            <div class="bar" erpReveal>
-              <nz-select style="width:110px" [(ngModel)]="fromMonth" (ngModelChange)="loadActual()">@for (m of months; track m; let i = $index) { <nz-option [nzValue]="i + 1" [nzLabel]="m"></nz-option> }</nz-select>
-              <span>to</span>
-              <nz-select style="width:110px" [(ngModel)]="toMonth" (ngModelChange)="loadActual()">@for (m of months; track m; let i = $index) { <nz-option [nzValue]="i + 1" [nzLabel]="m"></nz-option> }</nz-select>
-              <button nz-button nzType="default" type="button" (click)="loadActual()" data-testid="budget-actual-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
-            </div>
-            @if (actual(); as a) {
-              <div class="erp-stat-grid erp-stat-grid--auto" data-testid="budget-net">
-                <erp-stat-card label="Budgeted income" [value]="a.budgetIncome" format="money" [tone]="2" />
-                <erp-stat-card label="Actual income" [value]="a.actualIncome" format="money" [tone]="4" />
-                <erp-stat-card label="Budgeted expense" [value]="a.budgetExpense" format="money" [tone]="3" />
-                <erp-stat-card label="Actual expense" [value]="a.actualExpense" format="money" [tone]="a.actualExpense > a.budgetExpense ? 'danger' : 0" />
-                <erp-stat-card label="Net budget" [value]="a.budgetNet" format="money" [tone]="5" />
-                <erp-stat-card label="Net actual" [value]="a.actualNet" format="money" [tone]="a.actualNet >= a.budgetNet ? 'success' : 'danger'" />
-              </div>
-              <nz-table [nzData]="a.rows" nzSize="small" [nzShowPagination]="false" data-testid="budget-actual-table">
-                <thead><tr><th>Account</th><th class="num">Budget</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">%</th></tr></thead>
-                <tbody>
-                  @for (r of a.rows; track r.accountId) {
-                    <tr><td>{{ r.code }} · {{ r.name }}</td><td class="num">{{ r.budget | number: '1.0-0' }}</td><td class="num">{{ r.actual | number: '1.0-0' }}</td>
-                      <td class="num" [class.bad]="r.variance < 0" [class.good]="r.variance > 0">{{ r.variance | number: '1.0-0' }}</td><td class="num">{{ r.variancePercent ?? '—' }}</td></tr>
-                  }
-                </tbody>
-              </nz-table>
-            }
-          </nz-tab>
-        }
-      </nz-tabset>
-    }`,
+  styleUrl: './budgets.page.scss',
+  templateUrl: './budgets.page.html',
 })
 export class BudgetsPage {
   private readonly api = inject(BudgetsApi);

@@ -16,25 +16,7 @@ import { AUTH_STYLES, PASSWORD_HINT, PASSWORD_RULE } from '../../auth-layout';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ReactiveFormsModule, RouterLink, NzFormModule, NzInputModule, NzButtonModule, NzAlertModule, BrandLogoComponent],
   styles: [AUTH_STYLES],
-  template: `
-    <div class="card">
-      <div class="brand"><erp-brand-logo size="lg"></erp-brand-logo></div>
-      <h1>Choose a new password</h1>
-      @if (done()) {
-        <nz-alert nzType="success" nzShowIcon nzMessage="Your password has been changed and other devices were signed out." data-testid="reset-done"></nz-alert>
-        <p style="margin-top:16px"><a routerLink="/auth/login">Sign in</a></p>
-      } @else {
-        <p class="sub">{{ hint }}</p>
-        @if (error()) { <nz-alert nzType="error" nzShowIcon [nzMessage]="error()!" style="margin-bottom:16px" data-testid="reset-error"></nz-alert> }
-        <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
-          <nz-form-item>
-            <nz-form-label nzFor="pw" nzRequired>New password</nz-form-label>
-            <nz-form-control [nzErrorTip]="hint"><input nz-input id="pw" type="password" formControlName="password" autocomplete="new-password" data-testid="reset-password" /></nz-form-control>
-          </nz-form-item>
-          <button nz-button nzType="primary" nzBlock [nzLoading]="busy()" data-testid="reset-submit">Change password</button>
-        </form>
-      }
-    </div>`,
+  templateUrl: './reset-password.page.html',
 })
 export class ResetPasswordPage {
   readonly token = input<string>('');

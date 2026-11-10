@@ -1,0 +1,62 @@
+
+    <div class="toolbar">
+      <button nz-button (click)="load()" [nzLoading]="loading()" data-testid="services-refresh-kpis">
+        <span nz-icon nzType="reload"></span>Refresh
+      </button>
+    </div>
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="The services figures could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
+    } @else {
+      <div class="erp-stat-grid erp-stat-grid--auto" data-testid="services-stats-grid">
+        <erp-stat-card label="Active engagements" format="number" [value]="kpi()?.activeEngagements ?? null" [loading]="loading()" link="/services/engagements" [tone]="1" />
+        <erp-stat-card label="Active contract value" format="money" [value]="kpi()?.totalContractValue ?? null" caption="Engagements in delivery" [loading]="loading()" tone="success" />
+        <erp-stat-card label="Monthly retainer revenue" format="money" [value]="kpi()?.retainerMonthlyRecurringRevenue ?? null" caption="Active retainers, per month" [loading]="loading()" link="/services/retainers" [tone]="4" />
+        <erp-stat-card label="Ready to invoice" format="money" [value]="kpi()?.readyToInvoiceMilestonesValue ?? null" caption="Milestones waiting for an invoice" [loading]="loading()" link="/services/milestones" tone="warning" />
+      </div>
+
+      @if (kpi(); as k) {
+        @if (isEmpty()) {
+          <erp-state-panel title="No services activity yet" hint="Create an engagement to start tracking milestones, retainers and hours." icon="solution" actionLabel="Go to engagements" (action)="goToEngagements()" />
+        } @else {
+          <div nz-row [nzGutter]="[16, 16]">
+            <div nz-col [nzXs]="24" [nzLg]="12">
+              <nz-card nzTitle="Billable hours" class="detail-card">
+                @if (k.totalLoggedHours > 0) {
+                  <div class="metric-head">
+                    <span>{{ k.billableHours | number:'1.0-1' }} of {{ k.totalLoggedHours | number:'1.0-1' }} logged hours are billable</span>
+                    <strong>{{ k.billableUtilizationRate | number:'1.0-1' }}%</strong>
+                  </div>
+                  <nz-progress [nzPercent]="k.billableUtilizationRate" [nzShowInfo]="false" nzStatus="normal"></nz-progress>
+                  <div class="rows">
+                    <div class="row"><span>Logged</span><span class="num">{{ k.totalLoggedHours | number:'1.0-1' }} h</span></div>
+                    <div class="row"><span>Billable</span><span class="num">{{ k.billableHours | number:'1.0-1' }} h</span></div>
+                    <div class="row"><span>Not billable</span><span class="num">{{ (k.totalLoggedHours - k.billableHours) | number:'1.0-1' }} h</span></div>
+                  </div>
+                } @else {
+                  <p class="note">No hours have been logged yet.</p>
+                }
+              </nz-card>
+            </div>
+            <div nz-col [nzXs]="24" [nzLg]="12">
+              <nz-card nzTitle="Milestones not yet invoiced" class="detail-card">
+                @if (milestonesTotal() > 0) {
+                  <div class="metric-head">
+                    <span>Ready to invoice</span>
+                    <strong>{{ currency() }} {{ k.readyToInvoiceMilestonesValue | number:'1.2-2' }}</strong>
+                  </div>
+                  <nz-progress [nzPercent]="readyShare()" [nzShowInfo]="false" nzStatus="normal"></nz-progress>
+                  <div class="rows">
+                    <div class="row"><span>Planned</span><span class="num">{{ currency() }} {{ k.pendingMilestonesValue | number:'1.2-2' }}</span></div>
+                    <div class="row total"><span>Total</span><span class="num">{{ currency() }} {{ milestonesTotal() | number:'1.2-2' }}</span></div>
+                  </div>
+                } @else {
+                  <p class="note">No milestones are waiting to be invoiced.</p>
+                }
+              </nz-card>
+            </div>
+          </div>
+        }
+      }
+    }
+  

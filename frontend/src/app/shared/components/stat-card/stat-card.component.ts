@@ -82,29 +82,7 @@ function formatAnimatedString(template: string, progress: number): string {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgTemplateOutlet, RouterLink, NzSkeletonModule],
-  template: `
-    @if (link(); as l) {
-      <a class="erp-stat-card erp-stat-card--link erp-lift" [class.erp-stat-card--compact]="compact()" [routerLink]="l" [attr.data-testid]="testId()"><ng-container *ngTemplateOutlet="body" /></a>
-    } @else {
-      <div class="erp-stat-card" [class.erp-stat-card--compact]="compact()" [attr.data-testid]="testId()"><ng-container *ngTemplateOutlet="body" /></div>
-    }
-    <ng-template #body>
-      @if (!compact()) { <div class="erp-stat-stripe" [style.background]="colors().stripe"></div> }
-      @if (loading()) {
-        <nz-skeleton class="erp-stat-skeleton" [nzActive]="true" [nzTitle]="false" [nzParagraph]="{ rows: compact() ? 1 : 2, width: ['60%', '40%'] }" data-testid="stat-skeleton"></nz-skeleton>
-      } @else {
-        <div class="erp-stat-text">
-          <div class="erp-stat-label">{{ label() }}</div>
-          @if (compact() && caption()) { <div class="erp-stat-caption">{{ caption() }}</div> }
-          @if (!compact()) {
-            <div class="erp-stat-value" [style.color]="colors().text"><bdi dir="ltr">{{ text() }}</bdi>@if (suffix()) {<span class="erp-stat-suffix">{{ suffix() }}</span>}</div>
-          }
-        </div>
-        @if (compact()) { <div class="erp-stat-value"><bdi dir="ltr">{{ text() }}</bdi>@if (suffix()) {<span class="erp-stat-suffix">{{ suffix() }}</span>}</div> }
-        @if (!compact() && caption()) { <div class="erp-stat-caption">{{ caption() }}</div> }
-        <div class="erp-stat-extra"><ng-content /></div>
-      }
-    </ng-template>`,
+  templateUrl: './stat-card.component.html',
 })
 export class StatCardComponent implements OnDestroy {
   private readonly i18n = inject(I18nService);

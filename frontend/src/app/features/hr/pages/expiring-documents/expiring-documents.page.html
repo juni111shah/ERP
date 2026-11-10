@@ -1,0 +1,31 @@
+
+    <h1 class="erp-page-title">Document expiry</h1>
+    <div style="display:flex;gap:12px;align-items:center;margin:12px 0">
+      <label for="expiry-days">Expiring within</label>
+      <nz-select nzId="expiry-days" style="width:140px" [ngModel]="days()" (ngModelChange)="setDays($event)" data-testid="expiry-days">
+        @for (d of dayOptions; track d) { <nz-option [nzValue]="d" [nzLabel]="d + ' days'"></nz-option> }
+      </nz-select>
+      <span style="color:var(--erp-color-text-secondary)">{{ rows().length }} document(s)</span>
+    </div>
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Documents could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
+    } @else {
+    <nz-table [nzData]="rows()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="Nothing expires in this period" data-testid="expiry-table">
+      <thead><tr><th>Employee</th><th>Document</th><th>Number</th><th>Expires</th><th>Status</th></tr></thead>
+      <tbody>
+        @for (r of rows(); track r.id) {
+          <tr>
+            <td>{{ r.employeeName }}<div style="font-size:12px;color:var(--erp-color-text-secondary)">{{ r.employeeNumber }}</div></td>
+            <td>{{ typeLabel(r.type) }}</td>
+            <td>{{ r.number }}</td>
+            <td>{{ r.expiryDate | erpDate }}</td>
+            <td>
+              @if (r.isExpired) { <erp-status value="expired" [label]="'Expired ' + -r.daysLeft + ' days ago'" /> }
+              @else if (r.daysLeft <= 30) { <erp-status value="expiringSoon" [label]="r.daysLeft + ' days left'" /> }
+              @else { <erp-status value="open" [label]="r.daysLeft + ' days left'" /> }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </nz-table>
+    }

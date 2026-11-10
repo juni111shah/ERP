@@ -1,0 +1,16 @@
+
+    <div class="range-control" role="group" [attr.aria-label]="'ui.overview.range.group' | translate: 'Date range'" data-testid="dashboard-range">
+      <nz-select class="range-select" [ngModel]="selectValue()" (ngModelChange)="setPreset($event)" [nzDropdownMatchSelectWidth]="false"
+                 [attr.aria-label]="'ui.overview.range.group' | translate: 'Date range'" data-testid="dashboard-range-preset">
+        @for (p of presets; track p.key) { <nz-option [nzValue]="p.key" [nzLabel]="p.labelKey | translate: p.label"></nz-option> }
+        <nz-option nzValue="custom" [nzLabel]="'ui.overview.range.custom' | translate: 'Custom'"></nz-option>
+      </nz-select>
+      @if (showPicker()) {
+        <nz-range-picker class="range-picker" nzFormat="dd MMM yyyy" [nzInputReadOnly]="true" [ngModel]="dates()" (ngModelChange)="setCustom($event)" [nzAllowClear]="false"
+                         [nzDisabledDate]="disabledDate" [nzPlaceHolder]="placeholders()" data-testid="dashboard-range-picker"></nz-range-picker>
+      }
+      <button nz-button type="button" (click)="refresh.emit()" [attr.aria-label]="'ui.overview.range.refresh' | translate: 'Refresh'" data-testid="dashboard-range-refresh">
+        <span nz-icon nzType="reload" [nzSpin]="loading()"></span><span class="range-btn-label">{{ 'ui.overview.range.refresh' | translate: 'Refresh' }}</span>
+      </button>
+      @if (error(); as e) { <span class="range-error" role="alert" data-testid="dashboard-range-error">{{ e }}</span> }
+    </div>

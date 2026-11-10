@@ -1,0 +1,16 @@
+
+    .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:16px; }
+    .card {
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
+      display:block;
+      padding:18px 20px;
+      border-radius:12px;
+      color:inherit;
+      text-decoration:none;
+    }
+    .card b { display:block; font-size:15px; font-weight:700; color: var(--erp-color-text-primary); margin-bottom:6px; }
+    .card span { font-size:13px; color: var(--erp-color-text-muted); line-height:1.4; }
+    .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:16px 0 } .spacer { flex:1 } .num { text-align:end; font-variant-numeric: tabular-nums; white-space:nowrap } .total td { font-weight:600 }
+    .kpis { display:flex; gap:24px; flex-wrap:wrap; margin-bottom:12px } .kpi { padding:8px 14px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px } .kpi b { display:block; font-size:18px }
+    @media print { .bar button, .bar nz-date-picker, .bar nz-input-number { display:none } }
+  

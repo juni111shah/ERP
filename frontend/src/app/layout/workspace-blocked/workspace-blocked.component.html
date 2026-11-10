@@ -1,0 +1,22 @@
+
+    <div class="card" data-testid="workspace-blocked">
+      <div class="brand"><erp-brand-logo size="lg"></erp-brand-logo></div>
+      <div class="icon" aria-hidden="true"><span nz-icon nzType="lock"></span></div>
+      <h1 data-testid="workspace-blocked-title">{{ cancelled() ? 'This subscription is cancelled' : 'This workspace is suspended' }}</h1>
+      <p>{{ workspace() }} is not available right now. Your data is kept and comes back as soon as access is restored.</p>
+      @if (reason(); as r) { <p class="reason" data-testid="workspace-blocked-reason">{{ r }}</p> }
+      @if (supportEmail(); as mail) { <p>To sort this out, write to <a [href]="'mailto:' + mail" data-testid="workspace-blocked-support">{{ mail }}</a>.</p> }
+      @else if (!canSeeBilling()) { <p>Please ask your administrator to contact us.</p> }
+      <div class="actions">
+        @if (canSeeBilling()) { <a nz-button nzType="primary" routerLink="/admin/billing" data-testid="workspace-blocked-billing"><span nz-icon nzType="credit-card"></span>Subscription and billing</a> }
+        <button nz-button type="button" [nzLoading]="checking()" (click)="check()" data-testid="workspace-blocked-check"><span nz-icon nzType="reload"></span>Check again</button>
+        @if (session.me()?.platformAdmin) { <a nz-button routerLink="/platform">Platform console</a> }
+        <button nz-button type="button" (click)="auth.logout()" data-testid="workspace-blocked-sign-out"><span nz-icon nzType="logout"></span>Sign out</button>
+      </div>
+      @if (others().length) {
+        <div class="switch">
+          <p>Your other workspaces:</p>
+          <div class="actions">@for (w of others(); track w.id) { <button nz-button nzSize="small" type="button" (click)="switchTo(w.id)" [attr.data-testid]="'workspace-blocked-switch-' + w.code">{{ w.name }}</button> }</div>
+        </div>
+      }
+    </div>

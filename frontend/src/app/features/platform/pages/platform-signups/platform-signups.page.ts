@@ -34,38 +34,7 @@ const TABS: { status: SignupStatus; label: string; empty: string; hint: string }
     .row-actions { display: flex; gap: 6px; }
     .hint { margin: 0 0 12px; color: var(--erp-color-text-muted); }
   `],
-  template: `
-    <nz-tabset class="pf-tabs" [nzSelectedIndex]="index()" (nzSelectedIndexChange)="select($event)" nzSize="small" data-testid="signups-tabs">
-      @for (t of tabs; track t.status) { <nz-tab [nzTitle]="t.label"></nz-tab> }
-    </nz-tabset>
-    @if (tabs[index()].hint) { <p class="hint">{{ tabs[index()].hint }}</p> }
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search by business, email or code" [emptyText]="tabs[index()].empty" [filterable]="false" [configurable]="false" [exportable]="false" [clickable]="false"
-                     tableName="signups" scrollX="1140px">
-      <ng-template #cell let-r let-col="column">
-        @switch (col.key) {
-          @case ('business') { <div class="stack"><strong>{{ r.businessName }}</strong><span class="pf-mono pf-muted">{{ r.signInKey }}</span></div> }
-          @case ('contact') { <div class="stack"><span>{{ r.contactName }}</span><span class="pf-small pf-muted">{{ r.email }}</span>@if (r.phone) { <span class="pf-small pf-muted">{{ r.phone }}</span> }</div> }
-          @case ('where') { <div class="stack"><span>{{ industryName(r.industry) }}</span><span class="pf-small pf-muted">{{ r.countryCode }} · {{ r.baseCurrency }}</span></div> }
-          @case ('plan') { <div class="stack"><span>{{ r.planName }}</span><span class="pf-small pf-muted">{{ cycleText(r.cycle) }}</span></div> }
-          @case ('createdAt') { <span class="pf-nowrap">{{ r.createdAt | erpDate }}</span> }
-          @case ('email') {
-            @if (r.emailVerifiedAt) { <erp-status value="confirmed" label="Confirmed" /> } @else { <erp-status value="pending" label="Not confirmed" /> }
-          }
-          @case ('rowActions') {
-            @if (r.status === 'pendingReview' || r.status === 'pendingEmail') {
-              <div class="row-actions">
-                <button nz-button nzSize="small" nzType="primary" type="button" (click)="approve(r)" [attr.data-testid]="'signup-approve-' + r.signInKey">Approve</button>
-                <button nz-button nzSize="small" nzDanger type="button" (click)="reject(r)" [attr.data-testid]="'signup-reject-' + r.signInKey">Reject</button>
-              </div>
-            } @else if (r.provisionedOrgId) {
-              <a [routerLink]="['/platform/clients', r.provisionedOrgId]" [attr.data-testid]="'signup-client-' + r.signInKey">Open client</a>
-            } @else if (r.rejectReason) {
-              <span class="pf-small pf-muted">{{ r.rejectReason }}</span>
-            }
-          }
-        }
-      </ng-template>
-    </erp-paged-table>`,
+  templateUrl: './platform-signups.page.html',
 })
 export class PlatformSignupsPage {
   private readonly api = inject(PlatformApi);

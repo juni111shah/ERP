@@ -1,0 +1,269 @@
+
+    <div class="po-detail-container">
+      @if (order(); as o) {
+        <div class="header-nav">
+          <a routerLink="/purchasing/orders" class="back-link">
+            <span nz-icon nzType="arrow-left"></span> Back to Purchase Orders
+          </a>
+        </div>
+
+        <div class="page-header">
+          <div class="title-section">
+            <div class="number-tag">
+              <h1 class="po-number">{{ o.number }}</h1>
+              <erp-status [value]="o.status" />
+              <erp-approval-state documentType="purchase_order" [documentId]="o.id" [active]="o.status === 'submitted'" />
+            </div>
+            <p class="vendor-subtitle">Vendor / Supplier: <strong>{{ o.vendorName }}</strong></p>
+          </div>
+
+          <div class="header-actions">
+            @if (o.status === 'draft') {
+              <button *erpHasPermission="'purchasing.orders.manage'" nz-button (click)="changeStatus('submitted')" data-testid="po-submit">
+                <span nz-icon nzType="send"></span>Submit
+              </button>
+            }
+            @if (o.status === 'submitted') {
+              <button *erpHasPermission="'purchasing.orders.manage'" nz-button (click)="changeStatus('draft')" data-testid="po-back-to-draft">
+                <span nz-icon nzType="undo"></span>Back to Draft
+              </button>
+            }
+            @if (o.status === 'draft' || o.status === 'submitted') {
+              <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="primary" (click)="changeStatus('approved')">
+                <span nz-icon nzType="check"></span>Approve Order
+              </button>
+            }
+            @if (o.status === 'approved' || o.status === 'partiallyReceived') {
+              <button *erpHasPermission="'purchasing.receipts.manage'" nz-button (click)="openReceiptModal()">
+                <span nz-icon nzType="download"></span>Receive Goods (GRN)
+              </button>
+            }
+            @if (canBill()) {
+              <span nz-tooltip [nzTooltipTitle]="o.vendorPartyId ? null : 'Link this order to a vendor record to bill it.'">
+                <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="primary" [disabled]="!o.vendorPartyId" (click)="openBillModal()" data-testid="po-bill">
+                  <span nz-icon nzType="file-done"></span>Generate Vendor Bill
+                </button>
+              </span>
+            }
+            @for (billId of o.billIds ?? []; track billId; let n = $index) {
+              <a [routerLink]="['/finance/bills', billId]" nz-button nzType="dashed" data-testid="po-bill-link">
+                <span nz-icon nzType="file-text"></span>Bill {{ n + 1 }}
+              </a>
+            }
+            @if (hasReceived()) {
+              <a *erpHasPermission="'purchasing.returns.manage'" [routerLink]="['/purchasing/returns']" [queryParams]="{ order: o.id }" nz-button data-testid="po-return">
+                <span nz-icon nzType="rollback"></span>Return goods
+              </a>
+            }
+            @if (o.invoicedBillId && !(o.billIds?.length)) {
+              <a [routerLink]="['/finance/bills', o.invoicedBillId]" nz-button nzType="dashed">
+                <span nz-icon nzType="file-text"></span>View Vendor Bill
+              </a>
+            }
+            <a [href]="'/print/purchase-order/' + o.id" target="_blank" nz-button data-testid="po-print">
+              <span nz-icon nzType="printer"></span>Print / PDF
+            </a>
+            @if (o.status === 'draft' || o.status === 'submitted' || o.status === 'approved') {
+              <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzDanger
+                      nz-popconfirm nzPopconfirmTitle="Cancel this purchase order?" (nzOnConfirm)="changeStatus('cancelled')">
+                Cancel
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Information Cards -->
+        <div nz-row [nzGutter]="16" style="margin-bottom: 24px;">
+          <div nz-col [nzXs]="24" [nzLg]="16">
+            <nz-card nzTitle="Order Details" class="info-card">
+              <nz-descriptions [nzColumn]="{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }">
+                <nz-descriptions-item nzTitle="Vendor">{{ o.vendorName }}</nz-descriptions-item>
+                <nz-descriptions-item nzTitle="Vendor Ref / Quote">{{ o.vendorReference || '-' }}</nz-descriptions-item>
+                <nz-descriptions-item nzTitle="Order Date">{{ o.orderDate | erpDate }}</nz-descriptions-item>
+                <nz-descriptions-item nzTitle="Expected Delivery">{{ (o.expectedDeliveryDate | erpDate) || '-' }}</nz-descriptions-item>
+                <nz-descriptions-item nzTitle="Currency">{{ o.currency }}</nz-descriptions-item>
+                <nz-descriptions-item nzTitle="Payment Terms">{{ o.paymentTerms || '-' }}</nz-descriptions-item>
+                <nz-descriptions-item nzTitle="Delivery Address" [nzSpan]="2">{{ o.deliveryAddress || '-' }}</nz-descriptions-item>
+              </nz-descriptions>
+
+              @if (o.notes) {
+                <div class="note-box" style="margin-top: 16px;">
+                  <strong>Special Instructions / Notes:</strong>
+                  <p>{{ o.notes }}</p>
+                </div>
+              }
+            </nz-card>
+          </div>
+
+          <div nz-col [nzXs]="24" [nzLg]="8">
+            <nz-card nzTitle="Procurement Cost" class="summary-card">
+              <div class="summary-row">
+                <span class="label">Subtotal</span>
+                <span class="value">{{ o.currency }} {{ o.subTotal | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-row">
+                <span class="label">Discount</span>
+                <span class="value" style="color: var(--erp-color-error-text);">-{{ o.currency }} {{ o.discountTotal | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-row">
+                <span class="label">Tax</span>
+                <span class="value">{{ o.currency }} {{ o.taxTotal | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-row total-row">
+                <span class="label">Order Total</span>
+                <span class="value">{{ o.currency }} {{ o.totalAmount | number:'1.2-2' }}</span>
+              </div>
+
+              <!-- Receiving Meter -->
+              <div class="receiving-meter">
+                <div class="meter-label">
+                  <span>Goods Received</span>
+                  <span><strong>{{ receivingPercentage() }}%</strong></span>
+                </div>
+                <nz-progress [nzPercent]="receivingPercentage()" [nzStatus]="receivingPercentage() === 100 ? 'success' : 'active'"></nz-progress>
+              </div>
+            </nz-card>
+          </div>
+        </div>
+
+        <!-- Line Items Table -->
+        <nz-card nzTitle="Purchased Items & Receiving Status" class="items-card" [nzBodyStyle]="{ padding: '0' }">
+          <nz-table #itemsTable [nzData]="o.lines" [nzShowPagination]="false">
+            <thead>
+              <tr>
+                <th style="width: 140px;">Item Code</th>
+                <th>Description</th>
+                <th style="width: 100px; text-align: end;">Ordered</th>
+                <th style="width: 100px; text-align: end;">Received</th>
+                <th style="width: 100px; text-align: end;">Billed</th>
+                <th style="width: 120px; text-align: end;">Unit Price</th>
+                <th style="width: 90px; text-align: end;">Disc %</th>
+                <th style="width: 90px; text-align: end;">Tax %</th>
+                <th style="width: 140px; text-align: end;">Line Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of itemsTable.data; track item.id) {
+                <tr>
+                  <td><strong>{{ item.itemCode || '-' }}</strong></td>
+                  <td>{{ item.description }}</td>
+                  <td style="text-align: end;">{{ item.quantity | number:'1.0-2' }} {{ item.unitOfMeasure }}</td>
+                  <td style="text-align: end;">
+                    <span [style.color]="item.receivedQuantity >= item.quantity ? 'var(--erp-color-primary)' : 'var(--erp-color-warning-text, #d97706)'">
+                      {{ item.receivedQuantity | number:'1.0-2' }}
+                    </span>
+                  </td>
+                  <td style="text-align: end;">{{ item.billedQuantity | number:'1.0-2' }}</td>
+                  <td style="text-align: end;">{{ item.unitPrice | number:'1.2-2' }}</td>
+                  <td style="text-align: end;">{{ item.discountPercent }}%</td>
+                  <td style="text-align: end;">{{ item.taxRate }}%</td>
+                  <td style="text-align: end; font-weight: 600;">{{ item.lineTotal | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </nz-table>
+        </nz-card>
+
+        <!-- Vendor bill modal: what to bill, at what price, and whether goods not yet received may be billed -->
+        <nz-modal [nzVisible]="billModalVisible()" nzTitle="Generate vendor bill" nzOkText="Create bill" [nzWidth]="780" [nzOkLoading]="saving()" (nzOnCancel)="billModalVisible.set(false)" (nzOnOk)="saveBill()">
+          <ng-container *nzModalContent>
+            <p style="color: var(--erp-color-text-muted)">Choose how much of each line to bill. Bill what has been received, or tick the box below to bill goods that have not arrived yet. A different price creates a variance entry.</p>
+            <table class="receipt-lines-table" data-testid="po-bill-lines">
+              <thead><tr><th>Item</th><th style="width:80px">Ordered</th><th style="width:80px">Received</th><th style="width:80px">Billed</th><th style="width:120px">Bill now</th><th style="width:130px">Unit price</th></tr></thead>
+              <tbody>
+                @for (l of billDraft(); track l.lineId; let i = $index) {
+                  <tr>
+                    <td>{{ l.description }}</td><td>{{ l.ordered }}</td><td>{{ l.received }}</td><td>{{ l.billed }}</td>
+                    <td><nz-input-number [ngModel]="l.quantity" (ngModelChange)="setBill(i, 'quantity', $event)" [nzMin]="0" [nzPrecision]="2" style="width:100%" [attr.aria-label]="'Quantity to bill for ' + l.description" /></td>
+                    <td><nz-input-number [ngModel]="l.price" (ngModelChange)="setBill(i, 'price', $event)" [nzMin]="0" [nzPrecision]="2" style="width:100%" [attr.aria-label]="'Unit price for ' + l.description" /></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            <div style="margin-top:12px"><label><input type="checkbox" [ngModel]="allowUnreceived()" (ngModelChange)="allowUnreceived.set($event)" data-testid="po-allow-unreceived" /> Bill goods that have not been received yet</label>
+              <div style="font-size:12px;color:var(--erp-color-text-muted)">Off by default. A stocked order with nothing received is refused unless you tick this.</div></div>
+            <div style="margin-top:12px"><label for="vref">Vendor reference</label> <input nz-input id="vref" aria-label="Vendor reference" [ngModel]="billReference()" (ngModelChange)="billReference.set($event)" placeholder="The vendor's invoice number" /></div>
+          </ng-container>
+        </nz-modal>
+
+        <!-- Goods Receipt Modal -->
+        <nz-modal
+          [(nzVisible)]="receiptModalVisible"
+          nzTitle="Receive Goods"
+          nzOkText="Record Receipt"
+          [nzWidth]="750"
+          [nzOkLoading]="saving()"
+          (nzOnCancel)="receiptModalVisible.set(false)"
+          (nzOnOk)="saveReceipt()">
+          <ng-container *nzModalContent>
+            <form nz-form [formGroup]="receiptForm" nzLayout="vertical">
+              <div nz-row [nzGutter]="16">
+                <div nz-col [nzSpan]="12">
+                  <nz-form-item>
+                    <nz-form-label nzRequired>Received By</nz-form-label>
+                    <nz-form-control>
+                      <input nz-input formControlName="receivedBy" placeholder="Receiver full name" />
+                    </nz-form-control>
+                  </nz-form-item>
+                </div>
+                @if (warehouses().length) {
+                  <div nz-col [nzSpan]="24">
+                    <nz-form-item>
+                      <nz-form-label>Warehouse</nz-form-label>
+                      <nz-form-control nzExtra="Where the goods are stored. Left empty, the default warehouse of the legal entity is used.">
+                        <nz-select formControlName="warehouseId" nzAllowClear nzPlaceHolder="Default warehouse" data-testid="receipt-warehouse">
+                          @for (w of warehouses(); track w.id) { <nz-option [nzValue]="w.id" [nzLabel]="w.code + ' · ' + w.name" /> }
+                        </nz-select>
+                      </nz-form-control>
+                    </nz-form-item>
+                  </div>
+                }
+                <div nz-col [nzSpan]="12">
+                  <nz-form-item>
+                    <nz-form-label>Delivery Note / Waybill #</nz-form-label>
+                    <nz-form-control>
+                      <input nz-input formControlName="deliveryNoteNumber" placeholder="e.g. DN-8812" />
+                    </nz-form-control>
+                  </nz-form-item>
+                </div>
+              </div>
+
+              <div class="receipt-lines-table-container">
+                <table class="receipt-lines-table">
+                  <thead>
+                    <tr>
+                      <th>Item Description</th>
+                      <th style="width: 80px;">Ordered</th>
+                      <th style="width: 90px;">Received</th>
+                      <th style="width: 130px;">Receiving Now</th>
+                    </tr>
+                  </thead>
+                  <tbody formArrayName="lines">
+                    @for (ctrl of receiptLinesArray.controls; track $index) {
+                      <tr [formGroupName]="$index">
+                        <td><strong>{{ ctrl.get('description')?.value }}</strong></td>
+                        <td>{{ ctrl.get('orderedQuantity')?.value }}</td>
+                        <td>{{ ctrl.get('alreadyReceived')?.value }}</td>
+                        <td>
+                          <nz-input-number
+                            formControlName="quantityReceived"
+                            [attr.aria-label]="'Quantity receiving now for ' + ctrl.get('description')?.value"
+                            [nzMin]="0"
+                            style="width: 100%;">
+                          </nz-input-number>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </form>
+          </ng-container>
+        </nz-modal>
+      } @else if (failed()) {
+        <erp-state-panel kind="error" title="This purchase order could not be loaded." hint="Check your connection and try again." actionLabel="Try again" (action)="reload()" />
+      } @else {
+        <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 8 }" />
+      }
+    </div>
+  

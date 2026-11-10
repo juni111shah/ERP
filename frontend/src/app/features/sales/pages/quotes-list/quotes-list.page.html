@@ -1,0 +1,261 @@
+
+    <h1 class="erp-page-title">Sales Quotes</h1>
+
+    <!-- KPI Stat Cards -->
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="quote-stats">
+      <erp-stat-card
+        label="Open Quotes"
+        [value]="kpis()?.openQuotesCount ?? 0"
+        format="number"
+        caption="draft or sent"
+        [tone]="1" />
+      <erp-stat-card
+        label="Open Quote Value"
+        [value]="kpis()?.openQuotesAmount ?? 0"
+        format="money"
+        caption="draft and sent quotes"
+        [tone]="0" />
+      <erp-stat-card
+        label="Converted to Orders"
+        [value]="kpis()?.conversionRate ?? 0"
+        format="percent"
+        caption="share of all quotes"
+        [tone]="4" />
+      <erp-stat-card
+        label="Total Quotes"
+        [value]="kpis()?.totalQuotesCount ?? 0"
+        format="number"
+        caption="all time, every status"
+        [tone]="3" />
+    </div>
+
+    <!-- Quotes Table -->
+    <erp-paged-table
+      [list]="list"
+      [columns]="columns"
+      searchPlaceholder="Search quote number, customer..."
+      exportFilename="sales-quotes"
+      (rowClick)="openQuote($event)">
+
+      <button toolbar *erpHasPermission="'sales.quotes.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="quote-new">
+        <span nz-icon nzType="plus"></span>New Quote
+      </button>
+      
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @if (column.key === 'number') {
+          <a [routerLink]="['/sales/quotes', row.id]" class="quote-link" (click)="$event.stopPropagation()">
+            <strong>{{ row.number }}</strong>
+          </a>
+        } @else if (column.key === 'customerName') {
+          <div class="customer-cell">
+            <span class="customer-name">{{ row.customerName }}</span>
+          </div>
+        } @else if (column.key === 'totalAmount') {
+          <strong class="amount">{{ row.currency }} {{ row.totalAmount | number:'1.2-2' }}</strong>
+        } @else if (column.key === 'status') {
+          <erp-status [value]="row.status" />
+        } @else if (column.key === 'actions') {
+          <div class="action-buttons" (click)="$event.stopPropagation()">
+            <a [href]="'/print/quote/' + row.id" target="_blank" nz-button nzType="link" nzSize="small">
+              <span nz-icon nzType="printer"></span>Print
+            </a>
+            @if (row.status === 'accepted' && !row.convertedSalesOrderId) {
+              <button *erpHasPermission="'sales.orders.manage'" nz-button nzType="link" nzSize="small" (click)="convertToOrder(row.id)">
+                Convert
+              </button>
+            }
+            @if (row.status === 'draft') {
+              <button *erpHasPermission="'sales.quotes.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                      nz-popconfirm nzPopconfirmTitle="Delete this quote?" (nzOnConfirm)="deleteQuote(row)">
+                Delete
+              </button>
+            }
+          </div>
+        } @else {
+          {{ value }}
+        }
+      </ng-template>
+    </erp-paged-table>
+
+      <!-- Create Quote Drawer -->
+      <nz-drawer
+        [nzVisible]="drawerVisible()"
+        nzTitle="New Sales Quote"
+        [nzWidth]="850"
+        (nzOnClose)="drawerVisible.set(false)">
+        <ng-container *nzDrawerContent>
+          <form nz-form [formGroup]="form" nzLayout="vertical" (ngSubmit)="submitForm()">
+            <div nz-row [nzGutter]="16">
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label nzRequired>Legal Entity</nz-form-label>
+                  <nz-form-control nzErrorTip="Please select a legal entity">
+                    <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Entity">
+                      @for (e of entities(); track e.id) {
+                        <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option>
+                      }
+                    </nz-select>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label>Quote Number (Auto if blank)</nz-form-label>
+                  <nz-form-control>
+                    <input nz-input formControlName="number" placeholder="QT-2026-0001" />
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+            </div>
+
+            <div nz-row [nzGutter]="16">
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label nzRequired>Customer</nz-form-label>
+                  <nz-form-control nzErrorTip="Customer is required">
+                    <nz-select
+                      formControlName="customerPartyId"
+                      nzShowSearch
+                      nzPlaceHolder="Select Customer"
+                      (ngModelChange)="onCustomerSelected($event)">
+                      @for (c of customers(); track c.id) {
+                        <nz-option [nzValue]="c.id" [nzLabel]="c.name + ' (' + c.code + ')'"></nz-option>
+                      }
+                    </nz-select>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label>Customer Email</nz-form-label>
+                  <nz-form-control>
+                    <input nz-input formControlName="customerEmail" type="email" placeholder="billing@client.com" />
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+            </div>
+
+            <div nz-row [nzGutter]="16">
+              <div nz-col [nzSpan]="8">
+                <nz-form-item>
+                  <nz-form-label nzRequired>Quote Date</nz-form-label>
+                  <nz-form-control>
+                    <nz-date-picker formControlName="quoteDate" style="width: 100%;"></nz-date-picker>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+              <div nz-col [nzSpan]="8">
+                <nz-form-item>
+                  <nz-form-label>Valid Until</nz-form-label>
+                  <nz-form-control>
+                    <nz-date-picker formControlName="validUntil" style="width: 100%;"></nz-date-picker>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+              <div nz-col [nzSpan]="8">
+                <nz-form-item>
+                  <nz-form-label nzRequired>Currency</nz-form-label>
+                  <nz-form-control>
+                    <input nz-input formControlName="currency" placeholder="QAR" />
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+            </div>
+
+            <!-- Lines Section -->
+            <div class="lines-header">
+              <h3>Line Items</h3>
+              <button nz-button nzType="dashed" nzSize="small" type="button" (click)="addLine()">
+                <span nz-icon nzType="plus"></span>Add Item
+              </button>
+            </div>
+
+            <div formArrayName="lines" class="lines-table-container">
+              <table class="lines-table">
+                <thead>
+                  <tr>
+                    <th style="width: 220px;">Item / Product</th>
+                    <th>Description</th>
+                    <th style="width: 80px;">Qty</th>
+                    <th style="width: 100px;">Price</th>
+                    <th style="width: 75px;">Disc %</th>
+                    <th style="width: 75px;">Tax %</th>
+                    <th style="width: 100px;">Total</th>
+                    <th style="width: 40px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (ctrl of linesArray.controls; track $index) {
+                    <tr [formGroupName]="$index">
+                      <td style="width: 220px;">
+                        <nz-select
+                          formControlName="itemId"
+                          nzShowSearch
+                          nzAllowClear
+                          nzPlaceHolder="Select Item"
+                          (ngModelChange)="onItemSelected($index, $event)"
+                          style="width: 100%;">
+                          @for (it of items(); track it.id) {
+                            <nz-option [nzValue]="it.id" [nzLabel]="it.sku + ' - ' + it.name"></nz-option>
+                          }
+                        </nz-select>
+                      </td>
+                      <td><input aria-label="Item description" nz-input formControlName="description" placeholder="Item description" /></td>
+                      <td><nz-input-number formControlName="quantity" [nzMin]="1" [nzStep]="1" style="width: 100%;"></nz-input-number></td>
+                      <td><nz-input-number formControlName="unitPrice" [nzMin]="0" style="width: 100%;"></nz-input-number></td>
+                      <td><nz-input-number formControlName="discountPercent" [nzMin]="0" [nzMax]="100" style="width: 100%;"></nz-input-number></td>
+                      <td><nz-input-number formControlName="taxRate" [nzMin]="0" [nzMax]="100" style="width: 100%;"></nz-input-number></td>
+                      <td class="line-calc">{{ calculateLineTotal(ctrl.value) | number:'1.2-2' }}</td>
+                      <td>
+                        @if (linesArray.length > 1) {
+                          <button nz-button nzType="text" nzDanger nzSize="small" type="button" aria-label="Remove line" nz-tooltip nzTooltipTitle="Remove line" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="quote-summary-panel">
+              <div class="summary-line">
+                <span>Subtotal:</span>
+                <span>{{ calculatedTotals().subTotal | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-line">
+                <span>Total Tax:</span>
+                <span>{{ calculatedTotals().taxTotal | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-line total-highlight">
+                <span>Total Amount:</span>
+                <span>{{ form.get('currency')?.value }} {{ calculatedTotals().total | number:'1.2-2' }}</span>
+              </div>
+            </div>
+
+            <div nz-row [nzGutter]="16" style="margin-top: 16px;">
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label>Payment Terms</nz-form-label>
+                  <nz-form-control>
+                    <textarea nz-input formControlName="terms" rows="2" placeholder="e.g. 50% advance, balance on delivery"></textarea>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label>Internal Notes</nz-form-label>
+                  <nz-form-control>
+                    <textarea nz-input formControlName="notes" rows="2" placeholder="Notes for sales team"></textarea>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+            </div>
+
+            <div class="drawer-footer">
+              <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
+              <button nz-button nzType="primary" type="submit" [nzLoading]="isSubmitting()">Save Quote</button>
+            </div>
+          </form>
+        </ng-container>
+      </nz-drawer>
+  

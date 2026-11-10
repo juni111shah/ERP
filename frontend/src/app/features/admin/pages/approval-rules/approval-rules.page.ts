@@ -32,35 +32,7 @@ export const APPROVAL_DOCUMENT_TYPES = [
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RowActionsComponent, ErpLabelPipe, NzModalModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, FormsModule, HasPermissionDirective, NzButtonModule, NzIconModule, NzInputNumberModule, NzSelectModule, NzSwitchModule, NzTableModule],
-  template: `
-    <h1 class="erp-page-title">Approval rules</h1>
-    <p>A document that matches a rule waits for a second person (with the approve permission) before it is posted. Rules of one document type on different levels form a chain: level 1 decides first, then level 2, and so on. Rules on the same level are amount tiers, and the highest amount reached applies.</p>
-    <erp-table-tools [searchable]="false" (refresh)="load()" testId="rules">
-      <nz-select [ngModel]="active()" (ngModelChange)="active.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterStatus' | translate: 'Filter by status'" style="width:170px" data-testid="rules-status-filter"><nz-option nzValue="active" [nzLabel]="'ui.common.active' | translate: 'Active'"></nz-option><nz-option nzValue="inactive" [nzLabel]="'ui.common.inactive' | translate: 'Inactive'"></nz-option></nz-select>
-    </erp-table-tools>
-    <div class="erp-page-card" style="background:var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-radius:12px; overflow:hidden; margin-bottom:16px;">
-      <nz-table [nzData]="shown()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" nzNoResult="No approval rules yet, so documents post without a second person." data-testid="rules-table">
-        <thead><tr><th>Document</th><th>Level</th><th>Approver permission</th><th>From amount</th><th>Active</th><th></th></tr></thead>
-        <tbody>
-          @for (r of shown(); track r.id) {
-            <tr>
-              <td><span style="font-weight:600;">{{ typeLabel(r.documentType) }}</span></td>
-              <td data-testid="rule-level">{{ r.level }}</td><td><code>{{ r.approverPermission }}</code></td>
-              <td><strong>{{ r.minAmount != null ? (r.minAmount | number:'1.2-2') : 'Any amount' }}</strong></td>
-              <td><nz-switch [ngModel]="r.isActive" (ngModelChange)="toggle(r, $event)" [disabled]="!canWrite" aria-label="Rule is active" /></td>
-              <td class="erp-cell-actions"><erp-row-actions><button *erpHasPermission="'core.settings.write'" nz-button nzDanger nzSize="small" type="button" (click)="remove(r)" data-testid="rule-delete">Delete</button></erp-row-actions></td>
-            </tr>
-          }
-        </tbody>
-      </nz-table>
-    </div>
-    <div *erpHasPermission="'core.settings.write'" style="display:flex;gap:12px;margin-top:16px;align-items:flex-end;flex-wrap:wrap;background:var(--erp-color-bg-surface);padding:12px 16px;border-radius:10px;border:1px solid var(--erp-color-border-subtle);">
-      <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--erp-color-text-muted)">Document <nz-select [(ngModel)]="documentType" style="width:200px" data-testid="rule-type">@for (t of documentTypes; track t.value) { <nz-option [nzValue]="t.value" [nzLabel]="t.label"></nz-option> }</nz-select></div>
-      <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--erp-color-text-muted)">Level <nz-input-number [(ngModel)]="level" [nzMin]="1" [nzMax]="10" [nzPrecision]="0" style="width:90px" data-testid="rule-level-input"></nz-input-number></div>
-      <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--erp-color-text-muted)">Approver permission <nz-select [(ngModel)]="approverPermission" nzShowSearch style="width:260px" data-testid="rule-permission">@for (p of approverPermissions(); track p) { <nz-option [nzValue]="p" [nzLabel]="p"></nz-option> }</nz-select></div>
-      <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--erp-color-text-muted)">From amount (empty means any) <nz-input-number [(ngModel)]="minAmount" [nzMin]="0" [nzPrecision]="2" style="width:200px" data-testid="rule-amount"></nz-input-number></div>
-      <button nz-button nzType="primary" (click)="add()" data-testid="rule-add"><span nz-icon nzType="plus"></span> Add rule</button>
-    </div>`,
+  templateUrl: './approval-rules.page.html',
 })
 export class ApprovalRulesPage {
   private readonly api = inject(ApprovalPoliciesApi);

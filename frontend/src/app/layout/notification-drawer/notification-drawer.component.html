@@ -1,0 +1,61 @@
+
+    <div class="notifications-dropdown-panel" data-testid="notifications-menu">
+      <!-- Header -->
+      <div class="notif-header">
+        <div class="notif-header-title">
+          <span nz-icon nzType="bell" class="notif-bell-icon"></span>
+          <span>{{ 'shell.notifications' | translate: 'Notifications' }}</span>
+          @if (unreadCount() > 0) {
+            <span class="notif-badge">{{ unreadCount() }}</span>
+          }
+        </div>
+        @if (items().length > 0) {
+          <button nz-button nzType="text" nzSize="small" (click)="markAll()" class="notif-mark-all" data-testid="mark-all-read">
+            <span nz-icon nzType="check"></span>
+            {{ 'shell.markAllRead' | translate: 'Mark all as read' }}
+          </button>
+        }
+      </div>
+
+      <!-- Items list -->
+      <div class="notif-list">
+        @for (n of items(); track n.id) {
+          <div erpKeyboardClick class="notif-item" [class.unread]="!n.readAt" (click)="openItem(n)" data-testid="notification-item">
+            <div class="notif-item-icon" [class.unread]="!n.readAt">
+              <span nz-icon [nzType]="getIcon(n.severity)" nzTheme="outline"></span>
+            </div>
+            <div class="notif-item-content">
+              <div class="notif-item-title">{{ n.title }}</div>
+              @if (n.body) {
+                <div class="notif-item-body">{{ n.body }}</div>
+              }
+              <div class="notif-item-time">{{ formatTime(n.createdAt) }}</div>
+            </div>
+            @if (!n.readAt) {
+              <div class="notif-unread-dot" title="Unread"></div>
+            }
+          </div>
+        } @empty {
+          <div class="notif-empty">
+            <div class="notif-empty-icon">
+              <span nz-icon nzType="check-circle" nzTheme="outline"></span>
+            </div>
+            <div class="notif-empty-title">{{ 'shell.caughtUp' | translate: 'All caught up' }}</div>
+            <div class="notif-empty-desc">{{ 'shell.noNotifications' | translate: 'No new notifications right now' }}</div>
+          </div>
+        }
+      </div>
+
+      <!-- Footer -->
+      <div class="notif-footer">
+        <a routerLink="/approvals" (click)="closed.emit()" class="notif-footer-link">
+          <span nz-icon nzType="check-square"></span>
+          {{ 'core.approvals' | translate: 'Approvals' }}
+        </a>
+        <a routerLink="/admin/audit" (click)="closed.emit()" class="notif-footer-link">
+          <span nz-icon nzType="history"></span>
+          {{ 'core.audit' | translate: 'Audit Log' }}
+        </a>
+      </div>
+    </div>
+  

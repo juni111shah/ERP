@@ -35,47 +35,7 @@ import { PLATFORM_STYLES } from '../../platform-ui';
     .pf-facts { margin-bottom: 14px; font-size: 13px; flex: 1; align-content: start; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; }
   `],
-  template: `
-    <div class="pf-head">
-      <p>Public plans appear on the registration page. Private plans are only for clients you assign by hand.</p>
-      <div class="pf-actions"><button nz-button nzType="primary" type="button" (click)="edit(null)" data-testid="plans-new"><span nz-icon nzType="plus"></span>New plan</button></div>
-    </div>
-    @if (failed()) {
-      <erp-state-panel kind="error" title="Could not load the plans" hint="The server did not answer." actionLabel="Try again" (action)="load()" />
-    } @else if (loading()) {
-      <div class="cards">@for (i of [1, 2, 3]; track i) { <div class="pf-card"><nz-skeleton [nzActive]="true"></nz-skeleton></div> }</div>
-    } @else if (plans().length === 0) {
-      <erp-state-panel icon="tag" title="No plans yet" hint="Create the first plan to start taking registrations." actionLabel="New plan" (action)="edit(null)" />
-    } @else {
-      <div class="cards">
-        @for (p of plans(); track p.id) {
-          <section class="pf-card plan" [class.archived]="!p.isActive" [attr.data-testid]="'plan-' + p.code">
-            <div class="title"><h2>{{ p.name }}</h2><span class="pf-mono pf-muted">{{ p.code }}</span></div>
-            <div class="tags">
-              @if (!p.isActive) { <erp-status value="archived" label="Archived" /> }
-              <erp-status [value]="p.isPublic ? 'published' : 'inactive'" [label]="p.isPublic ? 'Public' : 'Private'" />
-              @if (p.isRecommended) { <erp-status value="new" label="Recommended" /> }
-            </div>
-            @if (p.description) { <p class="desc">{{ p.description }}</p> }
-            <div class="price">{{ p.monthlyPrice | erpMoney: p.currency }} <small>a month</small></div>
-            <div class="year">{{ p.annualPrice | erpMoney: p.currency }} a year @if (yearly(p); as s) { <em>saves {{ s.percent }}%</em> }</div>
-            <dl class="pf-facts">
-              <dt>Trial</dt><dd>{{ p.trialDays > 0 ? p.trialDays + ' days' : 'None' }}</dd>
-              <dt>Users</dt><dd>{{ p.maxUsers ?? 'No limit' }}</dd>
-              <dt>Legal entities</dt><dd>{{ p.maxLegalEntities ?? 'No limit' }}</dd>
-              <dt>Modules</dt><dd>{{ moduleText(p) }}</dd>
-              <dt>Clients</dt><dd data-testid="plan-client-count">{{ p.clientCount }}</dd>
-            </dl>
-            <div class="row">
-              <button nz-button nzSize="small" type="button" (click)="edit(p)" [attr.data-testid]="'plan-edit-' + p.code"><span nz-icon nzType="edit"></span>Edit</button>
-              <button nz-button nzSize="small" type="button" [nzDanger]="p.isActive" (click)="toggleArchive(p)" [attr.data-testid]="'plan-archive-' + p.code">{{ p.isActive ? 'Archive' : 'Restore' }}</button>
-            </div>
-          </section>
-        }
-      </div>
-    }
-    <erp-record-drawer [title]="editing() ? 'Edit ' + editing()!.name : 'New plan'" [open]="open()" [fields]="fields()" [value]="value()" [saving]="saving()" [errors]="errors()" [width]="720" testId="plan-form"
-                       (submitted)="save($event)" (closed)="open.set(false)" />`,
+  templateUrl: './platform-plans.page.html',
 })
 export class PlatformPlansPage {
   private readonly api = inject(PlatformApi);

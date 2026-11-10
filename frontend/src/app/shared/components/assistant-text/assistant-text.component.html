@@ -1,0 +1,22 @@
+
+    @for (b of blocks(); track $index) {
+      @if (b.kind === 'paragraph') {
+        <p dir="auto">@for (part of b.parts; track $index) {
+          @if (part.link) { <a [routerLink]="part.link" (click)="navigated.emit()">{{ part.text }}</a> }
+          @else if (part.bold) { <strong>{{ part.text }}</strong> }
+          @else { <span>{{ part.text }}</span> }
+        }</p>
+      } @else if (b.ordered) {
+        <ol dir="auto">@for (item of b.items; track $index) { <li>@for (part of item; track $index) {
+          @if (part.link) { <a [routerLink]="part.link" (click)="navigated.emit()">{{ part.text }}</a> }
+          @else if (part.bold) { <strong>{{ part.text }}</strong> }
+          @else { <span>{{ part.text }}</span> }
+        }</li> }</ol>
+      } @else {
+        <ul dir="auto">@for (item of b.items; track $index) { <li>@for (part of item; track $index) {
+          @if (part.link) { <a [routerLink]="part.link" (click)="navigated.emit()">{{ part.text }}</a> }
+          @else if (part.bold) { <strong>{{ part.text }}</strong> }
+          @else { <span>{{ part.text }}</span> }
+        }</li> }</ul>
+      }
+    }

@@ -27,40 +27,7 @@ import { APPROVAL_STATUSES, errorText, filterOptions, PRJ_STYLES, ProjectTagComp
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, RouterModule, NzButtonModule, NzIconModule, NzTagModule, NzModalModule, AttachmentsComponent, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, ProjectTagComponent],
-  template: `
-    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search expenses" emptyText="No expenses recorded yet." [clickable]="false" scrollX="1420px" exportFilename="project-expenses">
-      <button toolbar *erpHasPermission="'projects.expenses.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="expense-new"><span nz-icon nzType="plus"></span> New expense</button>
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @switch (column.key) {
-          @case ('projectName') { <a [routerLink]="['/projects', row.projectId]" class="prj-link">{{ row.projectName }}</a> }
-          @case ('amount') { {{ currency() }} {{ row.amount | number: '1.2-2' }} }
-          @case ('chargeAmount') { @if (row.isBillable) { {{ currency() }} {{ row.chargeAmount | number: '1.2-2' }} } @else { <span class="prj-muted">not charged</span> } }
-          @case ('status') { <erp-prj-tag kind="approval" [value]="row.status" [hint]="row.rejectReason" /> }
-          @case ('billing') {
-            @if (row.writtenOff) { <nz-tag>Written off</nz-tag> } @else if (!row.isBillable) { <nz-tag>Not billable</nz-tag> } @else if (row.isBilled) { <nz-tag nzColor="green">Billed</nz-tag> } @else { <nz-tag nzColor="orange">Unbilled</nz-tag> }
-          }
-          @case ('actions') {
-            <span class="acts">
-              <button nz-button nzSize="small" (click)="receipts.set(row)" [attr.data-testid]="'expense-receipts-' + row.id"><span nz-icon nzType="paper-clip"></span> Receipts</button>
-              @if (!row.isBilled && !row.writtenOff) {
-                <ng-container *erpHasPermission="'projects.expenses.manage'">
-                  @if (editable(row)) { <button nz-button nzSize="small" (click)="state.edit(row)" [attr.data-testid]="'expense-edit-' + row.id">Edit</button> }
-                  @if (row.status === 'draft' || row.status === 'rejected') { <button nz-button nzSize="small" (click)="submit(row)" [attr.data-testid]="'expense-submit-' + row.id">Submit</button> }
-                  @if (editable(row)) { <button nz-button nzSize="small" nzDanger (click)="remove(row)">Delete</button> }
-                </ng-container>
-              }
-            </span>
-          }
-          @default { {{ value }} }
-        }
-      </ng-template>
-    </erp-paged-table>
-    <nz-modal [nzVisible]="receipts() !== null" nzTitle="Receipts and documents" [nzFooter]="null" (nzOnCancel)="receipts.set(null)">
-      <ng-container *nzModalContent>@if (receipts(); as r) { <erp-attachments ownerType="projectexpense" [ownerId]="r.id" /> }</ng-container>
-    </nz-modal>
-    <erp-record-drawer [title]="state.editing() ? 'Edit expense' : 'New expense'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="expense-form" (submitted)="state.submit($event)" (closed)="state.close()" />
-  `,
+  templateUrl: './project-expenses.page.html',
   styles: [PRJ_STYLES + '.acts { display:inline-flex; gap:4px; }'],
 })
 export class ProjectExpensesPage {

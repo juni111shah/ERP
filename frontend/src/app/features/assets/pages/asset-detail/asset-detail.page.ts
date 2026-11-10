@@ -30,49 +30,8 @@ import { assetFields, businessUnitLookup } from '../../asset-form';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, RouterLink, NzCardModule, NzModalModule, NzSpinModule, NzTableModule, DetailPageComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
-  styles: [`
-    .section { margin-top: 16px; }
-    .r { text-align: end; white-space: nowrap; }
-    .muted { color: var(--erp-color-text-muted); }
-  `],
-  template: `
-    @if (loading()) {
-      <div style="text-align:center;padding:48px"><nz-spin nzSimple /></div>
-    } @else if (error()) {
-      <erp-state-panel kind="error" title="Could not load this asset" [hint]="error()" actionLabel="Try again" (action)="load()" />
-    } @else if (asset(); as a) {
-      <erp-detail-page [backLink]="['/assets/register']" backLabel="Back to Asset register" [title]="a.number + ' · ' + a.name" [status]="a.status" [actions]="actions()"
-                       [kpiCards]="kpiCards()" [descriptions]="descriptions()" entityName="Asset" recordType="FixedAsset" [recordId]="a.id" [showDocuments]="false" [createdAt]="a.acquisitionDate">
-        <div content>
-          <nz-card class="section" nzTitle="Depreciation schedule" nzSize="small" data-testid="asset-schedule">
-            @if (schedule(); as s) {
-              @if (s.rows.length) {
-                <nz-table [nzData]="s.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
-                  <thead><tr><th>Period end</th><th class="r">Depreciation</th><th class="r">Accumulated</th><th class="r">Net book value</th><th>Status</th><th>Journal</th></tr></thead>
-                  <tbody>
-                    @for (row of s.rows; track row.periodEnd) {
-                      <tr>
-                        <td>{{ fmtDate(row.periodEnd) }}</td>
-                        <td class="r">{{ (row.posted ? (row.postedAmount ?? row.amount) : row.amount) | number: '1.2-2' }}</td>
-                        <td class="r">{{ row.accumulated | number: '1.2-2' }}</td>
-                        <td class="r">{{ row.netBookValue | number: '1.2-2' }}</td>
-                        <td><erp-status [value]="row.posted ? 'posted' : 'scheduled'" [label]="row.posted ? 'Posted' : 'Planned'" /></td>
-                        <td>@if (row.journalEntryId) { <a [routerLink]="['/finance/journals', row.journalEntryId]">Open journal</a> } @else { <span class="muted">—</span> }</td>
-                      </tr>
-                    }
-                  </tbody>
-                </nz-table>
-              } @else { <span class="muted">There is nothing to depreciate yet. The schedule appears once the asset is capitalised.</span> }
-            } @else { <span class="muted">The schedule is not available.</span> }
-          </nz-card>
-        </div>
-      </erp-detail-page>
-      <erp-record-drawer title="Edit asset" [open]="edit.open()" [fields]="editFields()" [value]="$any(a)" [saving]="edit.saving()" [errors]="edit.errors()" testId="asset-form" (submitted)="edit.submit($event)" (closed)="edit.close()" />
-      <erp-record-drawer title="Capitalise asset" submitLabel="Capitalise" [open]="capitalise.open()" [fields]="capitaliseFields" [saving]="capitalise.saving()" [errors]="capitalise.errors()"
-                         testId="capitalise-form" (submitted)="capitalise.submit($event)" (closed)="capitalise.close()" />
-      <erp-record-drawer title="Dispose of asset" submitLabel="Dispose" [open]="dispose.open()" [fields]="disposeFields" [saving]="dispose.saving()" [errors]="dispose.errors()"
-                         testId="dispose-form" (submitted)="dispose.submit($event)" (closed)="dispose.close()" />
-    }`,
+  styleUrl: './asset-detail.page.scss',
+  templateUrl: './asset-detail.page.html',
 })
 export class AssetDetailPage implements OnInit {
   private readonly api = inject(AssetsApi);

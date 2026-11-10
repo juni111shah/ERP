@@ -1,0 +1,60 @@
+
+    <h1 class="erp-page-title">Opening balances</h1>
+    <p>Enter the balances you start the books with. Lines on the receivables account become open customer invoices and lines on the payables account become open vendor bills, so ageing and payments work from day one. The difference goes to the opening equity account.</p>
+    <erp-paged-table [list]="list" [columns]="columns" [searchable]="false" [clickable]="false" emptyText="No opening balances have been entered.">
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('number') { <a [routerLink]="['/finance/journals', row.id]">{{ row.number }}</a> }
+          @case ('status') { <erp-status [value]="row.status" /> }
+          @case ('amount') { {{ row.amount | number: '1.2-2' }} }
+          @case ('actions') {
+            @if (row.status === 'posted') {
+              <button *erpHasPermission="'finance.journals.reverse'" nz-button nzSize="small" nzDanger type="button" (click)="reverse(row)" data-testid="opening-reverse">Reverse</button>
+            }
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+      <button toolbar *erpHasPermission="'finance.journals.post'" nz-button nzType="primary" (click)="openForm()" data-testid="opening-new"><span nz-icon nzType="plus"></span>Enter opening balances</button>
+    </erp-paged-table>
+
+    <nz-drawer [nzVisible]="open()" nzTitle="Enter opening balances" [nzWidth]="980" (nzOnClose)="open.set(false)" [nzFooter]="footer">
+      <ng-container *nzDrawerContent>
+        @if (serverError(); as msg) { <nz-alert nzType="error" nzShowIcon [nzMessage]="msg" style="margin-bottom:12px" data-testid="opening-error"></nz-alert> }
+        <div class="head">
+          <div class="field">Legal entity
+            <nz-select [(ngModel)]="entityId" style="width:240px" data-testid="opening-entity">@for (o of entities; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label" /> }</nz-select>
+          </div>
+          <div class="field">As of date <nz-date-picker [(ngModel)]="date" [nzAllowClear]="false" data-testid="opening-date" /></div>
+          <div class="field" style="flex:1;min-width:200px">Memo <input nz-input [(ngModel)]="memo" maxlength="300" data-testid="opening-memo" /></div>
+        </div>
+        <div class="line head-row" aria-hidden="true"><span>Account</span><span>Debit</span><span>Credit</span><span>Party</span><span>Due date</span><span></span></div>
+        @for (l of lines(); track $index; let i = $index) {
+          <div class="line" [attr.data-testid]="'opening-line-' + i">
+            <nz-select [ngModel]="l.accountId" (ngModelChange)="set(i, { accountId: $event })" nzShowSearch nzPlaceHolder="Account" [attr.aria-label]="'Account, line ' + (i + 1)">
+              @for (a of accounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name" /> }
+            </nz-select>
+            <nz-input-number [ngModel]="l.debit" (ngModelChange)="set(i, { debit: $event })" [nzMin]="0" [nzPrecision]="2" style="width:100%" [attr.aria-label]="'Debit, line ' + (i + 1)" />
+            <nz-input-number [ngModel]="l.credit" (ngModelChange)="set(i, { credit: $event })" [nzMin]="0" [nzPrecision]="2" style="width:100%" [attr.aria-label]="'Credit, line ' + (i + 1)" />
+            <div>
+              <nz-select [ngModel]="l.partyId" (ngModelChange)="set(i, { partyId: $event })" nzShowSearch nzServerSearch nzAllowClear (nzOnSearch)="searchParties($event)" [nzPlaceHolder]="partyRequired(l) ? 'Required' : 'Optional'" [attr.aria-label]="'Party, line ' + (i + 1)" style="width:100%">
+                @for (p of parties(); track p.value) { <nz-option [nzValue]="p.value" [nzLabel]="p.label" /> }
+              </nz-select>
+              @if (partyRequired(l) && !l.partyId) { <div class="hint warn">A {{ partyKind(l) }} is needed on this account.</div> }
+            </div>
+            <nz-date-picker [ngModel]="l.dueDate" (ngModelChange)="set(i, { dueDate: $event })" [attr.aria-label]="'Due date, line ' + (i + 1)" style="width:100%" />
+            <button nz-button nzSize="small" nzDanger type="button" (click)="remove(i)" [attr.aria-label]="'Remove line ' + (i + 1)">Remove</button>
+          </div>
+        }
+        <button nz-button nzSize="small" type="button" (click)="add()" data-testid="opening-add">Add line</button>
+        <div class="totals" data-testid="opening-totals">
+          <span>Debit {{ totalDebit() | number: '1.2-2' }}</span><span>Credit {{ totalCredit() | number: '1.2-2' }}</span>
+          <span>Opening equity {{ equityDifference() | number: '1.2-2' }} {{ equityDifference() >= 0 ? 'credit' : 'debit' }}</span>
+        </div>
+        <p class="hint">Do not add the opening equity account or any income or expense account. The difference is posted to opening equity for you.</p>
+      </ng-container>
+    </nz-drawer>
+    <ng-template #footer>
+      <button nz-button type="button" (click)="open.set(false)">Cancel</button>
+      <button nz-button nzType="primary" type="button" [nzLoading]="saving()" [disabled]="!canSave()" (click)="save()" style="margin-inline-start:8px" data-testid="opening-save">Post opening balances</button>
+    </ng-template>

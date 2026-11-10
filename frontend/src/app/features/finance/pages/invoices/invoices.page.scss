@@ -1,0 +1,5 @@
+.num { font-variant-numeric: tabular-nums } .sub { color: var(--erp-color-text-muted); font-size:12px }
+    .doc-no { display:inline-flex; align-items:center; gap:4px; white-space:nowrap }
+    .line { display:grid; grid-template-columns: 2.4fr .8fr 1fr 1.2fr 32px; gap:8px; margin-bottom:8px; align-items:center } .line nz-input-number { width:100% }
+    .line-head { margin-bottom:4px; font-size:12px; font-weight:600; color: var(--erp-color-text-muted) }
+    .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0; font-variant-numeric: tabular-nums }

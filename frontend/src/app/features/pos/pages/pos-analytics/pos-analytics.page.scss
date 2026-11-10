@@ -1,0 +1,22 @@
+
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .ranges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1; }
+    .register { width: 200px; }
+    .six { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .grid-row { margin-top: 16px; }
+    .panel { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); height: 100%; padding: 16px 20px; border-radius: var(--erp-radius-card, 8px); }
+    .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: var(--erp-color-text-primary); }
+    .head h3 { margin: 0; }
+    .muted { color: var(--erp-color-text-muted); }
+    p.muted { margin: 0 0 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { font-size: 12px; font-weight: 600; text-align: start; color: var(--erp-color-text-muted); }
+    th.amt { text-align: end; }
+    td, th { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--erp-color-border-subtle); }
+    .amt { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .strong { font-weight: 700; }
+    .shift { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 0; border-top: 1px solid var(--erp-color-border-subtle); }
+    .who, .cash { display: flex; flex-direction: column; min-width: 0; }
+    .cash { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  

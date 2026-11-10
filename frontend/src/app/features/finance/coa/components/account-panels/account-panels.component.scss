@@ -1,0 +1,73 @@
+
+    :host { display: block; }
+    .coa-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 12px; min-height: 24px; font-size: 13px; }
+    .coa-crumb { border: 0; background: none; padding: 2px 4px; border-radius: 4px; color: var(--erp-color-primary-text); cursor: pointer; font: inherit; }
+    .coa-crumb:hover { background: var(--erp-color-primary-subtle); }
+    .coa-crumb:focus-visible { outline: none; box-shadow: var(--erp-focus-ring); }
+    .coa-crumb.is-current { color: var(--erp-color-text-primary); font-weight: 600; cursor: default; }
+    .coa-crumb-sep { color: var(--erp-color-text-muted); font-size: 10px; }
+
+    .coa-columns { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x proximity; align-items: stretch; }
+    .coa-panel {
+      flex: 0 0 336px; min-width: 0; display: flex; flex-direction: column; height: calc(100vh - 230px); min-height: 380px;
+      background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: var(--erp-radius-base);
+      scroll-snap-align: start; animation: coa-in 220ms ease-out both;
+    }
+    .coa-panel:first-child { animation: none; }
+    @keyframes coa-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+    @keyframes coa-in-rtl { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+    :host-context([dir='rtl']) .coa-panel { animation-name: coa-in-rtl; }
+
+    .coa-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--erp-color-border-subtle); }
+    .coa-panel-title { display: flex; align-items: center; gap: 8px; font-weight: 600; min-width: 0; }
+    .coa-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .coa-count { font-weight: 500; font-size: 12px; color: var(--erp-color-text-secondary); background: var(--erp-color-bg-sunken); border-radius: 10px; padding: 0 8px; }
+    .coa-owner { padding: 10px 12px; border-bottom: 1px solid var(--erp-color-border-subtle); background: var(--erp-color-bg-sunken); display: grid; gap: 6px; }
+    .coa-owner-name { font-weight: 600; }
+    .coa-search { padding: 8px 12px; }
+    .coa-panel-body { flex: 1; overflow-y: auto; min-height: 0; }
+
+    .coa-list { list-style: none; margin: 0; padding: 4px 0; }
+    .coa-item {
+      display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; border: 0; border-inline-start: 3px solid transparent;
+      background: none; color: inherit; font: inherit; text-align: start; cursor: pointer;
+    }
+    .coa-item:hover { background: var(--erp-color-nav-item-hover-bg); }
+    .coa-item:focus-visible { outline: none; box-shadow: inset var(--erp-focus-ring); }
+    .coa-item.is-selected { background: var(--erp-color-primary-subtle); border-inline-start-color: var(--erp-color-primary); }
+    .coa-item.is-inactive .coa-item-name { color: var(--erp-color-text-muted); text-decoration: line-through; }
+    .coa-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .coa-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .coa-item-sub { font-size: 12px; color: var(--erp-color-text-secondary); }
+    .coa-group-icon { color: var(--erp-color-primary-text); margin-inline-end: 6px; font-size: 13px; }
+    .coa-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--erp-color-text-secondary); min-width: 44px; }
+    .coa-cat-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; background: var(--erp-color-primary-subtle); color: var(--erp-color-primary-text); }
+    .coa-balance { font-variant-numeric: tabular-nums; font-size: 12px; white-space: nowrap; color: var(--erp-color-text-primary); }
+    .coa-balance.is-negative { color: var(--erp-color-error-text); }
+    .coa-kids { font-size: 11px; color: var(--erp-color-text-secondary); background: var(--erp-color-bg-sunken); border-radius: 10px; padding: 0 6px; }
+    .coa-chevron { color: var(--erp-color-text-muted); font-size: 11px; }
+    .coa-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .coa-tags:empty { display: none; }
+    .coa-tag { font-size: 11px; line-height: 16px; padding: 0 6px; border-radius: 4px; background: var(--erp-color-bg-sunken); color: var(--erp-color-text-secondary); border: 1px solid var(--erp-color-border-subtle); }
+    .coa-tag.is-info { background: var(--erp-color-info-bg); border-color: var(--erp-color-info-border); }
+    .coa-tag.is-system { background: var(--erp-color-warning-bg); border-color: var(--erp-color-warning-border); color: var(--erp-color-warning-text); }
+    .coa-tag.is-off { background: var(--erp-color-error-bg); border-color: var(--erp-color-error-border); color: var(--erp-color-error-text); }
+    .coa-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .coa-more { padding: 8px 12px; }
+    .coa-empty { padding: 24px 12px; text-align: center; color: var(--erp-color-text-secondary); list-style: none; }
+
+    .coa-skeleton { padding: 8px 12px; display: grid; gap: 14px; }
+    .coa-skel-row { display: flex; gap: 10px; align-items: center; }
+    .coa-skel { display: block; height: 12px; border-radius: 4px; background: linear-gradient(90deg, var(--erp-color-bg-sunken) 25%, var(--erp-color-border-subtle) 50%, var(--erp-color-bg-sunken) 75%); background-size: 200% 100%; animation: coa-shimmer 1.2s linear infinite; }
+    .coa-skel.a { width: 44px; } .coa-skel.b { flex: 1; }
+    @keyframes coa-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .coa-panel, .coa-skel { animation: none !important; }
+    }
+    /* Phones: the columns stack, newest at the bottom. */
+    @media (max-width: 767px) {
+      .coa-columns { flex-direction: column; overflow-x: visible; scroll-snap-type: none; }
+      .coa-panel { flex: none; width: 100%; height: auto; min-height: 0; max-height: 70vh; }
+    }
+  

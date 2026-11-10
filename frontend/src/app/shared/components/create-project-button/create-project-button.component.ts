@@ -20,25 +20,8 @@ import { SessionStore } from '@core/session/session.store';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, NzButtonModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule],
-  template: `
-    @if (visible()) {
-      <button nz-button (click)="open.set(true)" data-testid="create-project"><span nz-icon nzType="project"></span> Create project</button>
-      <nz-modal [nzVisible]="open()" nzTitle="Create a project from this record" nzOkText="Create project" [nzOkLoading]="busy()" (nzOnOk)="create()" (nzOnCancel)="open.set(false)">
-        <ng-container *nzModalContent>
-          <label>Project name<input nz-input [(ngModel)]="name" maxlength="200" aria-label="Project name" data-testid="cp-name" /></label>
-          <label style="display:block;margin-top:8px">How is it billed
-            <nz-select [(ngModel)]="billingType" style="width:100%" aria-label="Billing type">
-              <nz-option nzValue="timeAndMaterials" nzLabel="Time and materials"></nz-option>
-              <nz-option nzValue="fixedFee" nzLabel="Fixed fee (the budget is the fee)"></nz-option>
-              <nz-option nzValue="nonBillable" nzLabel="Not billed"></nz-option>
-            </nz-select>
-          </label>
-          <p class="hint">Customer, budget and the link back to {{ sourceLabel() }} are filled in for you.</p>
-        </ng-container>
-      </nz-modal>
-    }
-  `,
-  styles: ['.hint { color:#64748b; font-size:12.5px; margin-top:8px }'],
+  templateUrl: './create-project-button.component.html',
+  styleUrl: './create-project-button.component.scss',
 })
 export class CreateProjectButtonComponent {
   private readonly session = inject(SessionStore);

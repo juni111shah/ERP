@@ -1,0 +1,55 @@
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div>
+        <h1 class="erp-page-title" style="margin:0;">{{ 'menu.inventory.movements' | translate: 'Stock movements' }}</h1>
+        <p class="sub">Every receipt, issue, transfer and adjustment, newest first.</p>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <a routerLink="/inventory/stock" nz-button nzType="default">
+          <span nz-icon nzType="appstore"></span> {{ 'menu.inventory.stock' | translate: 'Stock on hand' }}
+        </a>
+        <a routerLink="/inventory/warehouses" nz-button nzType="default">
+          <span nz-icon nzType="home"></span> {{ 'menu.inventory.warehouses' | translate: 'Warehouses' }}
+        </a>
+      </div>
+    </div>
+
+    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search reference or memo" emptyText="No stock movements yet. They appear when stock is received, issued, moved or counted." [clickable]="false">
+      <input aria-label="Exact reference, for example CNT-00001" toolbar nz-input style="width:170px" placeholder="Exact reference" [ngModel]="reference" (ngModelChange)="filterReference($event)" data-testid="movement-reference" />
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('kind') {
+            <erp-status [value]="row.kind" />
+          }
+          @case ('quantity') {
+            <span class="qty-badge" [ngClass]="row.quantity > 0 ? 'qty-in' : row.quantity < 0 ? 'qty-out' : 'qty-neutral'">
+              <span nz-icon [nzType]="row.quantity > 0 ? 'arrow-down' : row.quantity < 0 ? 'arrow-up' : 'minus'" aria-hidden="true"></span>
+              {{ row.quantity > 0 ? '+' : '' }}{{ row.quantity | number:'1.0-4' }}
+            </span>
+          }
+          @case ('unitCost') {
+            {{ currency() }} {{ row.unitCost | number:'1.2-2' }}
+          }
+          @case ('reference') {
+            @if (row.reference) {
+              <span class="ref-pill">{{ row.reference }}</span>
+            } @else {
+              <span class="none">—</span>
+            }
+          }
+          @case ('journal') {
+            @if (row.journalEntryId) {
+              <a [routerLink]="['/finance/journals', row.journalEntryId]" nz-button nzType="link" nzSize="small">
+                <span nz-icon nzType="book"></span> Journal
+              </a>
+            } @else {
+              <span class="none">—</span>
+            }
+          }
+          @default {
+            {{ value || '—' }}
+          }
+        }
+      </ng-template>
+    </erp-paged-table>
+  

@@ -23,19 +23,8 @@ export function matchText(q: string | null | undefined, ...values: unknown[]): b
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ExpandSearchComponent, NzButtonModule, NzIconModule, RevealDirective],
-  styles: [`.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; } .bar .search { max-width: 320px; } .spacer { flex: 1; } :host { display: block; }`],
-  template: `
-    <div class="bar" erpReveal>
-      @if (searchable()) {
-        <erp-expand-search class="search" [placeholder]="placeholder()" [label]="placeholder()" [(value)]="search" [testId]="testId() + '-search'" />
-      }
-      <ng-content />
-      <span class="spacer"></span>
-      <ng-content select="[end]" />
-      <button nz-button nzType="default" type="button" (click)="refresh.emit()" [disabled]="loading()" [attr.data-testid]="testId() + '-refresh'">
-        <span nz-icon nzType="reload"></span> {{ t('ui.common.refresh', 'Refresh') }}
-      </button>
-    </div>`,
+  styleUrl: './table-tools.component.scss',
+  templateUrl: './table-tools.component.html',
 })
 export class TableToolsComponent {
   private readonly i18n = inject(I18nService);

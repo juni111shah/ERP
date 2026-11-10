@@ -1,0 +1,21 @@
+
+    .coa-dd { display: grid; gap: 16px; }
+    .coa-dd-head { display: grid; gap: 6px; }
+    .coa-dd-name { font-size: 16px; font-weight: 600; }
+    .coa-dd-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--erp-color-text-secondary); }
+    .coa-dd-name .coa-dd-code { font-size: 13px; margin-inline-end: 6px; }
+    .coa-dd-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .coa-dd-tags:empty { display: none; }
+    .coa-dd-tag { font-size: 11px; line-height: 16px; padding: 0 6px; border-radius: 4px; background: var(--erp-color-bg-sunken); color: var(--erp-color-text-secondary); border: 1px solid var(--erp-color-border-subtle); }
+    .coa-dd-tag.is-info { background: var(--erp-color-info-bg); border-color: var(--erp-color-info-border); }
+    .coa-dd-tag.is-system { background: var(--erp-color-warning-bg); border-color: var(--erp-color-warning-border); color: var(--erp-color-warning-text); }
+    .coa-dd-tag.is-off { background: var(--erp-color-error-bg); border-color: var(--erp-color-error-border); color: var(--erp-color-error-text); }
+    .coa-dd-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .coa-dd-fields { display: grid; grid-template-columns: max-content 1fr; gap: 10px 16px; margin: 0; padding-top: 12px; border-top: 1px solid var(--erp-color-border-subtle); }
+    .coa-dd-fields dt { color: var(--erp-color-text-secondary); }
+    .coa-dd-fields dd { margin: 0; overflow-wrap: anywhere; }
+    .coa-dd-status { color: var(--erp-color-success-text, inherit); }
+    .coa-dd-status.is-off { color: var(--erp-color-error-text); }
+    .coa-dd-balance { font-variant-numeric: tabular-nums; }
+    .coa-dd-balance.is-negative { color: var(--erp-color-error-text); }
+  

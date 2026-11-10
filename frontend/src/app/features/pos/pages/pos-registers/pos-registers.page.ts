@@ -27,35 +27,8 @@ interface Option { value: string; label: string; }
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpDatePipe, StatusTagComponent, NzButtonModule, NzIconModule, NzModalModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective],
-  template: `
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No registers yet. Add one to start selling." exportFilename="pos-registers" (rowClick)="onRow($event)">
-      <button toolbar *erpHasPermission="'pos.registers.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="pos-register-new"><span nz-icon nzType="plus"></span>New register</button>
-      <ng-template #cell let-reg let-column="column" let-value="value">
-        @if (column.key === 'code') {
-          <strong class="nowrap">{{ reg.code }}</strong>
-        } @else if (column.key === 'warehouse') {
-          {{ warehouseName(reg.warehouseId) || 'Default' }}
-        } @else if (column.key === 'receiptHeader') {
-          <span class="preview" [title]="reg.receiptHeader || ''">{{ reg.receiptHeader || '-' }}</span>
-        } @else if (column.key === 'isActive') {
-          <erp-status [value]="reg.isActive ? 'active' : 'inactive'" />
-        } @else if (column.key === 'createdAt') {
-          <span class="nowrap">{{ reg.createdAt | erpDate }}</span>
-        } @else if (column.key === 'actions') {
-          <button *erpHasPermission="'pos.registers.manage'" nz-button nzType="link" nzDanger nzSize="small" (click)="remove(reg); $event.stopPropagation()" [attr.data-testid]="'pos-register-delete-' + reg.code">Delete</button>
-        } @else {
-          {{ value }}
-        }
-      </ng-template>
-    </erp-paged-table>
-
-    <erp-record-drawer [title]="state.editing() ? 'Edit register' : 'New register'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-      [saving]="state.saving()" [errors]="state.errors()" testId="pos-register-form" (submitted)="save($event)" (closed)="state.close()" />
-  `,
-  styles: [`
-    .nowrap { white-space: nowrap; }
-    .preview { display: block; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  `],
+  templateUrl: './pos-registers.page.html',
+  styleUrl: './pos-registers.page.scss',
 })
 export class PosRegistersPage {
   private readonly api = inject(PosRegistersApi);

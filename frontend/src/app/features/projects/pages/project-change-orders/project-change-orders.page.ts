@@ -24,48 +24,7 @@ import { errorText, PRJ_STYLES, ProjectTagComponent } from '../../projects-ui';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputModule, NzModalModule, NzTableModule, RecordDrawerComponent, HasPermissionDirective, ProjectTagComponent],
-  template: `
-    <div class="prj-toolbar">
-      <span class="prj-muted">{{ summary() }}</span>
-      <span class="prj-spacer"></span>
-      <button *erpHasPermission="'projects.changeorders.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="co-new"><span nz-icon nzType="plus"></span> New change order</button>
-    </div>
-    <div class="prj-table-wrap">
-      <nz-table [nzData]="rows()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzNoResult]="' '" data-testid="co-table">
-        <thead><tr><th>Number</th>@if (!projectId()) { <th>Project</th> }<th>Title</th><th class="prj-num">Change to budget</th><th class="prj-num">Change to hours</th><th>Status</th><th></th></tr></thead>
-        <tbody>
-          @for (c of rows(); track c.id) {
-            <tr>
-              <td>{{ c.number }}</td>
-              @if (!projectId()) { <td><a [routerLink]="['/projects', c.projectId]" [queryParams]="{ tab: 'risks' }" class="prj-link">{{ projectName(c.projectId) }}</a></td> }
-              <td><span class="prj-strong">{{ c.title }}</span>@if (c.description) { <div class="prj-muted">{{ c.description }}</div> }@if (c.decisionNote) { <div class="prj-muted">Decision: {{ c.decisionNote }}</div> }</td>
-              <td class="prj-num">{{ currency() }} {{ c.amountChange | number: '1.2-2' }}</td><td class="prj-num">{{ c.hoursChange | number: '1.0-1' }}</td>
-              <td><erp-prj-tag kind="change" [value]="c.status" /></td>
-              <td class="prj-num">
-                <ng-container *erpHasPermission="'projects.changeorders.manage'">
-                  @if (c.status === 'draft') {
-                    <button nz-button nzSize="small" (click)="state.edit(c)">Edit</button>
-                    <button nz-button nzSize="small" nzType="primary" (click)="decide(c, true)" [attr.data-testid]="'co-approve-' + c.number">Approve</button>
-                    <button nz-button nzSize="small" nzDanger (click)="decide(c, false)">Reject</button>
-                    <button nz-button nzSize="small" nzType="text" nzDanger (click)="remove(c)" aria-label="Delete change order"><span nz-icon nzType="delete"></span></button>
-                  }
-                </ng-container>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </nz-table>
-      @if (!rows().length) { <div class="prj-empty">No change orders yet.</div> }
-    </div>
-    <erp-record-drawer [title]="state.editing() ? 'Edit change order' : 'New change order'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="co-form" (submitted)="state.submit($event)" (closed)="state.close()" />
-    <nz-modal [nzVisible]="deciding() !== null" [nzTitle]="deciding()?.approve ? 'Approve change order' : 'Reject change order'" nzOkText="Confirm" [nzOkDanger]="!deciding()?.approve" (nzOnOk)="confirmDecision()" (nzOnCancel)="deciding.set(null)">
-      <ng-container *nzModalContent>
-        <p>{{ deciding()?.order?.number }} · {{ deciding()?.order?.title }}. @if (deciding()?.approve) { The project budget will change by {{ currency() }} {{ deciding()?.order?.amountChange | number: '1.2-2' }}. }</p>
-        <textarea nz-input rows="3" [(ngModel)]="note" maxlength="500" placeholder="Note (for example who agreed)" aria-label="Decision note" data-testid="co-note"></textarea>
-      </ng-container>
-    </nz-modal>
-  `,
+  templateUrl: './project-change-orders.page.html',
   styles: [PRJ_STYLES],
 })
 export class ProjectChangeOrdersPage {

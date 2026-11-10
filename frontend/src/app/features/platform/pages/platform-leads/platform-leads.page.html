@@ -1,0 +1,75 @@
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load leads" hint="The server did not answer." actionLabel="Try again" (action)="load()" />
+    } @else if (loading()) {
+      <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+    } @else {
+      <div class="pf-head"><p>People who asked the public assistant to be contacted. Public chats are deleted after 30 days. Leads stay until you delete them.</p></div>
+      <section class="pf-card group" data-testid="leads-list">
+        <h2>Leads</h2>
+        @if (!leads().length) {
+          <p class="pf-empty" data-testid="leads-empty">No leads yet.</p>
+        } @else {
+          <div class="pf-scroll">
+            <table class="pf-table">
+              <thead><tr><th>Received</th><th>Person</th><th>What they need</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                @for (l of leads(); track l.id) {
+                  <tr [attr.data-testid]="'lead-' + l.email">
+                    <td class="pf-nowrap">{{ l.createdAt | erpDate }}</td>
+                    <td><strong>{{ l.name }}</strong><br /><a [href]="'mailto:' + l.email">{{ l.email }}</a>
+                      @if (l.phone) { <br /><span class="pf-small">{{ l.phone }}</span> }
+                      @if (l.company) { <br /><span class="pf-muted pf-small">{{ l.company }}</span> }
+                      @if (l.hasRegistered) { <br /><erp-status value="active" label="Has registered" /> }
+                    </td>
+                    <td><span class="need" dir="auto" data-no-i18n>{{ l.need }}</span></td>
+                    <td><nz-select [ngModel]="l.status" (ngModelChange)="setStatus(l, $event)" [attr.data-testid]="'lead-status-' + l.email">
+                      @for (s of statuses; track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.label"></nz-option> }
+                    </nz-select></td>
+                    <td><div class="row-actions">
+                      @if (l.conversationId) { <button nz-button nzSize="small" type="button" (click)="openChat(l.conversationId)" [attr.data-testid]="'lead-chat-' + l.email">Chat</button> }
+                      <button nz-button nzSize="small" nzDanger type="button" (click)="remove(l)" [attr.data-testid]="'lead-delete-' + l.email">Delete</button>
+                    </div></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+      <section class="pf-card" data-testid="conversations-list">
+        <h2>Public chats</h2>
+        <p class="pf-muted pf-small" style="margin:-4px 0 12px">Chats where a reply quoted a price that matches no plan are marked and listed first, so you can check them.</p>
+        @if (!conversations().length) {
+          <p class="pf-empty">No chats yet.</p>
+        } @else {
+          <div class="pf-scroll">
+            <table class="pf-table">
+              <thead><tr><th>Last message</th><th>First question</th><th class="num">Questions</th><th></th><th></th></tr></thead>
+              <tbody>
+                @for (c of conversations(); track c.id) {
+                  <tr data-testid="conversation-row">
+                    <td class="pf-nowrap">{{ c.lastMessageAt | erpDate }}</td>
+                    <td><div class="said" dir="auto" data-no-i18n>{{ c.firstMessage }}</div></td>
+                    <td class="num">{{ c.visitorMessages }}</td>
+                    <td>@if (c.needsReview) { <erp-status value="overdue" label="Check the prices" /> }</td>
+                    <td class="erp-cell-actions num"><erp-row-actions><button nz-button nzSize="small" type="button" (click)="openChat(c.id)" data-testid="conversation-open">Read</button></erp-row-actions></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+    <nz-modal [nzVisible]="chat() !== null" nzTitle="Public chat" [nzFooter]="null" (nzOnCancel)="chat.set(null)">
+      <ng-container *nzModalContent>
+        <div data-no-i18n data-testid="conversation-transcript">
+          @for (m of chat() ?? []; track $index) {
+            <div class="turn" [class.visitor]="m.fromVisitor" [class.assistant]="!m.fromVisitor">
+              @if (m.fromVisitor) { <span dir="auto">{{ m.text }}</span> } @else { <erp-assistant-text [text]="m.text" /> }
+            </div>
+          } @empty { <p class="pf-empty">This chat has been deleted.</p> }
+        </div>
+      </ng-container>
+    </nz-modal>

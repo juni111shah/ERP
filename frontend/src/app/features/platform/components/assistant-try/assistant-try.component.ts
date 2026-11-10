@@ -15,46 +15,8 @@ interface TryMessage { role: 'user' | 'assistant'; text: string; }
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, NzButtonModule, NzInputModule, NzRadioModule],
-  styles: [`
-    :host { display: block; }
-    .which { margin-bottom: 12px; }
-    .log { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; margin-bottom: 12px; }
-    .bubble { max-width: 85%; padding: 8px 12px; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
-    .bubble.user { align-self: flex-end; background: var(--erp-color-primary-subtle); color: var(--erp-color-text-primary); }
-    .bubble.assistant { align-self: flex-start; background: var(--erp-color-bg-subtle); color: var(--erp-color-text-primary); }
-    .status { color: var(--erp-color-text-muted); font-size: 12.5px; }
-    .error { color: var(--erp-color-error-text); font-size: 13px; margin-bottom: 8px; }
-    .send { display: flex; gap: 8px; align-items: flex-end; }
-    .send textarea { flex: 1; min-width: 0; }
-    .meta { color: var(--erp-color-text-muted); font-size: 12.5px; margin-top: 6px; }
-  `],
-  template: `
-    <div class="which">
-      <nz-radio-group [ngModel]="bot()" (ngModelChange)="bot.set($event)" nzButtonStyle="solid" [nzDisabled]="sending()" data-testid="assistant-try-bot">
-        <label nz-radio-button nzValue="brand">Public assistant's services</label>
-        <label nz-radio-button nzValue="workspace">Client data services</label>
-      </nz-radio-group>
-    </div>
-    @if (messages().length) {
-      <!-- data-no-i18n: the page translator must never rewrite what the person or the model wrote. -->
-      <div class="log" data-no-i18n aria-live="polite" data-testid="assistant-try-log">
-        @for (m of messages(); track $index) {
-          <div class="bubble" [class.user]="m.role === 'user'" [class.assistant]="m.role === 'assistant'" dir="auto" [attr.data-testid]="'assistant-try-' + m.role">{{ m.text }}</div>
-        }
-        @if (status(); as s) { <div class="status" data-testid="assistant-try-status">{{ s }}...</div> }
-      </div>
-    }
-    @if (error(); as e) { <div class="error" role="alert" data-testid="assistant-try-error">{{ e }}</div> }
-    <div class="send">
-      <textarea nz-input rows="2" maxlength="2000" dir="auto" aria-label="Your message" placeholder="Type a message" [ngModel]="draft()" (ngModelChange)="draft.set($event)" (keydown.enter)="enter($any($event))" data-testid="assistant-try-input"></textarea>
-      @if (sending()) {
-        <button nz-button type="button" (click)="stop()" data-testid="assistant-try-stop">Stop</button>
-      } @else {
-        <button nz-button nzType="primary" type="button" [disabled]="!draft().trim()" (click)="send()" data-testid="assistant-try-send">Send</button>
-      }
-      @if (messages().length && !sending()) { <button nz-button type="button" (click)="clear()" data-testid="assistant-try-clear">Clear</button> }
-    </div>
-    @if (meta(); as m) { <div class="meta" data-testid="assistant-try-meta">{{ m }}</div> }`,
+  styleUrl: './assistant-try.component.scss',
+  templateUrl: './assistant-try.component.html',
 })
 export class AssistantTryComponent {
   private readonly api = inject(PlatformApi);

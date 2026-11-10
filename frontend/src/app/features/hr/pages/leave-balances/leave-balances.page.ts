@@ -11,21 +11,7 @@ import { LeaveApi, LeaveBalanceRow } from '@core/api/hr.api';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, FormsModule, NzInputNumberModule, NzTableModule],
-  template: `
-    <h1 class="erp-page-title">Leave balances</h1>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><span>Year</span>
-      <nz-input-number [ngModel]="year()" (ngModelChange)="setYear($event)" [nzMin]="2000" [nzMax]="2100" [nzPrecision]="0" data-testid="balance-year"></nz-input-number></div>
-    <nz-table [nzData]="rows()" nzSize="small" [nzFrontPagination]="false" [nzShowPagination]="false" [nzLoading]="loading()" nzNoResult="No leave balances for this year yet" data-testid="balance-table">
-      <thead><tr><th>Employee</th><th>Leave type</th><th style="text-align:end">Entitled</th><th style="text-align:end">Carried</th><th style="text-align:end">Taken</th><th style="text-align:end">Pending</th><th style="text-align:end">Remaining</th></tr></thead>
-      <tbody>
-        @for (r of rows(); track r.employeeId + r.leaveTypeId) {
-          <tr><td>{{ r.employeeName }}<div style="font-size:12px;opacity:.7">{{ r.employeeNumber }}</div></td><td>{{ r.leaveTypeName }}</td>
-            <td style="text-align:end"><bdi dir="ltr">{{ r.entitled | number: '1.0-2' }}</bdi></td><td style="text-align:end"><bdi dir="ltr">{{ r.carried | number: '1.0-2' }}</bdi></td>
-            <td style="text-align:end"><bdi dir="ltr">{{ r.taken | number: '1.0-2' }}</bdi></td><td style="text-align:end"><bdi dir="ltr">{{ r.pending | number: '1.0-2' }}</bdi></td>
-            <td style="text-align:end"><b><bdi dir="ltr">{{ r.remaining | number: '1.0-2' }}</bdi></b></td></tr>
-        }
-      </tbody>
-    </nz-table>`,
+  templateUrl: './leave-balances.page.html',
 })
 export class LeaveBalancesPage {
   private readonly api = inject(LeaveApi);

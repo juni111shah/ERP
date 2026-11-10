@@ -1,0 +1,118 @@
+
+    <h1 class="erp-page-title">Attendance</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="attendance-stats">
+      <erp-stat-card label="Total staff"
+                     [value]="stats().total"
+                     format="number"
+                     [loading]="loading() && rows().length === 0"
+                     caption="on the payroll this month"
+                     [tone]="0" />
+      <erp-stat-card label="Full attendance"
+                     [value]="stats().full"
+                     format="number"
+                     [loading]="loading() && rows().length === 0"
+                     caption="no absence, leave or overtime"
+                     [tone]="1" />
+      <erp-stat-card label="With exceptions"
+                     [value]="stats().exceptions"
+                     format="number"
+                     [loading]="loading() && rows().length === 0"
+                     caption="absence, leave or overtime"
+                     [tone]="stats().exceptions > 0 ? 2 : 'neutral'" />
+      <erp-stat-card label="Overtime hours"
+                     [value]="stats().totalOt"
+                     format="number"
+                     [loading]="loading() && rows().length === 0"
+                     caption="extra hours logged"
+                     [tone]="3" />
+    </div>
+
+    <div style="display:flex;gap:12px;margin:16px 0 12px;align-items:center">
+      <label class="sr" for="att-month">Month</label>
+      <nz-date-picker nzId="att-month" nzMode="month" [nzAllowClear]="false" [ngModel]="month" (ngModelChange)="changeMonth($event)" data-testid="att-month"></nz-date-picker>
+    </div>
+
+    <nz-alert nzType="info" nzShowIcon nzMessage="Employees without a record for the month are paid in full. Record only exceptions: unpaid absence, paid leave and overtime." style="margin-bottom:12px;border-radius:8px"></nz-alert>
+
+    <erp-table-tools [(search)]="q" (refresh)="refresh()" [loading]="loading()" testId="att">
+      <nz-select [ngModel]="recorded()" (ngModelChange)="recorded.set($event)" nzAllowClear nzPlaceHolder="All employees" style="width:170px" data-testid="att-recorded-filter"><nz-option nzValue="exceptions" nzLabel="With exceptions"></nz-option><nz-option nzValue="full" [nzLabel]="'ui.hr.fullAttendance' | translate: 'Full attendance'"></nz-option></nz-select>
+    </erp-table-tools>
+
+    @if (dirty().size) {
+      <div class="unsaved-bar" role="status" data-testid="att-unsaved">
+        <span nz-icon nzType="warning" aria-hidden="true"></span>
+        <span class="grow">{{ dirty().size === 1 ? '1 row has' : dirty().size + ' rows have' }} unsaved changes.</span>
+        <button nz-button nzSize="small" (click)="discardAll()" data-testid="att-discard-all">Discard</button>
+        <button nz-button nzSize="small" nzType="primary" [nzLoading]="saving()" (click)="saveAll()" data-testid="att-save-all">Save {{ dirty().size === 1 ? 'row' : 'all ' + dirty().size }}</button>
+      </div>
+    }
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Attendance could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
+    } @else if (!loading() && rows().length === 0) {
+      <erp-state-panel title="Nobody is on the payroll in this month" hint="Attendance lists the employees who are employed in the chosen month. Pick another month, or add the employee first." icon="team" />
+    } @else {
+      <div class="attendance-table-card">
+        <nz-table [nzData]="shown()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" nzNoResult="No employees match this filter" data-testid="att-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Attendance</th>
+              <th>Working days</th>
+              <th>Present</th>
+              <th>Unpaid absence</th>
+              <th>Paid leave</th>
+              <th>Approved leave</th>
+              <th>Overtime hrs</th>
+              @if (canManage) { <th><span class="sr">Actions</span></th> }
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of shown(); track r.employeeId) {
+              <tr [class.unsaved]="dirty().has(r.employeeId)" [attr.data-testid]="'att-row-' + r.employeeNumber">
+                <td>
+                  <div class="emp-cell">
+                    <div class="emp-avatar">{{ initials(r.employeeName) }}</div>
+                    <div class="emp-info">
+                      <span class="emp-name">{{ r.employeeName }}</span>
+                      <span class="emp-sub"><span class="code-pill">{{ r.employeeNumber }}</span> {{ r.designation }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  @if (dirty().has(r.employeeId)) {
+                    <erp-status value="pending" label="Unsaved" data-testid="att-unsaved-tag" />
+                  } @else if (exception(r)) {
+                    <erp-status value="open" label="Exceptions" />
+                  } @else {
+                    <erp-status value="active" label="Full attendance" />
+                  }
+                </td>
+                @for (c of inputs; track c.key) {
+                  @if (c.key === 'overtimeHours') {
+                    <td data-testid="att-leave">@if (r.leavePaidDays || r.leaveUnpaidDays) { <span>{{ r.leavePaidDays ?? 0 }} paid / {{ r.leaveUnpaidDays ?? 0 }} unpaid</span> } @else { <span style="opacity:.5">-</span> }</td>
+                  }
+                  <td>
+                    <label class="sr" [for]="'att-' + c.key + '-' + r.employeeNumber">{{ c.label }}, {{ r.employeeName }}</label>
+                    <nz-input-number [nzId]="'att-' + c.key + '-' + r.employeeNumber" [ngModel]="r[c.key]" (ngModelChange)="edit(r, c.key, $event)" [nzMin]="c.min" [nzMax]="c.max ?? 9999" [nzPrecision]="c.precision" [nzStep]="c.step ?? 1" [nzDisabled]="!canManage" style="width:75px" [attr.data-testid]="c.testId ? c.testId + r.employeeNumber : null"></nz-input-number>
+                  </td>
+                }
+                @if (canManage) {
+                  <td>
+                    <div class="row-actions">
+                      @if (dirty().has(r.employeeId)) {
+                        <button nz-button nzSize="small" nzType="primary" [disabled]="saving()" (click)="save(r)" [attr.data-testid]="'att-save-' + r.employeeNumber">Save</button>
+                        <button nz-button nzSize="small" nzType="link" (click)="undo(r)" [attr.data-testid]="'att-undo-' + r.employeeNumber">Undo</button>
+                      } @else if (r.recordId) {
+                        <button nz-button nzSize="small" nzType="link" (click)="remove(r)" [attr.aria-label]="'Clear the record of ' + r.employeeName" [attr.data-testid]="'att-clear-' + r.employeeNumber">Clear</button>
+                      }
+                    </div>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      </div>
+    }

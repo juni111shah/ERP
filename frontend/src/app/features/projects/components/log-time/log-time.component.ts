@@ -25,68 +25,8 @@ import { errorText } from '../../projects-ui';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ReactiveFormsModule, NzCheckboxModule, NzDatePickerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzModalModule, NzSelectModule],
-  template: `
-    <nz-modal [nzVisible]="visible()" [nzTitle]="editingId() ? 'Edit time' : 'Log time'" nzOkText="Save" [nzOkLoading]="saving()" (nzOnCancel)="visible.set(false)" (nzOnOk)="save()" [nzWidth]="560">
-      <ng-container *nzModalContent>
-        <form [formGroup]="form" nz-form nzLayout="vertical" data-testid="timesheet-form">
-          @if (!fixedProject()) {
-            <nz-form-item>
-              <nz-form-label nzRequired nzFor="ts-project">Project</nz-form-label>
-              <nz-form-control nzErrorTip="Choose a project">
-                <nz-select nzId="ts-project" formControlName="projectId" nzShowSearch nzPlaceHolder="Select project" (ngModelChange)="loadTasks($event)" data-testid="ts-project">
-                  @for (p of projects(); track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="p.number + ' · ' + p.name"></nz-option> }
-                </nz-select>
-              </nz-form-control>
-            </nz-form-item>
-          }
-          <nz-form-item>
-            <nz-form-label nzFor="ts-task">Task</nz-form-label>
-            <nz-form-control>
-              <nz-select nzId="ts-task" formControlName="taskId" nzAllowClear nzShowSearch nzPlaceHolder="No particular task" data-testid="ts-task">
-                @for (t of tasks(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.number + ' · ' + t.title"></nz-option> }
-              </nz-select>
-            </nz-form-control>
-          </nz-form-item>
-          <div class="cols">
-            <nz-form-item>
-              <nz-form-label nzRequired nzFor="ts-worker">Who did the work</nz-form-label>
-              <nz-form-control>
-                <nz-select nzId="ts-worker" formControlName="workerUserId" nzAllowClear nzShowSearch nzPlaceHolder="Choose a person" data-testid="ts-worker">
-                  @for (u of users(); track u.id) { <nz-option [nzValue]="u.id" [nzLabel]="u.fullName"></nz-option> }
-                </nz-select>
-              </nz-form-control>
-            </nz-form-item>
-            @if (!form.controls.workerUserId.value) {
-              <nz-form-item>
-                <nz-form-label nzFor="ts-name">Or a name</nz-form-label>
-                <nz-form-control><input nz-input id="ts-name" formControlName="workerName" maxlength="100" placeholder="For someone without an account" /></nz-form-control>
-              </nz-form-item>
-            }
-          </div>
-          <div class="cols three">
-            <nz-form-item>
-              <nz-form-label nzRequired nzFor="ts-date">Date</nz-form-label>
-              <nz-form-control><nz-date-picker nzId="ts-date" formControlName="date" style="width:100%"></nz-date-picker></nz-form-control>
-            </nz-form-item>
-            <nz-form-item>
-              <nz-form-label nzRequired nzFor="ts-hours">Hours</nz-form-label>
-              <nz-form-control nzErrorTip="Between 0.25 and 24"><nz-input-number nzId="ts-hours" formControlName="hours" [nzMin]="0.25" [nzMax]="24" [nzStep]="0.25" style="width:100%" data-testid="ts-hours"></nz-input-number></nz-form-control>
-            </nz-form-item>
-            <nz-form-item>
-              <nz-form-label nzFor="ts-rate">Rate per hour ({{ currency() }})</nz-form-label>
-              <nz-form-control nzExtra="Blank uses the rate cards"><nz-input-number nzId="ts-rate" formControlName="hourlyRate" [nzMin]="0" style="width:100%" data-testid="ts-rate"></nz-input-number></nz-form-control>
-            </nz-form-item>
-          </div>
-          <nz-form-item>
-            <nz-form-label nzFor="ts-desc">What was done</nz-form-label>
-            <nz-form-control><input nz-input id="ts-desc" formControlName="description" maxlength="500" /></nz-form-control>
-          </nz-form-item>
-          <nz-form-item><label nz-checkbox formControlName="isBillable">Billable to the customer</label></nz-form-item>
-        </form>
-      </ng-container>
-    </nz-modal>
-  `,
-  styles: ['.cols { display:grid; grid-template-columns:1fr 1fr; column-gap:12px; } .cols.three { grid-template-columns:1fr 1fr 1fr; } @media (max-width:560px) { .cols, .cols.three { grid-template-columns:1fr; } }'],
+  templateUrl: './log-time.component.html',
+  styleUrl: './log-time.component.scss',
 })
 export class LogTimeComponent {
   private readonly fb = inject(FormBuilder);

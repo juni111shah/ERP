@@ -1,0 +1,13 @@
+
+    .nowrap { white-space: nowrap; }
+    .amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .muted { color: var(--erp-color-text-muted); }
+    .head { display: flex; flex-direction: column; gap: 4px; }
+    .kv { display: flex; justify-content: space-between; gap: 16px; }
+    .kv > span:first-child { color: var(--erp-color-text-muted); }
+    h4 { margin: 14px 0 4px; font-size: 13px; font-weight: 700; }
+    .row { display: flex; gap: 10px; padding: 5px 0; border-top: 1px solid var(--erp-color-border-subtle); }
+    .grow { flex: 1; min-width: 0; }
+    .total { font-weight: 700; border-top-width: 2px; margin-top: 6px; }
+    .print { margin-top: 16px; }
+  

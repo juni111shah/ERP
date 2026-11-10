@@ -43,61 +43,8 @@ const manage = (kind: ReturnKind) => (kind === 'sales' ? 'sales.returns.manage' 
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, RouterLink, NzButtonModule, NzIconModule, NzModalModule, NzPopconfirmModule, NzTableModule, HasPermissionDirective, PagedTableComponent, RecordDrawerComponent, ReturnFormComponent, StatusTagComponent],
-  styles: [`.r { text-align: end; white-space: nowrap; } .muted { color: var(--erp-color-text-muted); }`],
-  template: `
-    <h1 class="erp-page-title">{{ kind === 'sales' ? 'Sales returns' : 'Purchase returns' }}</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search" [searchable]="false" [emptyText]="kind === 'sales' ? 'No sales returns yet.' : 'No purchase returns yet.'" (rowClick)="show($event)">
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @switch (column.key) {
-          @case ('status') { <erp-status [value]="row.status" /> }
-          @case ('totalAmount') { {{ row.totalAmount | number: '1.2-2' }} }
-          @case ('actions') {
-            <ng-container *erpHasPermission="manageKey">
-              @if (row.status === 'draft') {
-                <button nz-button nzSize="small" nzType="primary" type="button" (click)="post(row)" data-testid="return-post">Post</button>
-                <button nz-button nzSize="small" nzDanger type="button" nz-popconfirm nzPopconfirmTitle="Delete this draft return?" (nzOnConfirm)="remove(row)" data-testid="return-delete">Delete</button>
-              }
-              @if (row.status === 'posted') {
-                <button nz-button nzSize="small" nzDanger type="button" (click)="voidIt(row)" data-testid="return-void">Void</button>
-              }
-            </ng-container>
-          }
-          @default { {{ value }} }
-        }
-      </ng-template>
-      <button toolbar *erpHasPermission="manageKey" nz-button nzType="primary" (click)="start.show()" data-testid="return-new"><span nz-icon nzType="plus"></span>New return</button>
-    </erp-paged-table>
-
-    <erp-record-drawer title="New return" submitLabel="Continue" [open]="start.open()" [fields]="startFields" [saving]="start.saving()" [errors]="start.errors()"
-                       testId="return-start" (submitted)="start.submit($event)" (closed)="start.close()" />
-    <erp-return-form [open]="formOpen()" [title]="'Return against ' + (source()?.label ?? '')" [lines]="source()?.lines ?? []" [showRestock]="kind === 'sales'" [warehouses]="kind === 'purchase' && source()?.type === 'order' ? warehouses() : []"
-                     [saving]="saving()" [error]="formError()" (submitted)="create($event)" (closed)="formOpen.set(false)" />
-
-    <nz-modal [nzVisible]="!!detail()" [nzTitle]="detail() ? 'Return ' + detail()!.number : ''" [nzFooter]="null" [nzWidth]="720" (nzOnCancel)="detail.set(null)">
-      <ng-container *nzModalContent>
-        @if (detail(); as d) {
-          <p><erp-status [value]="d.status" /> &nbsp; {{ displayDate(d.returnDate) }} &middot; {{ partyName(d) }}</p>
-          <p><b>Reason:</b> {{ d.reason }}</p>
-          @if (d.voidReason) { <p><b>Voided:</b> {{ d.voidReason }}</p> }
-          <nz-table [nzData]="$any(d.lines)"[nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="return-detail-lines">
-            <thead><tr><th>Item</th><th class="r">Quantity</th>@if (kind === 'sales') { <th>Restocked</th> }</tr></thead>
-            <tbody>
-              @for (l of d.lines; track l.id) {
-                <tr><td>{{ l.description }}</td><td class="r">{{ l.quantity | number: '1.0-4' }}</td>@if (kind === 'sales') { <td>{{ $any(l).restock ? 'Yes' : 'No' }}</td> }</tr>
-              }
-            </tbody>
-          </nz-table>
-          <p style="margin-top:12px"><b>Total:</b> {{ d.totalAmount | number: '1.2-2' }}</p>
-          @if (salesDetail(d); as s) {
-            @if (s.creditNoteId) { <p>Credit note <a [routerLink]="['/finance/invoices', s.creditNoteId]" (click)="detail.set(null)">{{ s.creditNoteNumber }}</a>. It is unapplied until you apply it to an invoice.</p> }
-          }
-          @if (purchaseDetail(d); as p) {
-            @if (p.journalEntryId) { <p><a [routerLink]="['/finance/journals', p.journalEntryId]" (click)="detail.set(null)">Open journal</a></p> }
-            @for (b of p.billShares; track b.billId) { <p class="muted">Bill <a [routerLink]="['/finance/bills', b.billId]" (click)="detail.set(null)">view</a>: {{ b.amount | number: '1.2-2' }} credited, {{ b.appliedToBill | number: '1.2-2' }} taken off the bill.</p> }
-          }
-        }
-      </ng-container>
-    </nz-modal>`,
+  styleUrl: './returns.page.scss',
+  templateUrl: './returns.page.html',
 })
 export class ReturnsPage {
   readonly kind: ReturnKind = inject(ActivatedRoute).snapshot.data['kind'] === 'purchase' ? 'purchase' : 'sales';

@@ -1,0 +1,168 @@
+
+    <div class="login-root">
+      <!-- Atmospheric Ambient Lighting across the entire stage (unified one show) -->
+      <div class="organic-blob-1"></div>
+      <div class="organic-blob-2"></div>
+      <div class="organic-blob-3"></div>
+      <div class="floating-orb"></div>
+
+      <!-- Left Panel: Authentication -->
+      <section class="login-left-pane">
+        <div class="brand-top" data-testid="login-brand">
+          <erp-brand-logo size="lg"></erp-brand-logo>
+        </div>
+
+        <div class="login-main-content">
+          @if (challenge(); as ch) {
+            <erp-two-factor-step [mode]="ch.mode" [challengeToken]="ch.token" (completed)="afterTwoFactor($event)" (cancel)="restart()"
+              data-testid="login-two-factor"></erp-two-factor-step>
+          } @else if (!workspaces()) {
+            <div class="login-heading-group">
+              <h1 class="login-title">{{ 'login.title' | translate: 'Sign in' }}</h1>
+              <p class="login-subtitle">Sign in to your workspace.</p>
+            </div>
+
+            @if (error()) {
+              <nz-alert nzType="error" [nzMessage]="error()!" nzShowIcon class="auth-alert" data-testid="login-error"></nz-alert>
+            }
+
+            <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()" class="auth-form">
+              <nz-form-item class="form-item">
+                <nz-form-label nzFor="email" nzRequired>{{ 'common.email' | translate: 'Email' }}</nz-form-label>
+                <nz-form-control nzErrorTip="Enter your work email address">
+                  <nz-input-group [nzPrefix]="emailPrefix" class="custom-input-group">
+                    <input nz-input id="email" type="email" formControlName="email" autocomplete="username" placeholder="name@company.com" data-testid="login-email" />
+                  </nz-input-group>
+                  <ng-template #emailPrefix><span nz-icon nzType="mail" class="field-icon"></span></ng-template>
+                </nz-form-control>
+              </nz-form-item>
+
+              <nz-form-item class="form-item">
+                <nz-form-label nzFor="password" nzRequired>{{ 'common.password' | translate: 'Password' }}</nz-form-label>
+                <nz-form-control nzErrorTip="Enter your password">
+                  <nz-input-group [nzPrefix]="pwdPrefix" [nzSuffix]="pwdSuffix" class="custom-input-group">
+                    <input nz-input id="password" [type]="showPassword() ? 'text' : 'password'" formControlName="password" autocomplete="current-password" placeholder="Please enter your password" data-testid="login-password" />
+                  </nz-input-group>
+                  <ng-template #pwdPrefix><span nz-icon nzType="lock" class="field-icon"></span></ng-template>
+                  <ng-template #pwdSuffix>
+                    <button type="button" class="eye-btn" (click)="showPassword.set(!showPassword())" [attr.aria-pressed]="showPassword()" data-testid="login-password-toggle" [title]="showPassword() ? 'Hide password' : 'Show password'">
+                      <span nz-icon [nzType]="showPassword() ? 'eye-invisible' : 'eye'"></span>
+                    </button>
+                  </ng-template>
+                </nz-form-control>
+              </nz-form-item>
+
+              @if (needsCode()) {
+                <nz-form-item class="form-item">
+                  <nz-form-label nzFor="code" nzRequired>{{ 'login.code' | translate: 'Verification code' }}</nz-form-label>
+                  <nz-form-control nzExtra="Enter the 6-digit code from your authenticator app, or a recovery code.">
+                    <nz-input-group [nzPrefix]="codePrefix" class="custom-input-group">
+                      <input nz-input id="code" formControlName="code" autocomplete="one-time-code" inputmode="numeric" maxlength="6" placeholder="123456" data-testid="login-code" />
+                    </nz-input-group>
+                    <ng-template #codePrefix><span nz-icon nzType="safety-certificate" class="field-icon"></span></ng-template>
+                  </nz-form-control>
+                </nz-form-item>
+              }
+
+              <div class="aux-row">
+                <label nz-checkbox formControlName="rememberMe" data-testid="login-remember">
+                  {{ 'login.remember' | translate: 'Keep me signed in' }}
+                </label>
+                <a routerLink="/auth/forgot-password" class="forgot-anchor" data-testid="login-forgot">
+                  {{ 'login.forgot' | translate: 'Forgot password?' }}
+                </a>
+              </div>
+
+              <div class="submit-row">
+                <button nz-button nzType="primary" [nzLoading]="busy()" [disabled]="busy() || retryIn() > 0" class="login-btn" data-testid="login-submit">
+                  @if (retryIn() > 0) {
+                    <span>Wait {{ retryIn() }}s</span>
+                  } @else {
+                    <span>Sign in</span>
+                  }
+                </button>
+              </div>
+              <p class="register-note">New here? <a routerLink="/register" class="forgot-anchor" data-testid="login-register">Create a workspace</a></p>
+            </form>
+          } @else {
+            <!-- Multi-Workspace Picker -->
+            <div class="ws-header">
+              <div class="ws-icon-circle">
+                <span nz-icon nzType="appstore" nzTheme="outline"></span>
+              </div>
+              <h2 class="login-title" style="font-size: 24px;">{{ 'login.chooseWorkspace' | translate: 'Choose a workspace' }}</h2>
+              <p class="login-subtitle">Your credentials belong to several enterprise workspaces. Choose which one to enter:</p>
+            </div>
+
+            <div class="ws-list" data-testid="workspace-picker">
+              @for (w of workspaces(); track w.id) {
+                <button type="button" class="ws-card-btn" (click)="pick(w)" [disabled]="busy()" [attr.data-testid]="'workspace-' + w.code">
+                  <div class="ws-avatar">{{ w.name.charAt(0).toUpperCase() }}</div>
+                  <div class="ws-body">
+                    <div class="ws-name">{{ w.name }}</div>
+                    <div class="ws-sub">{{ w.industry || 'General Business' }} · <span style="font-family:monospace">{{ w.code }}</span></div>
+                  </div>
+                  <span nz-icon nzType="right" class="ws-caret"></span>
+                </button>
+              }
+            </div>
+
+            <button nz-button nzType="text" (click)="workspaces.set(null)" style="color:#64748b; font-size:13px; padding-left: 0;">
+              ← Back to login
+            </button>
+          }
+        </div>
+
+        <div class="brand-footer-note">
+          Enterprise Cloud Infrastructure · Sovereign & Multi-Workspace
+        </div>
+      </section>
+
+      <!-- Right Panel: Seamless Brand Themed Story & Illustration -->
+      <section class="login-right-pane">
+        <!-- TOP TEXT: Shimmer Headline in ONE single clean row -->
+        <div class="top-story-card">
+          <div class="shimmer-chip">
+            <span class="chip-dot"></span>
+            <span>Enterprise Resource Planning · 360 Suite</span>
+          </div>
+          <h2 class="shimmer-headline" title="Intelligent Operations, Real-Time Financials & Sovereign Multi-Workspace Scale">
+            Intelligent Operations, Real-Time Financials & Sovereign Multi-Workspace Scale
+          </h2>
+          <p class="top-subtext">
+            Unify dual-entry ledgers, dynamic billing, warehouse logistics, and point-of-sale in one high-performance enterprise suite.
+          </p>
+        </div>
+
+        <!-- CENTER: Enlarged Animated SVG Illustration -->
+        <div class="illustration-wrapper">
+          <img
+            src="assets/data-dashboard.svg"
+            alt="Business Analytics Dashboard"
+            class="animated-svg-img" />
+        </div>
+
+        <!-- BOTTOM TEXT: Live Feature Highlights strictly in ONE single row -->
+        <div class="bottom-story-card">
+          <div class="feature-pills-row">
+            <div class="shimmer-pill">
+              <span nz-icon nzType="check-circle" nzTheme="fill"></span>
+              <span>Real-Time Balanced Ledger</span>
+            </div>
+            <div class="shimmer-pill">
+              <span nz-icon nzType="safety-certificate" nzTheme="fill"></span>
+              <span>Org-Scoped Security</span>
+            </div>
+            <div class="shimmer-pill">
+              <span nz-icon nzType="thunderbolt" nzTheme="fill"></span>
+              <span>Sub-Second Response</span>
+            </div>
+            <div class="shimmer-pill">
+              <span nz-icon nzType="audit" nzTheme="outline"></span>
+              <span>Immutable Audit Trails</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  

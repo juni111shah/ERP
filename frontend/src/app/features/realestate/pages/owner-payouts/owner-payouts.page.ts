@@ -26,27 +26,7 @@ import { OwnerPayoutDto, OwnerPayoutsApi, RealEstateLookups } from '@core/api/re
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, RouterLink, NzButtonModule, NzIconModule, NzModalModule, HasPermissionDirective, PagedTableComponent, RecordDrawerComponent, StatusTagComponent],
-  template: `
-    <h1 class="erp-page-title">Owner payouts</h1>
-    <p>The amount comes from the owner statement for the period: rent collected, less the management fee and maintenance recharged to the owner. Pay it from a bank account, or raise a bill to the owner for the net.</p>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search" [searchable]="false" emptyText="No owner has been paid yet." [clickable]="false">
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @switch (column.key) {
-          @case ('number') { <span class="code-pill">{{ row.number }}</span> }
-          @case ('status') { <erp-status [value]="row.status" /> }
-          @case ('amount') { <b>{{ row.amount | number: '1.2-2' }}</b> }
-          @case ('bill') { @if (row.billId) { <a [routerLink]="['/finance/bills', row.billId]">Open bill</a> } @else { — } }
-          @case ('actions') {
-            @if (row.status === 'posted') {
-              <button *erpHasPermission="'realestate.ownerpayouts.manage'" nz-button nzSize="small" nzDanger type="button" (click)="voidIt(row)" data-testid="payout-void">Void</button>
-            }
-          }
-          @default { {{ value }} }
-        }
-      </ng-template>
-      <button toolbar *erpHasPermission="'realestate.ownerpayouts.manage'" nz-button nzType="primary" (click)="pay.show()" data-testid="payout-new"><span nz-icon nzType="plus"></span>Pay an owner</button>
-    </erp-paged-table>
-    <erp-record-drawer title="Pay an owner" submitLabel="Pay" [open]="pay.open()" [fields]="fields()" [saving]="pay.saving()" [errors]="pay.errors()" testId="payout-form" (submitted)="pay.submit($event)" (closed)="pay.close()" />`,
+  templateUrl: './owner-payouts.page.html',
 })
 export class OwnerPayoutsPage {
   private readonly api = inject(OwnerPayoutsApi);

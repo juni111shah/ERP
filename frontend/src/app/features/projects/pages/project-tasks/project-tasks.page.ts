@@ -21,39 +21,7 @@ import { ErpDatePipe } from '@shared/pipes/display.pipes';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpDatePipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzSelectModule, PagedTableComponent, HasPermissionDirective, ProjectTagComponent, TaskDrawerComponent],
-  template: `
-    <div class="prj-toolbar">
-      <div class="prj-chips" role="group" aria-label="Which tasks">
-        @for (v of views; track v.key) { <button type="button" class="prj-chip" [class.on]="view() === v.key" (click)="setView(v.key)" [attr.data-testid]="'task-view-' + v.key">{{ v.label }}</button> }
-      </div>
-    </div>
-    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search task code, title or assignee" emptyText="No tasks found." scrollX="1250px" exportFilename="project-tasks" (rowClick)="drawer()?.open($event.id)">
-      <button toolbar *erpHasPermission="'projects.tasks.manage'" nz-button nzType="primary" (click)="$event.stopPropagation(); drawer()?.create({ projectId: projectId() })" data-testid="task-new"><span nz-icon nzType="plus"></span> New task</button>
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @switch (column.key) {
-          @case ('title') {
-            <div class="title-cell" [class.sub]="row.parentTaskId">
-              <span class="prj-strong">{{ row.title }}</span>
-              @if (row.milestoneTitle) { <span class="prj-muted"><span nz-icon nzType="flag"></span> {{ row.milestoneTitle }}</span> }
-            </div>
-          }
-          @case ('projectName') { <a [routerLink]="['/projects', row.projectId]" [queryParams]="{ tab: 'tasks' }" class="prj-link" (click)="$event.stopPropagation()">{{ row.projectName }}</a> }
-          @case ('priority') { <erp-prj-tag kind="priority" [value]="row.priority" /> }
-          @case ('status') {
-            @if (canManage()) {
-              <nz-select [ngModel]="row.status" (ngModelChange)="updateStatus(row, $event)" nzSize="small" style="width:130px" (click)="$event.stopPropagation()" [attr.aria-label]="'Status of ' + row.number">
-                @for (s of moves(row); track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.label"></nz-option> }
-              </nz-select>
-            } @else { <erp-prj-tag kind="task" [value]="row.status" /> }
-          }
-          @case ('hours') { <span [class.prj-danger]="row.estimatedHours > 0 && row.actualHours > row.estimatedHours">{{ row.actualHours }} / {{ row.estimatedHours }} h</span> }
-          @case ('dueDate') { <span [class.prj-danger]="isLate(row)">{{ (row.dueDate | erpDate) || '—' }}</span> }
-          @default { {{ value }} }
-        }
-      </ng-template>
-    </erp-paged-table>
-    <erp-task-drawer (changed)="list.reload()" />
-  `,
+  templateUrl: './project-tasks.page.html',
   styles: [PRJ_STYLES + '.title-cell { display:flex; flex-direction:column; } .title-cell.sub { padding-inline-start:16px; }'],
 })
 export class ProjectTasksPage {

@@ -1,0 +1,13 @@
+
+    :host { display: grid; place-items: center; min-height: 100vh; padding: 24px; box-sizing: border-box; background: var(--erp-color-bg-canvas); overflow-y: auto; }
+    .card { background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow); width: 100%; max-width: 520px; padding: 32px; box-sizing: border-box; text-align: center; border-radius: 16px; }
+    .brand { display: flex; justify-content: center; margin-bottom: 20px; }
+    .brand erp-brand-logo { width: auto; }
+    .icon { width: 56px; height: 56px; margin: 0 auto 14px; display: grid; place-items: center; border-radius: 50%; font-size: 26px; background: var(--erp-color-error-bg); color: var(--erp-color-error-text); }
+    h1 { margin: 0 0 8px; font-size: 20px; font-weight: 700; color: var(--erp-color-text-primary); }
+    p { margin: 0 0 12px; color: var(--erp-color-text-muted); line-height: 1.5; overflow-wrap: anywhere; }
+    .reason { padding: 10px 14px; border-radius: 8px; background: var(--erp-color-bg-subtle); color: var(--erp-color-text-primary); }
+    .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+    .switch { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--erp-color-border-subtle); }
+    @media (max-width: 767px) { :host { padding: 16px; } .card { padding: 20px 16px; } }
+  

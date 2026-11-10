@@ -1,0 +1,105 @@
+
+    <h1 class="erp-page-title">Users</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="user-stats">
+      <erp-stat-card label="Total users"
+                     [value]="stats().total"
+                     format="number"
+                     [loading]="loading() && users().length === 0"
+                     caption="in this workspace"
+                     [tone]="0" />
+      <erp-stat-card label="Active users"
+                     [value]="stats().active"
+                     format="number"
+                     [loading]="loading() && users().length === 0"
+                     caption="can sign in"
+                     [tone]="1" />
+      <erp-stat-card label="Administrators"
+                     [value]="stats().admins"
+                     format="number"
+                     [loading]="loading() && users().length === 0"
+                     caption="with an admin role"
+                     [tone]="2" />
+      <erp-stat-card label="Have signed in"
+                     [value]="stats().recent"
+                     format="number"
+                     [loading]="loading() && users().length === 0"
+                     caption="at least once"
+                     [tone]="3" />
+    </div>
+
+    <div style="display:flex;margin:16px 0 12px;align-items:center">
+      <span style="flex:1"></span>
+      <button *erpHasPermission="'core.users.write'" nz-button nzType="primary" (click)="open(null)" data-testid="user-new"><span nz-icon nzType="plus"></span>Invite user</button>
+    </div>
+
+    <erp-table-tools [(search)]="q" (refresh)="load()" [loading]="loading()" testId="users">
+      <nz-select [ngModel]="status()" (ngModelChange)="status.set($event)" nzAllowClear [nzPlaceHolder]="'ui.common.filterStatus' | translate: 'Filter by status'" style="width:160px" data-testid="users-status-filter">
+        <nz-option nzValue="active" [nzLabel]="'ui.common.active' | translate: 'Active'"></nz-option><nz-option nzValue="inactive" [nzLabel]="'ui.common.inactive' | translate: 'Inactive'"></nz-option>
+      </nz-select>
+    </erp-table-tools>
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load the users" hint="The server did not return the list." actionLabel="Try again" (action)="load()" style="margin-top:16px" />
+    } @else {
+    <div class="user-table-card">
+      <nz-table [nzData]="shown()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="middle" data-testid="users-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Roles</th>
+            <th>Status</th>
+            <th>Last sign-in</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of shown(); track u.id) {
+            <tr [attr.data-testid]="'user-' + u.email">
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar">{{ initials(u.fullName) }}</div>
+                  <span class="name-cell">{{ u.fullName }}</span>
+                </div>
+              </td>
+              <td>
+                <a [href]="'mailto:' + u.email" class="email-link">{{ u.email }}</a>
+              </td>
+              <td>
+                @for (r of u.roles; track r) {
+                  <nz-tag nzColor="default" style="margin-inline-end:4px">{{ r }}</nz-tag>
+                }
+              </td>
+              <td>
+                <nz-tag [nzColor]="u.isActive ? 'green' : 'default'">{{ u.isActive ? 'Active' : 'Inactive' }}</nz-tag>
+              </td>
+              <td style="white-space:nowrap">{{ u.lastSignInAt ? (u.lastSignInAt | erpDate) : 'Never' }}</td>
+              <td *erpHasPermission="'core.users.write'" style="white-space:nowrap">
+                <button nz-button nzSize="small" type="button" (click)="open(u)" data-testid="user-edit">Roles</button>
+                <button nz-button nzSize="small" type="button" [nzDanger]="u.isActive" style="margin-inline-start:8px" (click)="toggleActive(u)" data-testid="user-toggle">{{ u.isActive ? 'Deactivate' : 'Reactivate' }}</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </div>
+    }
+    <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="480" [nzTitle]="editing() ? editing()!.fullName : 'Invite user'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
+      <ng-container *nzDrawerContent>
+        <form nz-form nzLayout="vertical" [formGroup]="form" data-testid="user-form">
+          @if (!editing()) {
+            <nz-form-item><nz-form-label nzRequired>Full name</nz-form-label><nz-form-control [nzErrorTip]="err('fullName')"><input nz-input formControlName="fullName" data-testid="user-name" /></nz-form-control></nz-form-item>
+            <nz-form-item><nz-form-label nzRequired>Email</nz-form-label><nz-form-control [nzErrorTip]="err('email')"><input nz-input formControlName="email" data-testid="user-email" /></nz-form-control></nz-form-item>
+            <nz-form-item><nz-form-label>Temporary password</nz-form-label><nz-form-control [nzErrorTip]="err('temporaryPassword')" nzExtra="Needed for someone new. They set their own at first sign-in. Share it privately."><input nz-input type="password" formControlName="temporaryPassword" autocomplete="new-password" /></nz-form-control></nz-form-item>
+          }
+          <nz-form-item><nz-form-label nzRequired>Roles</nz-form-label><nz-form-control [nzErrorTip]="err('roleIds') || 'Choose at least one role'">
+            <nz-select formControlName="roleIds" nzMode="multiple" data-testid="user-roles">@for (r of roles(); track r.id) { <nz-option [nzValue]="r.id" [nzLabel]="r.name"></nz-option> }</nz-select>
+          </nz-form-control></nz-form-item>
+        </form>
+      </ng-container>
+    </nz-drawer>
+    <ng-template #footer>
+      <button nz-button (click)="drawerOpen.set(false)">Cancel</button>
+      <button nz-button nzType="primary" [nzLoading]="saving()" (click)="save()" style="margin-inline-start:8px" data-testid="user-save">Save</button>
+    </ng-template>

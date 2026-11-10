@@ -20,43 +20,8 @@ import { HasPermissionDirective } from '@shared/directives/has-permission.direct
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, NzButtonModule, NzInputNumberModule, NzRadioModule, NzSelectModule, TranslatePipe, HasPermissionDirective],
-  styles: [`
-    .box { max-width: 740px; background: var(--erp-color-bg-surface); border: 1px solid var(--erp-color-border-subtle); border-radius: 12px; padding: 20px 24px; }
-    .box h3 { font-size: 16px; font-weight: 700; color: var(--erp-color-text-primary); margin-top: 0; margin-bottom: 14px; border-bottom: 1px solid var(--erp-color-border-subtle); padding-bottom: 10px; }
-    .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 0; }
-    .hint { color: var(--erp-color-text-muted); font-size: 13px; line-height: 1.5; }
-    .mask { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; unicode-bidi: isolate; direction: ltr; font-weight: 600; color: #10955d; background: #f0fdf4; padding: 2px 6px; border-radius: 4px; }
-  `],
-  template: `
-    <section class="box" data-testid="coa-numbering">
-      <h3>{{ 'coa.numbering.title' | translate: 'Chart of accounts numbering' }}</h3>
-      <div class="row">
-        <nz-radio-group [ngModel]="mode()" (ngModelChange)="mode.set($event)" [nzDisabled]="!canEdit()" data-testid="coa-numbering-mode">
-          <label nz-radio nzValue="free">{{ 'coa.numbering.free' | translate: 'Free (any code)' }}</label>
-          <label nz-radio nzValue="hierarchical">{{ 'coa.numbering.hier' | translate: 'Hierarchical (sub-account codes follow the parent)' }}</label>
-        </nz-radio-group>
-      </div>
-      @if (mode() === 'hierarchical') {
-        <div class="row">
-          <span>{{ 'coa.numbering.segments' | translate: 'Digits per level' }}</span>
-          @for (n of segments(); track $index; let i = $index) {
-            <nz-input-number [ngModel]="n" (ngModelChange)="setSegment(i, $event)" [nzMin]="1" [nzMax]="6" [nzPrecision]="0" [nzDisabled]="!canEdit()" [attr.data-testid]="'coa-seg-' + i"></nz-input-number>
-          }
-          <button nz-button nzSize="small" type="button" (click)="addSegment()" [disabled]="!canEdit() || segments().length >= 6" data-testid="coa-seg-add">+</button>
-          <button nz-button nzSize="small" type="button" (click)="removeSegment()" [disabled]="!canEdit() || segments().length <= 1" data-testid="coa-seg-remove">−</button>
-        </div>
-        <div class="row">
-          <span>{{ 'coa.numbering.separator' | translate: 'Separator' }}</span>
-          <nz-select style="width:120px" [ngModel]="separator()" (ngModelChange)="separator.set($event)" [nzDisabled]="!canEdit()" data-testid="coa-numbering-sep">
-            <nz-option nzValue="-" nzLabel="-"></nz-option><nz-option nzValue="." nzLabel="."></nz-option><nz-option nzValue="/" nzLabel="/"></nz-option>
-            <nz-option nzValue="" [nzLabel]="'coa.numbering.none' | translate: 'none'"></nz-option>
-          </nz-select>
-        </div>
-        <p class="hint">{{ 'coa.numbering.example' | translate: 'Example' }}: <span class="mask" data-testid="coa-numbering-pattern">{{ pattern() }}</span> ({{ length() }} {{ 'coa.numbering.chars' | translate: 'characters' }})</p>
-      }
-      <p class="hint">{{ 'coa.numbering.note' | translate: 'Existing accounts keep their codes. The mask applies to new accounts and to codes that are changed.' }}</p>
-      <button *erpHasPermission="'core.settings.write'" nz-button nzType="primary" [nzLoading]="saving()" [disabled]="!canSave()" (click)="save()" data-testid="coa-numbering-save">{{ 'coa.numbering.save' | translate: 'Save numbering' }}</button>
-    </section>`,
+  styleUrl: './coa-numbering-editor.component.scss',
+  templateUrl: './coa-numbering-editor.component.html',
 })
 export class CoaNumberingEditorComponent {
   private readonly api = inject(AccountsApi);

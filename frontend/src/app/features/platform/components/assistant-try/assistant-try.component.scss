@@ -1,0 +1,13 @@
+
+    :host { display: block; }
+    .which { margin-bottom: 12px; }
+    .log { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; margin-bottom: 12px; }
+    .bubble { max-width: 85%; padding: 8px 12px; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+    .bubble.user { align-self: flex-end; background: var(--erp-color-primary-subtle); color: var(--erp-color-text-primary); }
+    .bubble.assistant { align-self: flex-start; background: var(--erp-color-bg-subtle); color: var(--erp-color-text-primary); }
+    .status { color: var(--erp-color-text-muted); font-size: 12.5px; }
+    .error { color: var(--erp-color-error-text); font-size: 13px; margin-bottom: 8px; }
+    .send { display: flex; gap: 8px; align-items: flex-end; }
+    .send textarea { flex: 1; min-width: 0; }
+    .meta { color: var(--erp-color-text-muted); font-size: 12.5px; margin-top: 6px; }
+  

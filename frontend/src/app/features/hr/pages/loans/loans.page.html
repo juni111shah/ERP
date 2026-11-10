@@ -1,0 +1,21 @@
+
+    <h1 class="erp-page-title">Loans and advances</h1>
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search reason" emptyText="No loans or advances yet" [clickable]="false">
+      <button toolbar *erpHasPermission="'hr.payroll.manage'" nz-button nzType="primary" (click)="mode.set('create')" data-testid="loan-new"><span nz-icon nzType="plus"></span>New loan</button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('status') { <erp-status [value]="row.status" /> }
+          @case ('principal') { {{ currency() }} {{ row.principal | number: '1.2-2' }} }
+          @case ('remaining') { <b>{{ currency() }} {{ row.remaining | number: '1.2-2' }}</b> }
+          @case ('actions') {
+            @if (row.status === 'active') {
+              @if (!row.disbursedOn) { <a *erpHasPermission="'hr.payroll.pay'" (click)="startPayOut(row)" data-testid="loan-disburse" style="margin-inline-end:10px">Pay out</a> }
+              <a *erpHasPermission="'hr.payroll.manage'" (click)="cancel(row)" data-testid="loan-cancel">Cancel</a>
+            }
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
+    <erp-record-drawer [title]="mode() === 'create' ? 'New loan or advance' : 'Pay out the loan'" [open]="mode() !== null" [fields]="fields()" [saving]="saving()" [errors]="errors()" [width]="460"
+                       testId="loan-form" [submitLabel]="mode() === 'create' ? 'Save' : 'Pay out'" (submitted)="submit($event)" (closed)="mode.set(null)" />

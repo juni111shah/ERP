@@ -32,76 +32,8 @@ import { StatePanelComponent } from '@shared/components/state-panel/state-panel.
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StatePanelComponent, KeyboardClickDirective, TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, ReactiveFormsModule, HasPermissionDirective, NzTableModule, NzSelectModule, NzButtonModule, NzDrawerModule, NzFormModule,
     NzInputModule, NzInputNumberModule, NzSwitchModule, NzTagModule, NzIconModule],
-  styles: [`.bar { display:flex; gap:12px; margin-bottom:12px; align-items:center } .spacer { flex:1 }`],
-  template: `
-    <h1 class="erp-page-title">Custom fields</h1>
-    <div class="bar">
-      <nz-select style="width:280px" [ngModel]="entityType()" (ngModelChange)="selectType($event)" nzPlaceHolder="Choose a record type" aria-label="Record type" data-testid="cf-entity-type">
-        @for (t of types(); track t.key) { <nz-option [nzValue]="t.key" [nzLabel]="t.label"></nz-option> }
-      </nz-select>
-      <span class="spacer"></span>
-      <button nz-button nzType="default" type="button" (click)="load()" [disabled]="!entityType() || loading()" data-testid="cf-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
-      <button *erpHasPermission="'core.customfields.manage'" nz-button nzType="primary" [disabled]="!entityType()" (click)="open(null)" data-testid="cf-new"><span nz-icon nzType="plus"></span> Add field</button>
-    </div>
-    @if (!entityType()) {
-      <erp-state-panel icon="form" title="Add your own fields to any record" hint="Choose a record type above, such as customers or invoices, to see its custom fields and add new ones." data-testid="cf-intro" />
-    } @else if (failed()) {
-      <erp-state-panel kind="error" title="Could not load the custom fields" hint="The server did not return the fields for this record type." actionLabel="Try again" (action)="load()" />
-    } @else if (!loading() && !defs().length) {
-      <erp-state-panel icon="form" title="No custom fields yet" hint="This record type has only its standard fields." [actionLabel]="canManage() ? 'Add field' : null" (action)="open(null)" data-testid="cf-empty" />
-    } @else {
-    <div class="erp-page-card" style="background:var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-radius:12px; overflow:hidden;">
-      <nz-table [nzData]="defs()" [nzFrontPagination]="false" [nzShowPagination]="false" [nzLoading]="loading()" nzSize="middle" data-testid="cf-table">
-        <thead><tr><th>Label</th><th>Key</th><th>Type</th><th>Section</th><th>Required</th><th>Status</th></tr></thead>
-        <tbody>
-          @for (d of defs(); track d.id) {
-            <tr erpKeyboardClick erpKeyboardClickRole="" (click)="open(d)" style="cursor:pointer" [attr.data-testid]="'cf-row-' + d.key">
-              <td style="font-weight:600;">{{ d.label }}</td>
-              <td><span class="code-pill">{{ d.key }}</span></td>
-              <td><nz-tag nzColor="blue">{{ typeLabel(d.dataType) }}</nz-tag></td>
-              <td style="color:var(--erp-color-text-muted);">{{ d.section || 'Additional information' }}</td>
-              <td>
-                @if (d.required) {
-                  <nz-tag nzColor="orange">Required</nz-tag>
-                } @else {
-                  <span style="color:var(--erp-color-text-muted);">Optional</span>
-                }
-              </td>
-              <td><nz-tag [nzColor]="d.isActive ? 'green' : 'default'">{{ d.isActive ? 'Active' : 'Inactive' }}</nz-tag></td>
-            </tr>
-          }
-        </tbody>
-      </nz-table>
-    </div>
-    }
-
-    <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="560" [nzTitle]="editing() ? 'Edit field' : 'Add field'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
-      <ng-container *nzDrawerContent>
-        <form nz-form nzLayout="vertical" [formGroup]="form">
-          <nz-form-item><nz-form-label nzRequired>Label</nz-form-label><nz-form-control [nzErrorTip]="err('label')"><input nz-input formControlName="label" (input)="suggestKey()" data-testid="cf-label" /></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Key</nz-form-label><nz-form-control [nzErrorTip]="err('key') || 'cf_ followed by lowercase letters, digits or _'">
-            <input nz-input formControlName="key" [readonly]="!!editing()" (input)="keyTyped = true" data-testid="cf-key" /></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Type</nz-form-label><nz-form-control>
-            <nz-select formControlName="dataType" [nzDisabled]="!!editing()" data-testid="cf-type">@for (t of fieldTypes; track t.value) { <nz-option [nzValue]="t.value" [nzLabel]="t.label"></nz-option> }</nz-select>
-          </nz-form-control></nz-form-item>
-          @if (hasChoices()) {
-            <nz-form-item><nz-form-label nzRequired>Choices (one per line)</nz-form-label><nz-form-control [nzErrorTip]="err('options')">
-              <textarea nz-input rows="4" formControlName="choices" data-testid="cf-choices"></textarea></nz-form-control></nz-form-item>
-          }
-          <nz-form-item><nz-form-label>Section</nz-form-label><nz-form-control><input nz-input formControlName="section" placeholder="Additional information" /></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Help text</nz-form-label><nz-form-control><input nz-input formControlName="helpText" /></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Order</nz-form-label><nz-form-control><nz-input-number formControlName="order" [nzMin]="0"></nz-input-number></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Required</nz-form-label><nz-form-control><nz-switch formControlName="required"></nz-switch></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Show in lists</nz-form-label><nz-form-control><nz-switch formControlName="showInList"></nz-switch></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Searchable</nz-form-label><nz-form-control><nz-switch formControlName="isSearchable"></nz-switch></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Active</nz-form-label><nz-form-control><nz-switch formControlName="isActive"></nz-switch></nz-form-control></nz-form-item>
-        </form>
-      </ng-container>
-    </nz-drawer>
-    <ng-template #footer>
-      <button nz-button (click)="drawerOpen.set(false)">Cancel</button>
-      <button *erpHasPermission="'core.customfields.manage'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save()" style="margin-inline-start:8px" data-testid="cf-save">Save</button>
-    </ng-template>`,
+  styleUrl: './custom-fields.page.scss',
+  templateUrl: './custom-fields.page.html',
 })
 export class CustomFieldsPage {
   private readonly api = inject(CustomFieldDefinitionsApi);

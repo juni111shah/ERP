@@ -1,0 +1,16 @@
+
+    .pipeline-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+    .stage-chip {
+      cursor: pointer;
+      border-radius: 16px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+      border: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      background: var(--erp-color-bg-surface, #ffffff);
+    }
+    .stage-chip:hover { border-color: var(--erp-color-primary, #10955d); }
+    .stage-chip.active { background: var(--erp-color-primary-subtle); border-color: var(--erp-color-primary, #10955d); color: var(--erp-color-primary, #10955d); }
+    .overdue-pill { color: var(--erp-color-error-text); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+  

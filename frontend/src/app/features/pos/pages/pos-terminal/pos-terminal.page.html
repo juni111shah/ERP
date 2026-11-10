@@ -1,0 +1,359 @@
+
+    <div class="till" data-testid="pos-terminal">
+      <header class="bar" data-testid="pos-header">
+        <nz-select class="register" [ngModel]="registerId()" (ngModelChange)="selectRegister($event)" nzPlaceHolder="Choose a register" aria-label="Register" data-testid="pos-register">
+          @for (r of registers(); track r.id) { <nz-option [nzValue]="r.id" [nzLabel]="r.name"></nz-option> }
+        </nz-select>
+
+        @if (session(); as s) {
+          <span class="pill ok" data-testid="pos-shift-open" nz-tooltip [nzTooltipTitle]="'Shift open since ' + (s.openedAt | erpDate)"><span nz-icon nzType="check-circle"></span> {{ s.cashierName }}</span>
+          <span class="spacer"></span>
+          <div class="cash" nz-tooltip nzTooltipTitle="Cash the drawer should hold now">
+            <small>In drawer</small>
+            <strong data-testid="pos-expected-cash">{{ currency() }} {{ s.expectedCash | number:'1.2-2' }}</strong>
+          </div>
+          <ng-container *erpHasPermission="'pos.sessions.manage'">
+            <button nz-button type="button" (click)="cashOpen.set(true)" data-testid="pos-cash-move"><span nz-icon nzType="swap"></span>Cash <kbd>F10</kbd></button>
+          </ng-container>
+          <ng-container *erpHasPermission="'pos.sessions.read'">
+            <button nz-button type="button" (click)="showShiftReport()" data-testid="pos-x-report"><span nz-icon nzType="file-text"></span>Report</button>
+          </ng-container>
+          <ng-container *erpHasPermission="'pos.sessions.manage'">
+            <button nz-button nzDanger type="button" (click)="startClose()" data-testid="pos-close-shift"><span nz-icon nzType="poweroff"></span>Close shift</button>
+          </ng-container>
+        } @else if (shiftFailed()) {
+          <span class="pill warn"><span nz-icon nzType="warning"></span> Shift status unknown</span>
+          <span class="spacer"></span>
+          <button nz-button type="button" (click)="selectRegister(registerId())"><span nz-icon nzType="reload"></span>Try again</button>
+        } @else if (registerId() && !shiftLoading()) {
+          <span class="pill off" data-testid="pos-shift-none"><span nz-icon nzType="close-circle"></span> No open shift</span>
+          <span class="spacer"></span>
+          <button *erpHasPermission="'pos.sessions.manage'" nz-button nzType="primary" type="button" (click)="startOpen()" data-testid="pos-open-shift"><span nz-icon nzType="play-circle"></span>Open shift</button>
+        }
+      </header>
+
+      @if (bootFailed()) {
+        <div class="center"><erp-state-panel kind="error" title="The till could not start." hint="Check your connection and try again." actionLabel="Try again" (action)="boot()" /></div>
+      } @else if (booted() && !registers().length) {
+        <div class="center"><erp-state-panel title="No registers yet" hint="Add a register under Registers, then come back to start selling." icon="desktop" /></div>
+      } @else {
+        <div class="main">
+          <section class="left">
+            <div class="scan">
+              <div class="scan-box">
+                <span nz-icon nzType="barcode" class="scan-icon"></span>
+                <input #scanBox class="scan-input" aria-label="Scan or search products" placeholder="Scan a barcode, or type a code or name" autocomplete="off" spellcheck="false" data-testid="pos-search"
+                  [ngModel]="searchQuery()" (ngModelChange)="onSearch($event)" (keydown)="onScanKey($event)" />
+                @if (searchQuery()) { <button type="button" class="scan-clear" aria-label="Clear search" (click)="clearSearch()"><span nz-icon nzType="close"></span></button> }
+              </div>
+              <button *erpHasPermission="'pos.orders.override-price'" nz-button nzSize="large" type="button" (click)="startOpenItem()" nz-tooltip nzTooltipTitle="Sell something that is not in the catalogue" data-testid="pos-open-item"><span nz-icon nzType="plus"></span>Other item</button>
+            </div>
+
+            <div class="catalog">
+              @if (catalogFailed()) {
+                <erp-state-panel kind="error" title="The products could not be loaded." hint="Check your connection and try again." actionLabel="Try again" (action)="loadCatalog('')" />
+              } @else if (catalogLoading() && !catalog().length) {
+                <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 8 }" />
+              } @else if (!catalog().length && !searchQuery().trim()) {
+                <erp-state-panel title="No products to sell" hint="Add active items with a sales price under Master Data, then come back." icon="shop" />
+              } @else {
+                <div class="tiles" data-testid="pos-catalog">
+                  @for (item of catalog(); track item.id) {
+                    <button type="button" class="tile erp-lift" [disabled]="item.price === null || outOfStockBlocked(item)" [attr.title]="item.name" (click)="addItem(item)" [attr.data-testid]="'pos-item-' + item.sku">
+                      <span class="tile-name">{{ item.name }}</span>
+                      <span class="tile-code">{{ item.sku }}</span>
+                      <span class="tile-foot">
+                        @if (item.price !== null) {
+                          <span class="tile-price"><small>{{ currency() }}</small> {{ item.price | number:'1.2-2' }}</span>
+                        } @else {
+                          <span class="tile-none">No price</span>
+                        }
+                        @if (item.onHand !== null) {
+                          <span class="stock" [class.out]="item.onHand <= 0" [class.low]="item.onHand > 0 && item.onHand <= 5" [attr.data-testid]="'pos-stock-' + item.sku">{{ item.onHand <= 0 ? 'Out' : (item.onHand | number:'1.0-2') + ' left' }}</span>
+                        }
+                      </span>
+                    </button>
+                  } @empty {
+                    <div class="none">
+                      <span nz-icon nzType="search"></span>
+                      <p>No product matches "{{ searchQuery() }}".</p>
+                      <button nz-button type="button" (click)="clearSearch()">Clear search</button>
+                    </div>
+                  }
+                </div>
+                @if (catalogTotal() > catalog().length) {
+                  <p class="more" data-testid="pos-catalog-note">Showing {{ catalog().length }} of {{ catalogTotal() }} products. Search to find the rest.</p>
+                }
+              }
+            </div>
+
+            <footer class="keys" aria-label="Keyboard shortcuts">
+              <span><kbd>F2</kbd> Scan</span>
+              <span><kbd>F3</kbd> Customer</span>
+              <span><kbd>F4</kbd> Discount</span>
+              <span><kbd>F6</kbd> Hold</span>
+              <span><kbd>F7</kbd> Held sales</span>
+              <span><kbd>F8</kbd> Return</span>
+              <span><kbd>F9</kbd> Pay</span>
+              <span><kbd>↑↓</kbd> Line</span>
+              <span><kbd>+ −</kbd> Qty</span>
+              <span><kbd>Del</kbd> Remove</span>
+            </footer>
+          </section>
+
+          <section class="ticket">
+            <div class="ticket-top">
+              <button type="button" class="customer" (click)="startCustomer()" data-testid="pos-customer">
+                <span nz-icon nzType="user"></span>
+                <span class="customer-name">{{ customerName() }}</span>
+                @if (customerId()) { <span class="customer-tag">Account</span> }
+              </button>
+              <button nz-button type="button" (click)="startHeld()" data-testid="pos-held" [disabled]="!registerId()">
+                <span nz-icon nzType="pause-circle"></span>Held @if (heldCount()) { <b class="count" data-testid="pos-held-count">{{ heldCount() }}</b> }
+              </button>
+              <button *erpHasPermission="'pos.orders.refund'" nz-button type="button" (click)="startReturn()" [disabled]="!session()" data-testid="pos-return"><span nz-icon nzType="rollback"></span>Return</button>
+            </div>
+
+            <div class="lines" #linesBox>
+              @for (line of priced(); track line.key; let i = $index) {
+                <div class="line" [class.selected]="i === selected()" erpKeyboardClick erpKeyboardClickRole="" [attr.aria-label]="line.description" [attr.aria-current]="i === selected() ? 'true' : null" (click)="selected.set(i)" [attr.data-testid]="'pos-line-' + i">
+                  <div class="line-main">
+                    <span class="line-name" [attr.title]="line.description">{{ line.description }}</span>
+                    <span class="line-meta">
+                      {{ currency() }} {{ line.unitPrice | number:'1.2-2' }}
+                      @if (line.discountPercent) { <span class="off">-{{ line.discountPercent }}%</span> }
+                      @if (line.taxRate) { · Tax {{ line.taxRate }}% }
+                      @if (line.onHand !== null && line.quantity > line.onHand) { <span class="off" data-testid="pos-line-short">· only {{ line.onHand | number:'1.0-2' }} in stock</span> }
+                    </span>
+                  </div>
+                  <div class="stepper">
+                    <button type="button" class="step" [attr.aria-label]="'One less ' + line.description" (click)="changeQty(i, line.quantity - 1); $event.stopPropagation()">−</button>
+                    <span class="qty" [attr.data-testid]="'pos-line-qty-' + i">{{ line.quantity | number:'1.0-2' }}</span>
+                    <button type="button" class="step" [attr.aria-label]="'One more ' + line.description" (click)="changeQty(i, line.quantity + 1); $event.stopPropagation()">+</button>
+                  </div>
+                  <strong class="line-total">{{ amount(line) | number:'1.2-2' }}</strong>
+                  <button type="button" class="icon-btn" [attr.aria-label]="'Change ' + line.description" nz-tooltip nzTooltipTitle="Quantity, discount, price" (click)="startLineEdit(i); $event.stopPropagation()" [attr.data-testid]="'pos-line-edit-' + i"><span nz-icon nzType="edit"></span></button>
+                  <button type="button" class="icon-btn danger" [attr.aria-label]="'Remove ' + line.description" nz-tooltip nzTooltipTitle="Remove" (click)="removeLine(i); $event.stopPropagation()"><span nz-icon nzType="delete"></span></button>
+                </div>
+              } @empty {
+                <div class="empty">
+                  <span nz-icon nzType="barcode"></span>
+                  <p>The ticket is empty. Scan an item or tap a product to start the sale.</p>
+                </div>
+              }
+            </div>
+
+            <div class="sum">
+              <div class="sum-row"><span>{{ totals().units | number:'1.0-2' }} {{ totals().units === 1 ? 'item' : 'items' }}</span>
+                <button nz-button nzType="link" nzSize="small" nzDanger type="button" [disabled]="!cart().length" (click)="clearCart()" data-testid="pos-clear">Clear ticket</button></div>
+              <div class="sum-row"><span>Subtotal</span><span class="num">{{ currency() }} {{ totals().gross | number:'1.2-2' }}</span></div>
+              @if (totals().discount) { <div class="sum-row off" data-testid="pos-discount-total"><span>Discount</span><span class="num">-{{ currency() }} {{ totals().discount | number:'1.2-2' }}</span></div> }
+              @if (promo(); as p) {
+                <div class="sum-row off" data-testid="pos-promo-total"><span>Code {{ p.code }}@if (p.name) { · {{ p.name }} } <button nz-button nzType="link" nzSize="small" type="button" (click)="removePromo()" data-testid="pos-promo-remove">Remove</button></span><span class="num">-{{ currency() }} {{ totals().promo | number:'1.2-2' }}</span></div>
+              } @else if (cart().length) {
+                <div class="sum-row" data-testid="pos-promo">
+                  <input nz-input nzSize="small" [ngModel]="promoInput()" (ngModelChange)="promoInput.set($event)" (keydown.enter)="applyPromo()" placeholder="Discount code" aria-label="Discount code" style="max-width:150px" data-testid="pos-promo-input" />
+                  <button nz-button nzSize="small" type="button" [nzLoading]="promoBusy()" [disabled]="!promoInput().trim()" (click)="applyPromo()" data-testid="pos-promo-apply">Apply</button>
+                </div>
+                @if (promoError()) { <p class="hint" role="alert" data-testid="pos-promo-error">{{ promoError() }}</p> }
+              }
+              <div class="sum-row"><span>Tax</span><span class="num" data-testid="pos-tax-total">{{ currency() }} {{ totals().tax | number:'1.2-2' }}</span></div>
+              <div class="grand"><span>Total</span><span class="num" data-testid="pos-total">{{ currency() }} {{ totals().total | number:'1.2-2' }}</span></div>
+              <div class="sum-actions">
+                <button nz-button nzSize="large" type="button" [disabled]="!cart().length" (click)="startDiscount()" data-testid="pos-discount"><span nz-icon nzType="percentage"></span>Discount</button>
+                <button nz-button nzSize="large" type="button" [disabled]="!cart().length || !session() || holding()" (click)="holdSale()" data-testid="pos-hold"><span nz-icon nzType="pause-circle"></span>Hold</button>
+              </div>
+              <button *erpHasPermission="'pos.orders.create'" nz-button nzType="primary" nzBlock nzSize="large" class="pay" type="button" data-testid="pos-pay" [disabled]="!cart().length || !session() || promoStale() || promoBusy()" (click)="startPayment()">
+                <span nz-icon nzType="credit-card"></span> Pay {{ currency() }} {{ totals().total | number:'1.2-2' }} <kbd>F9</kbd>
+              </button>
+              @if (!session() && cart().length) { <p class="hint" data-testid="pos-pay-hint">Open a shift to take payment.</p> }
+            </div>
+          </section>
+        </div>
+      }
+
+      <erp-pos-payment-dialog [open]="paymentOpen()" [total]="totals().total" [currency]="currency()" [customerName]="customerName()" [hasCustomer]="!!customerId()" [canUseAccount]="canSellOnAccount()" [busy]="paying()"
+        (cancelled)="closePayment()" (completed)="takePayment($event)" />
+
+      <erp-pos-return-dialog [open]="returnOpen()" [sessionId]="session()?.id ?? null" [currency]="currency()" [initialNumber]="returnNumber()"
+        (closed)="closeReturn()" (done)="returnDone($event)" />
+
+      <erp-pos-cash-dialog [open]="cashOpen()" [shifts]="cashShifts()" (closed)="closeCash()" (recorded)="cashRecorded()" />
+
+      <!-- Receipt -->
+      <nz-modal [nzVisible]="!!receipt()" [nzTitle]="receiptTitle()" [nzFooter]="receiptFooter" [nzWidth]="440" (nzOnCancel)="finishReceipt()" (nzAfterOpen)="focusNewSale()">
+        <ng-container *nzModalContent>
+          @if (receiptChange()) {
+            <div class="change-banner" data-testid="pos-change"><span>Change to give</span><strong>{{ currency() }} {{ receiptChange() | number:'1.2-2' }}</strong></div>
+          }
+          @if (receipt(); as rc) { <erp-thermal-receipt [receipt]="rc" /> }
+        </ng-container>
+        <ng-template #receiptFooter>
+          <a nz-button nzSize="large" [href]="receiptPrintUrl()" target="_blank" rel="noopener" data-testid="pos-print"><span nz-icon nzType="printer"></span>Print</a>
+          @if (receiptOrderId(); as orderId) { <a nz-button nzSize="large" [routerLink]="['/pos/orders', orderId]" data-testid="pos-view-order">View order</a> }
+          <button #newSale nz-button nzType="primary" nzSize="large" (click)="finishReceipt()" data-testid="pos-new-sale">New sale</button>
+        </ng-template>
+      </nz-modal>
+
+      <!-- Open shift -->
+      <nz-modal [nzVisible]="openShiftOpen()" nzTitle="Open shift" nzOkText="Open shift" [nzOkLoading]="shiftBusy()" [nzOkDisabled]="openFloat() === null" (nzAfterOpen)="focusField('pos-open-float')" (nzOnCancel)="openShiftOpen.set(false)" (nzOnOk)="submitOpenShift()">
+        <ng-container *nzModalContent>
+          <div class="stack">
+            <div>
+              <label class="field" for="pos-open-float">Cash in the drawer now ({{ currency() }})</label>
+              <nz-input-number nzId="pos-open-float" class="wide big" [ngModel]="openFloat()" (ngModelChange)="openFloat.set($event)" [nzMin]="0" (keydown.enter)="submitOpenShift()" data-testid="pos-open-float"></nz-input-number>
+              @if (settings()?.enforceFloatAtOpen) { <small class="muted">Count the drawer and enter what is there, even if that is 0.</small> }
+            </div>
+            <div>
+              <label class="field" for="pos-open-notes">Notes</label>
+              <input id="pos-open-notes" nz-input aria-label="Notes" [ngModel]="shiftNotes()" (ngModelChange)="shiftNotes.set($event)" placeholder="Optional" />
+            </div>
+          </div>
+        </ng-container>
+      </nz-modal>
+
+      <!-- Close shift -->
+      <nz-modal [nzVisible]="closeShiftOpen()" nzTitle="Close shift" nzOkText="Close shift" nzOkDanger [nzOkLoading]="shiftBusy()" [nzOkDisabled]="closeCash_() === null" [nzWidth]="480" (nzAfterOpen)="focusField('pos-close-cash')" (nzOnCancel)="closeShiftOpen.set(false)" (nzOnOk)="submitCloseShift()">
+        <ng-container *nzModalContent>
+          @if (session(); as s) {
+            <div class="stack">
+              @if (heldCount()) { <nz-alert nzType="warning" nzShowIcon [nzMessage]="heldCount() + (heldCount() === 1 ? ' held sale stays' : ' held sales stay') + ' on hold. Nothing was charged for them.'" data-testid="pos-close-held"></nz-alert> }
+              <div>
+                <label class="field" for="pos-close-cash">Cash counted in the drawer ({{ currency() }})</label>
+                <nz-input-number nzId="pos-close-cash" class="wide big" [ngModel]="closeCash_()" (ngModelChange)="closeCash_.set($event)" [nzMin]="0" data-testid="pos-close-cash"></nz-input-number>
+              </div>
+              <div class="variance">
+                <div class="variance-row"><span>Expected</span><strong class="num">{{ currency() }} {{ s.expectedCash | number:'1.2-2' }}</strong></div>
+                <div class="variance-row"><span>{{ closeDifference() < 0 ? 'Short' : closeDifference() > 0 ? 'Over' : 'Difference' }}</span>
+                  <strong class="num" [class.short]="closeDifference() < 0" [class.over]="closeDifference() > 0" data-testid="pos-close-difference">{{ currency() }} {{ closeDifference() | number:'1.2-2' }}</strong></div>
+                @if (closeDifference() !== 0 && closeCash_() !== null) { <small class="muted">The difference posts to the ledger as cash over or short.</small> }
+              </div>
+              <div>
+                <label class="field" for="pos-close-notes">Notes</label>
+                <input id="pos-close-notes" nz-input aria-label="Notes" [ngModel]="closeNotes()" (ngModelChange)="closeNotes.set($event)" placeholder="Optional" />
+              </div>
+            </div>
+          }
+        </ng-container>
+      </nz-modal>
+
+      <!-- Shift report -->
+      <nz-modal [nzVisible]="!!shiftReport()" [nzTitle]="shiftReport()?.session?.status === 'closed' ? 'Shift closed' : 'Shift report'" [nzFooter]="shiftFooter" [nzWidth]="560" (nzOnCancel)="closeShiftReport()">
+        <ng-container *nzModalContent>
+          @if (shiftReport(); as rep) { <erp-pos-shift-report [report]="rep" [currency]="currency()" /> }
+        </ng-container>
+        <ng-template #shiftFooter>
+          @if (shiftReport(); as rep) { <a nz-button [href]="'/print/pos-shift/' + rep.session.id" target="_blank" rel="noopener" data-testid="pos-print-shift"><span nz-icon nzType="printer"></span>Print</a> }
+          <button nz-button nzType="primary" (click)="closeShiftReport()" data-testid="pos-shift-report-close">Close</button>
+        </ng-template>
+      </nz-modal>
+
+      <!-- Customer -->
+      <nz-modal [nzVisible]="customerOpen()" nzTitle="Customer" [nzFooter]="customerFooter" [nzWidth]="480" (nzAfterOpen)="focusCustomer()" (nzOnCancel)="closeCustomer()">
+        <ng-container *nzModalContent>
+          <div class="stack">
+            <input #customerBox nz-input nzSize="large" aria-label="Search customers" placeholder="Search name, phone or code" autocomplete="off" [ngModel]="customerSearch()" (ngModelChange)="onCustomerSearch($event)" (keydown.enter)="pickFirstCustomer($event)" data-testid="pos-customer-search" />
+            <div class="pick-list">
+              @for (c of customers(); track c.id) {
+                <button type="button" class="pick" (click)="chooseCustomer(c)" [attr.data-testid]="'pos-customer-' + $index">
+                  <strong>{{ c.name }}</strong><small class="muted">{{ c.code }} @if (c.phone) { · {{ c.phone }} }</small>
+                </button>
+              } @empty {
+                <p class="muted">{{ customersLoading() ? 'Searching…' : 'No customer found.' }}</p>
+              }
+            </div>
+            <div>
+              <label class="field" for="pos-customer-name">Or just a name on the receipt</label>
+              <input id="pos-customer-name" nz-input aria-label="Name on the receipt" [ngModel]="customerTyped()" (ngModelChange)="customerTyped.set($event)" (keydown.enter)="useTypedCustomer($event)" placeholder="Name only, no account" />
+            </div>
+          </div>
+        </ng-container>
+        <ng-template #customerFooter>
+          <button nz-button (click)="setWalkIn()" data-testid="pos-walk-in">Walk-in customer</button>
+          <button nz-button nzType="primary" [disabled]="!customerTyped().trim()" (click)="useTypedCustomer()">Use this name</button>
+        </ng-template>
+      </nz-modal>
+
+      <!-- Discount -->
+      <nz-modal [nzVisible]="discountOpen()" nzTitle="Discount on the whole ticket" nzOkText="Apply" [nzOkDisabled]="discountInvalid()" (nzAfterOpen)="focusDiscount()" (nzOnCancel)="closeDiscount()" (nzOnOk)="applyDiscount()">
+        <ng-container *nzModalContent>
+          <div class="stack" (keydown.enter)="applyDiscount()">
+            <div>
+              <label class="field" for="pos-discount-input">Percent off every line</label>
+              <nz-input-number #discountBox nzId="pos-discount-input" class="wide big" [ngModel]="discountValue()" (ngModelChange)="discountValue.set($event ?? 0)" [nzMin]="0" [nzMax]="100" data-testid="pos-discount-input"></nz-input-number>
+              <small class="muted" data-testid="pos-discount-limit">Your limit is {{ discountLimit() }}%.</small>
+            </div>
+            <div class="chips">
+              @for (d of discountChips(); track d) { <button nz-button type="button" (click)="discountValue.set(d)">{{ d }}%</button> }
+            </div>
+            @if (discountInvalid()) { <nz-alert nzType="error" nzShowIcon [nzMessage]="'Above your limit of ' + discountLimit() + '%.'"></nz-alert> }
+          </div>
+        </ng-container>
+      </nz-modal>
+
+      <!-- Line -->
+      <nz-modal [nzVisible]="editIndex() !== null" [nzTitle]="editing()?.description ?? 'Line'" nzOkText="Apply" [nzOkDisabled]="lineInvalid()" (nzOnCancel)="editIndex.set(null); focusScan()" (nzOnOk)="applyLineEdit()">
+        <ng-container *nzModalContent>
+          <div class="stack" (keydown.enter)="applyLineEdit()">
+            <div>
+              <label class="field" for="pos-edit-qty">Quantity</label>
+              <nz-input-number nzId="pos-edit-qty" class="wide big" [ngModel]="editQty()" (ngModelChange)="editQty.set($event ?? 0)" [nzMin]="0" data-testid="pos-edit-qty"></nz-input-number>
+            </div>
+            <div>
+              <label class="field" for="pos-edit-discount">Discount %</label>
+              <nz-input-number nzId="pos-edit-discount" class="wide" [ngModel]="editDiscount()" (ngModelChange)="editDiscount.set($event ?? 0)" [nzMin]="0" [nzMax]="100" data-testid="pos-edit-discount"></nz-input-number>
+              <small class="muted">Your limit is {{ discountLimit() }}%.</small>
+            </div>
+            @if (canOverridePrice()) {
+              <div>
+                <label class="field" for="pos-edit-price">Price ({{ currency() }})</label>
+                <nz-input-number nzId="pos-edit-price" class="wide" [ngModel]="editPrice()" (ngModelChange)="editPrice.set($event ?? 0)" [nzMin]="0" data-testid="pos-edit-price"></nz-input-number>
+              </div>
+            }
+          </div>
+        </ng-container>
+      </nz-modal>
+
+      <!-- Other item -->
+      <nz-modal [nzVisible]="openItemOpen()" nzTitle="Other item" nzOkText="Add to ticket" [nzOkDisabled]="!openItemName().trim() || openItemPrice() <= 0" (nzOnCancel)="openItemOpen.set(false); focusScan()" (nzOnOk)="addOpenItem()">
+        <ng-container *nzModalContent>
+          <div class="stack">
+            <div>
+              <label class="field" for="pos-open-item-name">Description</label>
+              <input id="pos-open-item-name" nz-input [ngModel]="openItemName()" (ngModelChange)="openItemName.set($event)" maxlength="200" data-testid="pos-open-item-name" />
+            </div>
+            <div>
+              <label class="field" for="pos-open-item-price">Price ({{ currency() }})</label>
+              <nz-input-number nzId="pos-open-item-price" class="wide" [ngModel]="openItemPrice()" (ngModelChange)="openItemPrice.set($event ?? 0)" [nzMin]="0" data-testid="pos-open-item-price"></nz-input-number>
+            </div>
+            <div>
+              <label class="field" for="pos-open-item-tax">Tax %</label>
+              <nz-input-number nzId="pos-open-item-tax" class="wide" [ngModel]="openItemTax()" (ngModelChange)="openItemTax.set($event ?? 0)" [nzMin]="0" [nzMax]="100"></nz-input-number>
+            </div>
+          </div>
+        </ng-container>
+      </nz-modal>
+
+      <!-- Held sales -->
+      <nz-modal [nzVisible]="heldOpen()" nzTitle="Held sales" [nzFooter]="null" [nzWidth]="600" (nzOnCancel)="heldOpen.set(false); focusScan()">
+        <ng-container *nzModalContent>
+          <div class="pick-list" data-testid="pos-held-list">
+            @for (o of held(); track o.id) {
+              <div class="held">
+                <div class="held-main">
+                  <strong>{{ o.customerName }}</strong>
+                  <small class="muted">{{ o.orderDate | erpDate }} · {{ o.cashierName }} · {{ o.lines.length }} {{ o.lines.length === 1 ? 'line' : 'lines' }}</small>
+                  <small class="muted held-items">{{ heldSummary(o) }}</small>
+                </div>
+                <strong class="num">{{ currency() }} {{ o.totalAmount | number:'1.2-2' }}</strong>
+                <button nz-button nzType="primary" type="button" (click)="resumeHeld(o)" [attr.data-testid]="'pos-resume-' + $index">Resume</button>
+                <button nz-button nzDanger type="button" (click)="discardHeld(o)" [attr.data-testid]="'pos-discard-' + $index">Discard</button>
+              </div>
+            } @empty {
+              <erp-state-panel title="Nothing on hold" hint="Press F6 on a ticket to put it aside and serve the next customer." icon="pause-circle" />
+            }
+          </div>
+        </ng-container>
+      </nz-modal>
+    </div>
+  

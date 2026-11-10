@@ -1,0 +1,27 @@
+
+    <section class="panel" [attr.data-testid]="testId()">
+      <div class="head">
+        <h3>{{ title() }}@if (rows()) { <span class="total">{{ total() }}</span> }</h3>
+        @if (link()) { <a nz-button nzType="link" nzSize="small" [routerLink]="link()">{{ linkLabel() }}</a> }
+      </div>
+      @if (rows(); as list) {
+        @if (total() === 0) {
+          <p class="muted">{{ emptyText() }}</p>
+        } @else {
+          @for (r of list; track r.value) {
+            <div class="row">
+              <span><erp-status [value]="r.value" /></span>
+              <div class="track" aria-hidden="true"><div class="fill" [style.width.%]="(r.count / total()) * 100"></div></div>
+              <span class="count">{{ r.count }}</span>
+            </div>
+          }
+        }
+        @if (note()) { <p class="note">{{ note() }}</p> }
+      } @else if (failed()) {
+        <p class="muted">These counts could not be loaded.</p>
+        <button nz-button nzSize="small" type="button" style="margin-top: 8px" (click)="retry.emit()">Try again</button>
+      } @else {
+        <nz-skeleton [nzActive]="true" [nzTitle]="false" [nzParagraph]="{ rows: 4 }" />
+      }
+    </section>
+  

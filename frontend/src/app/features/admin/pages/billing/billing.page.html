@@ -1,0 +1,102 @@
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load your subscription" [hint]="failed()" actionLabel="Try again" (action)="load()" />
+    } @else if (!data()) {
+      <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+    } @else if (!data()!.summary.hasSubscription) {
+      <erp-state-panel icon="credit-card" title="No subscription on this workspace" hint="This workspace is not billed through a plan, so there is nothing to manage here." data-testid="billing-none" />
+    } @else {
+      @let d = data()!;
+      @let s = d.summary;
+      @if (s.access === 'blocked') {
+        <nz-alert nzType="error" nzShowIcon style="margin-bottom:16px" [nzMessage]="s.status === 'cancelled' ? 'This subscription is cancelled' : 'This workspace is suspended'"
+                  [nzDescription]="(s.suspendedReason ? s.suspendedReason + ' ' : '') + 'Your data is kept. Please contact us to restore access.'" data-testid="billing-blocked"></nz-alert>
+      }
+      <div class="grid">
+        <section class="card" data-testid="billing-plan">
+          <div class="head">
+            <span class="plan-name" data-testid="billing-plan-name">{{ s.planName }}</span>
+            <erp-status [value]="s.status" [label]="statusText()" data-testid="billing-status" />
+          </div>
+          <dl>
+            @if (s.isComplimentary) {
+              <dt>Price</dt><dd>Free of charge</dd>
+            } @else if (d.cyclePrice !== null) {
+              <dt>Price</dt><dd>{{ d.cyclePrice | erpMoney: d.currency }} {{ d.cycle === 'annual' ? 'a year' : 'a month' }}</dd>
+            }
+            @if (s.status === 'trialing' && s.trialEndsOn) {
+              <dt>Trial ends</dt><dd data-testid="billing-trial">{{ s.trialEndsOn | erpDate }} ({{ trialLeft() }})</dd>
+            } @else if (s.currentPeriodEnd) {
+              <dt>{{ s.status === 'active' ? 'Next renewal' : 'Paid until' }}</dt><dd data-testid="billing-renewal">{{ s.currentPeriodEnd | erpDate }}</dd>
+            }
+            @if (s.access === 'readOnly') { <dt>Access</dt><dd>View only: changes are paused</dd> }
+          </dl>
+        </section>
+        <section class="card" data-testid="billing-usage">
+          <h2>Usage</h2>
+          <div class="bars">
+            <erp-usage-bar label="Active users" [used]="d.activeUsers" [max]="d.maxUsers" />
+            <erp-usage-bar label="Legal entities" [used]="d.legalEntities" [max]="d.maxLegalEntities" />
+          </div>
+        </section>
+        @if (d.paymentInstructions || d.supportEmail) {
+          <section class="card" data-testid="billing-howto">
+            <h2>How to pay</h2>
+            @if (d.paymentInstructions) { <p class="instructions" data-testid="billing-instructions">{{ d.paymentInstructions }}</p> }
+            @if (d.supportEmail) { <p class="empty">Questions? Write to <a [href]="'mailto:' + d.supportEmail" data-testid="billing-support">{{ d.supportEmail }}</a>.</p> }
+          </section>
+        }
+      </div>
+
+      @if (d.requested; as r) {
+        <section class="card request" data-testid="billing-request">
+          <h2>You asked to change your plan</h2>
+          <p>{{ r.planName }}, {{ r.cycle === 'annual' ? 'annual' : 'monthly' }}, on {{ r.requestedAt | erpDate }}. Our team will confirm it and let you know.@if (r.note) { <br />Your note: "{{ r.note }}" }</p>
+          @if (canManage()) { <button nz-button nzSize="small" type="button" (click)="withdraw()" data-testid="billing-withdraw">Withdraw request</button> }
+        </section>
+      }
+
+      <section class="card" style="margin-bottom:16px" data-testid="billing-invoices">
+        <h2>Invoices</h2>
+        @if (d.invoices.length) {
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Number</th><th>Description</th><th class="num">Total</th><th>Due</th><th>Status</th></tr></thead>
+              <tbody>
+                @for (i of d.invoices; track i.id) {
+                  <tr>
+                    <td class="nowrap"><a [routerLink]="['/admin/billing/invoices', i.id]" [attr.data-testid]="'billing-invoice-' + i.number">{{ i.number }}</a></td>
+                    <td style="min-width:180px">{{ i.description }}</td>
+                    <td class="num">{{ i.total | erpMoney: i.currency }}</td>
+                    <td class="nowrap">{{ i.dueOn | erpDate }}</td>
+                    <td><erp-status [value]="i.isOverdue ? 'overdue' : i.status" /></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else { <p class="empty">No invoices yet.</p> }
+      </section>
+
+      @if (canManage() && d.plans.length) {
+        <section class="card" data-testid="billing-plans">
+          <div class="head">
+            <h2>Change your plan</h2>
+            <nz-radio-group [ngModel]="cycle()" (ngModelChange)="cycle.set($event)" nzButtonStyle="solid" nzSize="small" data-testid="billing-cycle">
+              <label nz-radio-button nzValue="monthly">Monthly</label>
+              <label nz-radio-button nzValue="annual">Annual</label>
+            </nz-radio-group>
+          </div>
+          <p class="explain">Ask for the plan you want and our team confirms the change with you. Nothing changes until they do, and we invoice you for any difference.</p>
+          <div class="plans">
+            @for (p of d.plans; track p.id) {
+              <erp-plan-card [plan]="p" [cycle]="cycle()" [selected]="p.id === d.planId" [disabled]="p.id === d.planId && cycle() === d.cycle" [actionLabel]="p.id === d.planId && cycle() === d.cycle ? 'Your current plan' : 'Ask for ' + p.name" (choose)="ask($event)" />
+            }
+          </div>
+        </section>
+      }
+    }
+    <erp-record-drawer [title]="asking() ? 'Ask for ' + asking()!.name : ''" [open]="!!asking()" [fields]="fields" [value]="askValue()" [saving]="saving()" [errors]="errors()" submitLabel="Send request" testId="billing-request-form"
+                       (submitted)="send($event)" (closed)="asking.set(null)">
+      <p drawerActions style="margin:0 0 16px;color:var(--erp-color-text-muted)">Our team confirms the change with you. Nothing changes until they do.</p>
+    </erp-record-drawer>

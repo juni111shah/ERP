@@ -1,0 +1,75 @@
+
+    <div class="prj-toolbar">
+      <button nz-button (click)="shift(-7)" aria-label="Previous week" data-testid="week-prev"><span nz-icon nzType="left"></span></button>
+      <b data-testid="week-label">{{ days()[0] | erpDate }} to {{ days()[6] | erpDate }}</b>
+      <button nz-button (click)="shift(7)" aria-label="Next week" data-testid="week-next"><span nz-icon nzType="right"></span></button>
+      <button nz-button (click)="today()">This week</button>
+      <button nz-button (click)="copyLastWeek()" data-testid="week-copy"><span nz-icon nzType="copy"></span> Copy rows from last week</button>
+      <span class="prj-spacer"></span>
+      @if (config()?.timesheetApproval) {
+        <span class="prj-muted" data-testid="week-state">{{ stateSummary() }}</span>
+        <button nz-button [disabled]="!toSubmit().length || dirty()" (click)="submitWeek()" data-testid="week-submit" [title]="dirty() ? 'Save the week first' : ''"><span nz-icon nzType="send"></span> Send week for approval</button>
+      }
+      <button nz-button nzType="primary" [disabled]="!dirty()" [nzLoading]="saving()" (click)="save()" data-testid="week-save"><span nz-icon nzType="save"></span> Save week</button>
+    </div>
+
+    <div class="timer" data-testid="timer">
+      @if (timer(); as t) {
+        <span class="pulse" aria-hidden="true"></span>
+        <span>Timing <b>{{ t.label }}</b> since {{ t.startedLabel }} <b>({{ elapsed() }})</b></span>
+        <span class="prj-spacer"></span>
+        <button nz-button nzType="primary" nzDanger (click)="stop()" data-testid="timer-stop"><span nz-icon nzType="pause-circle"></span> Stop and log</button>
+        <button nz-button (click)="discard()" data-testid="timer-discard">Discard</button>
+      } @else {
+        <label class="prj-sr" for="timer-project">Project to time</label>
+        <nz-select nzId="timer-project" [(ngModel)]="timerProject" nzShowSearch nzPlaceHolder="Project to time" style="width:280px" (ngModelChange)="loadTimerTasks($event)" data-testid="timer-project">
+          @for (p of projects().items; track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="p.number + ' · ' + p.name"></nz-option> }
+        </nz-select>
+        <label class="prj-sr" for="timer-task">Task to time</label>
+        <nz-select nzId="timer-task" [(ngModel)]="timerTask" nzAllowClear nzShowSearch nzPlaceHolder="Task (optional)" style="width:240px" [nzDisabled]="!timerProject">
+          @for (t of timerTasks(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.number + ' · ' + t.title"></nz-option> }
+        </nz-select>
+        <button nz-button nzType="primary" [disabled]="!timerProject" (click)="start()" data-testid="timer-start"><span nz-icon nzType="play-circle"></span> Start timer</button>
+      }
+    </div>
+
+    <div class="prj-table-wrap prj-card grid-card">
+      <table class="grid" data-testid="week-grid">
+        <thead>
+          <tr><th class="what">Project and task</th>@for (d of days(); track d) { <th class="day" [class.off]="isOff(d)" [class.now]="d === todayIso">{{ dayLabel(d) }}</th> }<th class="prj-num">Total</th></tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.key) {
+            <tr>
+              <td class="what" [title]="r.label">{{ r.label }}</td>
+              @for (d of days(); track d) {
+                <td class="day" [class.off]="isOff(d)" [class.now]="d === todayIso">
+                  <input type="number" min="0" max="24" step="0.25" class="cell" [class.rejected]="stateOf(r.cells[d]) === 'rejected'" [class.locked]="!!lockReason(r.cells[d])"
+                         [ngModel]="r.cells[d]?.hours || null" (ngModelChange)="set(r.key, d, $event)" [disabled]="!!lockReason(r.cells[d])" [title]="lockReason(r.cells[d]) || rejectReason(r.cells[d])"
+                         [attr.aria-label]="r.label + ' on ' + d" [attr.data-testid]="'cell-' + r.projectId + '-' + d" />
+                </td>
+              }
+              <td class="prj-num"><b>{{ rowTotal(r) | number: '1.0-2' }}</b></td>
+            </tr>
+          } @empty { <tr><td [attr.colspan]="9" class="prj-empty">No time this week yet. Add a project below, or copy the rows from last week.</td></tr> }
+          <tr class="sum">
+            <td class="what">Total</td>
+            @for (d of days(); track d) { <td class="day" [class.prj-danger]="overLimit(d)" [attr.data-testid]="'total-' + d" [title]="overLimit(d) ? 'Over the daily limit' : ''">{{ dayTotal(d) | number: '1.0-2' }}</td> }
+            <td class="prj-num"><b data-testid="week-total">{{ weekTotal() | number: '1.0-2' }}</b>@if (config(); as c) { <span class="prj-muted"> / {{ c.weeklyCapacityHours | number: '1.0-0' }}</span> }</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prj-toolbar add">
+      <label class="prj-sr" for="week-add-project">Add a project</label>
+      <nz-select nzId="week-add-project" [(ngModel)]="addProject" nzShowSearch nzPlaceHolder="Add a project" style="width:280px" (ngModelChange)="loadTasks($event)" data-testid="week-add-project">
+        @for (p of projects().items; track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="p.number + ' · ' + p.name"></nz-option> }
+      </nz-select>
+      <label class="prj-sr" for="week-add-task">Task for the new row</label>
+      <nz-select nzId="week-add-task" [(ngModel)]="addTask" nzAllowClear nzShowSearch nzPlaceHolder="Task (optional)" style="width:240px" [nzDisabled]="!addProject">
+        @for (t of tasks(); track t.id) { <nz-option [nzValue]="t.id" [nzLabel]="t.number + ' · ' + t.title"></nz-option> }
+      </nz-select>
+      <button nz-button [disabled]="!addProject" (click)="addRow()" data-testid="week-add"><span nz-icon nzType="plus"></span> Add row</button>
+    </div>
+  

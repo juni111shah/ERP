@@ -1,0 +1,9 @@
+
+    .head { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--erp-color-text-muted); }
+    .line { display: grid; grid-template-columns: 2.2fr 1fr 1fr 1.6fr 1.2fr auto; gap: 8px; margin-bottom: 8px; align-items: start; }
+    .line.head-row { font-size: 12px; color: var(--erp-color-text-muted); margin-bottom: 4px; }
+    .totals { display: flex; justify-content: space-between; margin-top: 12px; font-weight: 600; }
+    .warn { color: var(--erp-color-danger, #cf1322); }
+    .hint { font-size: 12px; color: var(--erp-color-text-muted); }
+  

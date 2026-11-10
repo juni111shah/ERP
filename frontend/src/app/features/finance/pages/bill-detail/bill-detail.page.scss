@@ -1,0 +1,21 @@
+
+    .line-items-table { margin-top: 16px; }
+    .totals-section {
+      margin-top: 16px;
+      text-align: end;
+    }
+    .total-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 100px;
+      padding: 8px 0;
+      font-size: 14px;
+    }
+    .total-row.grand {
+      border-top: 2px solid var(--erp-color-border-subtle);
+      padding-top: 12px;
+      margin-top: 8px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+  

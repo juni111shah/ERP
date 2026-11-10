@@ -17,19 +17,8 @@ const PAYMENT_METHODS = ['Bank transfer', 'Cash', 'Cheque', 'Other'];
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NzButtonModule, NzModalModule, RecordDrawerComponent],
-  styles: [`:host { display: inline-flex; gap: 6px; flex-wrap: nowrap; }`],
-  template: `
-    @if (invoice().status === 'open') {
-      <button nz-button nzSize="small" nzType="primary" type="button" (click)="$event.stopPropagation(); open.set(true)" [attr.data-testid]="'invoice-pay-' + invoice().number">Record payment</button>
-      <button nz-button nzSize="small" nzDanger type="button" (click)="$event.stopPropagation(); voidIt()" [attr.data-testid]="'invoice-void-' + invoice().number">Void</button>
-    }
-    @if (invoice().status === 'paid') {
-      <button nz-button nzSize="small" type="button" (click)="$event.stopPropagation(); reopen()" [attr.data-testid]="'invoice-reopen-' + invoice().number">Take back payment</button>
-    }
-    <erp-record-drawer [title]="'Record payment: ' + invoice().number" [open]="open()" [fields]="fields" [saving]="saving()" [errors]="errors()" submitLabel="Record payment" testId="payment-form"
-                       (submitted)="pay($event)" (closed)="open.set(false)">
-      <p drawerActions style="margin:0 0 16px;color:var(--erp-color-text-muted)">{{ amount() }} from {{ clientName() }}. Record what has already been received: this does not take any money.</p>
-    </erp-record-drawer>`,
+  styleUrl: './invoice-actions.component.scss',
+  templateUrl: './invoice-actions.component.html',
 })
 export class InvoiceActionsComponent {
   private readonly api = inject(PlatformApi);

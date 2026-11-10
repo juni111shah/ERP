@@ -42,48 +42,7 @@ const STATUS_LABEL: Record<string, string> = { assigned: 'Assign', inProgress: '
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslatePipe, NzToolTipModule, RevealDirective, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
-  template: `
-    <h1 class="erp-page-title">Work orders</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search issue or category" emptyText="No work orders yet" (rowClick)="state.edit($event)">
-      <nz-select toolbar style="width:170px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="wo-status-filter">
-        @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
-      </nz-select>
-      <button toolbar *erpHasPermission="'realestate.workorders.create'" nz-button nzType="primary" (click)="state.create()" data-testid="wo-new"><span nz-icon nzType="plus"></span> New work order</button>
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'number') {
-          <span class="code-pill">{{ row.number }}</span>
-        } @else if (column.key === 'issue') {
-          <span class="name-cell">{{ row.issue }}</span>
-        } @else if (column.key === 'status') {
-          <erp-status-tag [status]="row.status" />
-        } @else if (column.key === 'estimatedCost' || column.key === 'actualCost') {
-          <span [class.muted-text]="!value">{{ value ? (currency() + ' ' + value) : '—' }}</span>
-        } @else {
-          {{ value }}
-        }
-      </ng-template>
-    </erp-paged-table>
-
-    <erp-record-drawer [title]="state.editing() ? (state.editing()!.number ?? 'Work order') : 'New work order'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       customFieldEntityType="realestate.workorder" [saving]="state.saving()" [errors]="state.errors()" testId="wo-form"
-                       (submitted)="state.submit($event)" (closed)="state.close()">
-      @if (state.editing(); as w) {
-        <div drawerActions style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px" data-testid="wo-actions">
-          <erp-status-tag [status]="w.status" />
-          @for (next of nextStatuses(w); track next) {
-            <button *erpHasPermission="permission(next)" nz-button nzSize="small" [nzDanger]="next === 'cancelled'" (click)="move(w, next)" [attr.data-testid]="'wo-' + next">{{ label(next) }}</button>
-          }
-          <button *erpHasPermission="'realestate.workorders.edit'" nz-button nzSize="small" (click)="openCostBasis(w)" data-testid="wo-cost-basis"><span nz-icon nzType="dollar"></span>{{ 'Cost basis' | translate: 'Cost basis' }}</button>
-          <a [href]="'/print/work-order/' + w.id" target="_blank" nz-button nzSize="small" data-testid="wo-print">
-            <span nz-icon nzType="printer"></span>Print Work Order
-          </a>
-        </div>
-      }
-    </erp-record-drawer>
-    <erp-record-drawer title="Cost basis" [open]="costBasisFor() !== null" [fields]="costBasisFields" [value]="$any(costBasisFor())" [saving]="moveSaving()" [errors]="moveErrors()" [width]="460" testId="wo-cost-basis-form"
-                       (submitted)="saveCostBasis($event)" (closed)="costBasisFor.set(null)" />
-    <erp-record-drawer title="Complete work order" [open]="completing() !== null" [fields]="completeFields" [saving]="moveSaving()" [errors]="moveErrors()" [width]="420" testId="wo-complete-form"
-                       submitLabel="Complete" (submitted)="complete($event)" (closed)="completing.set(null)" />`,
+  templateUrl: './work-orders.page.html',
 })
 export class WorkOrdersPage {
   private readonly api = inject(WorkOrdersApi);

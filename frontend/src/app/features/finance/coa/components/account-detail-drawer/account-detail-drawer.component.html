@@ -1,0 +1,56 @@
+
+    <nz-drawer [nzVisible]="!!account()" [nzWidth]="560" [nzTitle]="'coa.detailTitle' | translate: 'Account details'" (nzOnClose)="closed.emit()" [nzFooter]="footer">
+      <ng-container *nzDrawerContent>
+        @if (account(); as a) {
+          <div class="coa-dd" data-testid="coa-detail">
+            <div class="coa-dd-head">
+              <div class="coa-dd-name"><span class="coa-dd-code">{{ a.code }}</span> {{ a.name }}</div>
+              <span class="coa-dd-tags">
+                @if (!a.isPostable) { <span class="coa-dd-tag">{{ 'coa.tag.header' | translate: 'Header' }}</span> }
+                @if (a.isBank) { <span class="coa-dd-tag is-info">{{ 'coa.tag.bank' | translate: 'Bank' }}</span> }
+                @if (a.isSystem) { <span class="coa-dd-tag is-system">{{ 'coa.tag.system' | translate: 'System' }}</span> }
+                @if (!a.isActive) { <span class="coa-dd-tag is-off">{{ 'coa.tag.inactive' | translate: 'Inactive' }}</span> }
+              </span>
+            </div>
+
+            <div class="coa-dd-actions" erpReveal *erpHasPermission="'finance.accounts.write'">
+              <button nz-button nzSize="small" type="button" (click)="edit.emit(a)" data-testid="coa-detail-edit"
+                      [attr.aria-label]="'common.edit' | translate: 'Edit'" [title]="'common.edit' | translate: 'Edit'"><span nz-icon nzType="edit"></span>{{ 'common.edit' | translate: 'Edit' }}</button>
+              <button nz-button nzSize="small" type="button" (click)="addSub.emit(a)" data-testid="coa-detail-add-sub"
+                      [attr.aria-label]="'coa.addSub' | translate: 'Add sub-account'" [title]="'coa.addSub' | translate: 'Add sub-account'"><span nz-icon nzType="plus"></span>{{ 'coa.addSub' | translate: 'Add sub-account' }}</button>
+              @if (!a.isSystem) {
+                <button nz-button nzSize="small" type="button" [nzDanger]="a.isActive" nz-popconfirm
+                        [nzPopconfirmTitle]="(a.isActive ? 'coa.confirmDeactivate' : 'coa.confirmActivate') | translate: (a.isActive ? 'Deactivate this account? It stays in history but cannot be used on new entries.' : 'Activate this account again?')"
+                        (nzOnConfirm)="toggleActive.emit(a)" data-testid="coa-detail-toggle-active"
+                        [attr.aria-label]="(a.isActive ? 'coa.deactivate' : 'coa.activate') | translate: (a.isActive ? 'Deactivate' : 'Activate')"
+                        [title]="(a.isActive ? 'coa.deactivate' : 'coa.activate') | translate: (a.isActive ? 'Deactivate' : 'Activate')">
+                  <span nz-icon [nzType]="a.isActive ? 'stop' : 'check-circle'"></span>{{ (a.isActive ? 'coa.deactivate' : 'coa.activate') | translate: (a.isActive ? 'Deactivate' : 'Activate') }}
+                </button>
+              }
+            </div>
+
+            <dl class="coa-dd-fields" data-testid="coa-detail-fields">
+              <dt>{{ 'coa.f.code' | translate: 'Code' }}</dt><dd class="coa-dd-code" data-testid="coa-detail-code">{{ a.code }}</dd>
+              <dt>{{ 'coa.f.name' | translate: 'Name' }}</dt><dd data-testid="coa-detail-name">{{ a.name }}</dd>
+              <dt>{{ 'coa.f.type' | translate: 'Type' }}</dt><dd>{{ typeLabel()(a.type) }}</dd>
+              <dt>{{ 'coa.f.subcategory' | translate: 'Sub-category' }}</dt><dd data-testid="coa-detail-sub">{{ subcategory() || '—' }}</dd>
+              <dt>{{ 'coa.f.reportingGroup' | translate: 'Reporting group' }}</dt><dd>{{ a.reportingGroup || '—' }}</dd>
+              <dt>{{ 'coa.f.parent' | translate: 'Parent account' }}</dt>
+              <dd data-testid="coa-detail-parent">{{ parentLabel() || (a.parentId ? '…' : ('coa.noParent' | translate: 'None (top level)')) }}</dd>
+              <dt>{{ 'coa.f.postable' | translate: 'Postable' }}</dt><dd>{{ yesNo(a.isPostable) }}</dd>
+              <dt>{{ 'coa.f.bank' | translate: 'Bank / cash' }}</dt><dd>{{ yesNo(a.isBank) }}</dd>
+              <dt>{{ 'coa.f.currency' | translate: 'Currency' }}</dt><dd>{{ a.currencyCode || ('coa.baseCurrency' | translate: 'Base currency') }}</dd>
+              @if (a.systemRole) { <dt>{{ 'coa.f.systemRole' | translate: 'System role' }}</dt><dd>{{ a.systemRole }}</dd> }
+              <dt>{{ 'coa.f.status' | translate: 'Status' }}</dt>
+              <dd data-testid="coa-detail-status"><span class="coa-dd-status" [class.is-off]="!a.isActive">{{ (a.isActive ? 'coa.status.active' : 'coa.status.inactive') | translate: (a.isActive ? 'Active' : 'Inactive') }}</span></dd>
+              @if (a.balance != null) {
+                <dt>{{ 'coa.f.balance' | translate: 'Balance' }}</dt><dd class="coa-dd-balance" [class.is-negative]="a.balance < 0" data-testid="coa-detail-balance">{{ money(a.balance) }}</dd>
+              }
+            </dl>
+          </div>
+        }
+      </ng-container>
+    </nz-drawer>
+    <ng-template #footer>
+      <button nz-button type="button" (click)="closed.emit()" data-testid="coa-detail-close">{{ 'common.close' | translate: 'Close' }}</button>
+    </ng-template>

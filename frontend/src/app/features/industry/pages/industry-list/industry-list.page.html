@@ -1,0 +1,31 @@
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load this page" hint="The server did not return the definition of these records." actionLabel="Try again" (action)="load()" />
+    } @else if (type(); as t) {
+      <h1 class="erp-page-title" data-testid="industry-title">{{ t.label }}</h1>
+      @if (t.sensitive) {
+        <nz-alert class="restricted" nzType="warning" nzShowIcon nzMessage="Restricted"
+                  nzDescription="These records are private. Only people with access can open them, and every time one is opened it is logged." data-testid="industry-restricted"></nz-alert>
+      }
+      <erp-paged-table [list]="list" [columns]="columns()" [searchPlaceholder]="'Search ' + t.label.toLowerCase()" [emptyText]="'No ' + t.label.toLowerCase() + ' yet'"
+                       [tableId]="module() + '.' + t.key" [tableName]="t.label" (rowClick)="open($event)">
+        <ng-template #cell let-row let-column="column" let-value="value">
+          @switch (column.key) {
+            @case ('status') { <nz-tag [nzColor]="tone(row.status)" [attr.data-status]="row.status">{{ statusText(row.status) }}</nz-tag> }
+            @case ('amount') { <span class="amount">{{ row.amount | number: '1.2-2' }}</span> }
+            @case ('number') { <span class="code-pill">{{ row.number }}</span> }
+            @default { {{ value }} }
+          }
+        </ng-template>
+        <nz-select toolbar style="width:180px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="status()" (ngModelChange)="filterStatus($event)" [ngModelOptions]="{ standalone: true }"
+                   aria-label="Filter by status" data-testid="industry-status-filter">
+          @for (s of t.statuses; track s.key) { <nz-option [nzValue]="s.key" [nzLabel]="s.label"></nz-option> }
+        </nz-select>
+        <button toolbar *erpHasPermission="module() + '.' + t.key + '.manage'" nz-button nzType="primary" (click)="creating.set(true)" data-testid="industry-new">
+          <span nz-icon nzType="plus"></span>New {{ t.singular.toLowerCase() }}
+        </button>
+      </erp-paged-table>
+      <erp-industry-record-form [module]="module()" [type]="t" [open]="creating()" (saved)="created($event)" (closed)="creating.set(false)" />
+    } @else {
+      <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 6 }" data-testid="industry-loading"></nz-skeleton>
+    }

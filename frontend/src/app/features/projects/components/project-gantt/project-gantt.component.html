@@ -1,0 +1,61 @@
+
+    <div class="prj-toolbar" data-testid="gantt-toolbar">
+      <div class="prj-chips" role="group" aria-label="Zoom">
+        @for (z of zooms; track z.value) { <button type="button" class="prj-chip" [class.on]="zoom() === z.value" (click)="zoom.set(z.value)">{{ z.label }}</button> }
+      </div>
+      <span class="legend"><i class="sw"></i> Task <i class="sw critical"></i> Critical path <i class="sw done"></i> Done <i class="sw late"></i> Late @if (schedule()?.hasBaseline) { <i class="sw base"></i> Baseline } <i class="diamond"></i> Milestone</span>
+      <span class="prj-spacer"></span>
+      @if (canManage()) {
+        <button nz-button nzSize="small" (click)="baseline(false)" data-testid="gantt-baseline"><span nz-icon nzType="flag"></span> {{ schedule()?.hasBaseline ? 'Update baseline' : 'Save as baseline' }}</button>
+        @if (schedule()?.hasBaseline) { <button nz-button nzSize="small" (click)="baseline(true)">Clear baseline</button> }
+      }
+    </div>
+
+    @if (schedule(); as s) {
+      @if (bars().length || s.milestones.length) {
+        <div class="gantt" data-testid="gantt" dir="ltr">
+          <div class="labels" [style.height.px]="height()">
+            <div class="labels-head" [style.height.px]="HEAD">Task</div>
+            @for (b of bars(); track b.task.id) {
+              <button type="button" class="label" [class.sub]="!!b.task.parentTaskId" [style.top.px]="b.top" [title]="b.task.title" (click)="opened.emit(b.task.id)">
+                <span class="num">{{ b.task.number }}</span> {{ b.task.title }}
+              </button>
+            }
+            @if (s.milestones.length) { <div class="label ms-label" [style.top.px]="milestoneTop()">Milestones</div> }
+          </div>
+          <div class="track-scroll">
+            <div class="track" [style.width.px]="totalWidth()" [style.height.px]="height()">
+              @for (b of bands(); track b.left) { <div class="band" [style.left.px]="b.left" [style.width.px]="b.width">{{ b.label }}</div> }
+              @for (c of columns(); track c.left) {
+                <div class="col" [class.off]="c.off" [style.left.px]="c.left" [style.width.px]="c.width" [style.top.px]="22" [style.bottom.px]="0"><span>{{ c.label }}</span></div>
+              }
+              @if (todayLeft() !== null) { <div class="today" [style.left.px]="todayLeft()" title="Today"></div> }
+              <svg class="arrows" [attr.width]="totalWidth()" [attr.height]="height()" aria-hidden="true">
+                <defs><marker id="prj-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#94a3b8" /></marker></defs>
+                @for (a of arrows(); track a) { <path [attr.d]="a" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#prj-arrow)" /> }
+              </svg>
+              @for (b of bars(); track b.task.id) {
+                @if (b.baseLeft !== null) { <div class="base-bar" [style.left.px]="b.baseLeft" [style.width.px]="b.baseWidth" [style.top.px]="b.top + 24" [title]="'Baseline: ' + b.task.baselineStart + ' to ' + b.task.baselineEnd"></div> }
+                <div class="bar" role="button" tabindex="0" [class.critical]="b.task.critical" [class.done]="b.task.status === 'done'" [class.late]="b.task.late" [class.parent]="isParent(b.task)" [class.can-drag]="canDrag(b.task)"
+                     [style.left.px]="b.left + (drag()?.id === b.task.id && drag()?.mode === 'move' ? drag()!.dx : 0)" [style.width.px]="barWidth(b)" [style.top.px]="b.top + 6"
+                     [attr.data-testid]="'bar-' + b.task.number" [attr.aria-label]="b.task.number + ' ' + b.task.title + ', ' + b.task.start + ' to ' + b.task.end"
+                     [title]="b.task.number + ' ' + b.task.title + '
+' + b.task.start + ' to ' + b.task.end + (b.task.assignedTo ? '
+' + b.task.assignedTo : '') + (b.task.critical ? '
+Critical path' : '
+Slack ' + b.task.slackDays + ' days')"
+                     (pointerdown)="dragStart($event, b, 'move')" (keydown.enter)="opened.emit(b.task.id)">
+                  <span class="bar-text">{{ barWidth(b) > 70 ? (b.task.assignedTo || '') : '' }}</span>
+                  @if (canDrag(b.task)) { <span class="grip" (pointerdown)="dragStart($event, b, 'resize')" title="Drag to change the due date"></span> }
+                </div>
+              }
+              @for (m of milestonePoints(); track m.id) {
+                <div class="ms" [class.ms-done]="m.status !== 'pending'" [style.left.px]="m.left" [style.top.px]="milestoneTop() + 9" [title]="m.title + ', ' + m.date"></div>
+                <span class="ms-text" [style.left.px]="m.left + 14" [style.top.px]="milestoneTop() + 8">{{ m.title }}</span>
+              }
+            </div>
+          </div>
+        </div>
+      } @else { <div class="prj-empty">No tasks yet. Add tasks to see the plan.</div> }
+    } @else { <div class="prj-empty">Loading the plan</div> }
+  

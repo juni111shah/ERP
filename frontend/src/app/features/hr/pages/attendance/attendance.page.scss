@@ -1,0 +1,32 @@
+
+    .attendance-table-card {
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+    .emp-cell { display: flex; align-items: center; gap: 12px; }
+    .emp-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10955d 0%, #05663d 100%);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .emp-info { display: flex; flex-direction: column; gap: 2px; }
+    .emp-name { font-weight: 600; color: var(--erp-color-text-primary); font-size: 13px; }
+    .emp-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--erp-color-text-secondary, #64748b); }
+    .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    tr.unsaved > td { background: var(--erp-color-warning-bg); }
+    tr.unsaved > td:first-child { box-shadow: inset 3px 0 0 var(--erp-color-warning-solid); }
+    :host-context([dir='rtl']) tr.unsaved > td:first-child { box-shadow: inset -3px 0 0 var(--erp-color-warning-solid); }
+    .row-actions { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+    .unsaved-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; background: var(--erp-color-warning-bg); border: 1px solid var(--erp-color-warning-border); color: var(--erp-color-warning-text); }
+    .unsaved-bar .grow { flex: 1; }
+  

@@ -1,0 +1,34 @@
+
+    <h1 class="erp-page-title">Settings</h1>
+    <div class="wrap">
+      @if (loading()) {
+        <div class="loading"><nz-spin nzSimple></nz-spin></div>
+      } @else if (failed()) {
+        <erp-state-panel kind="error" title="Could not load the workspace settings" hint="The server could not read the settings list, so they cannot be changed right now. Your saved values are not affected." actionLabel="Try again" (action)="load()" data-testid="settings-error" />
+      } @else {
+        @for (g of groups(); track g.module) {
+          <section class="group-card">
+            <h3>{{ moduleName(g.module) }}</h3>
+            @for (s of g.items; track s.key) {
+              <div class="row">
+                <div class="label">{{ s.label }} @if (s.description) { <small>{{ s.description }}</small> }</div>
+                @switch (s.type) {
+                  @case ('bool') { <nz-switch [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.aria-label]="s.label" [attr.data-testid]="'setting-' + s.key"></nz-switch> }
+                  @case ('text') { <input nz-input style="width:260px" [attr.aria-label]="s.label" [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
+                  @case ('string') { <input nz-input style="width:260px" [attr.aria-label]="s.label" [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
+                  @default { <nz-input-number [ngModel]="draft()[s.key] ?? null" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key"></nz-input-number> }
+                }
+              </div>
+            }
+          </section>
+        } @empty {
+          <erp-state-panel title="No settings to change" hint="None of the enabled modules has a setting." icon="setting" />
+        }
+        @if (groups().length) {
+          <div class="actions">
+            <button *erpHasPermission="'core.settings.write'" nz-button nzType="primary" [disabled]="!dirty()" [nzLoading]="saving()" (click)="save()" data-testid="settings-save">Save settings</button>
+          </div>
+        }
+      }
+      <erp-coa-numbering-editor />
+    </div>

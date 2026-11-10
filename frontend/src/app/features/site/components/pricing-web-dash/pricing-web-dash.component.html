@@ -1,0 +1,58 @@
+
+    <aside>
+      <div class="logo"><erp-brand-logo size="md" subtitle="Demo Workspace"></erp-brand-logo></div>
+      <div class="menu-search">Search menu...</div>
+      <div class="group">Workspace <span nz-icon nzType="down"></span></div>
+      <div class="link on"><span nz-icon nzType="dashboard"></span>Overview</div>
+      <div class="link"><span nz-icon nzType="check-square"></span>Approvals</div>
+      @for (g of groups; track g) { <div class="group">{{ g }} <span nz-icon nzType="right"></span></div> }
+    </aside>
+    <main>
+      <div class="bar">
+        <span class="crumb">● WORKSPACE</span><span class="sep">/</span><strong>Overview</strong>
+        <div class="tools">
+          <span class="tool"><span nz-icon nzType="search"></span></span>
+          <span class="tool add"><span nz-icon nzType="plus"></span></span>
+          <span class="bell"><span nz-icon nzType="bell"></span><b>4</b></span>
+          <span class="avatar">DW</span>
+        </div>
+      </div>
+      <div class="page">
+        <div class="range"><span class="select">Last year <span nz-icon nzType="down" style="font-size:10px"></span></span><span class="tool" style="width:28px;height:28px"><span nz-icon nzType="reload"></span></span> The last 12 months</div>
+        <div class="tabs">
+          <span class="all"><span nz-icon nzType="appstore"></span>All Overview <b>38</b></span>
+          <span nz-icon nzType="dollar"></span><span nz-icon nzType="line-chart"></span><span nz-icon nzType="shopping"></span><span nz-icon nzType="project"></span><span nz-icon nzType="team"></span>
+          <div class="switch"><span class="on">Curated Focus</span><span>All Metrics (38)</span></div>
+        </div>
+        <div class="label">Executive highlights</div>
+        <div class="kpis">
+          <div class="kpi" style="--c:#0f8a5a"><small>Collected in period</small><strong>USD 318,400</strong><em>receipts this period</em></div>
+          <div class="kpi" style="--c:#2563eb"><small>Cash and bank</small><strong>USD 96,720</strong><em>across all accounts</em></div>
+          <div class="kpi" style="--c:#0b83bd"><small>Receivables</small><strong>USD 42,150</strong><em>overdue 3</em></div>
+          <div class="kpi" style="--c:#d9760b"><small>Net result for period</small><strong>USD 71,136</strong><em>income less expenses</em></div>
+        </div>
+        <div class="row">
+          <div class="card">
+            <div class="eyebrow"><span nz-icon nzType="dollar"></span>Finance &amp; Treasury</div>
+            <h4>Billed vs collected</h4>
+            <p class="sub">Invoices net of credit notes, and receipts, for the selected period · by month</p>
+            <div class="pills"><span class="on">Billed vs collected</span><span>Receivables ageing</span><span>Expenses for period</span></div>
+            <div class="plot">
+              @for (t of ticks; track t.label) { <div class="tick" [style.bottom.%]="t.at"><span>{{ t.label }}</span></div> }
+              @for (m of series; track $index) {
+                <div class="month"><i class="a" [style.height.%]="m[0]" [style.animation-delay.ms]="$index * 55"></i><i class="b" [style.height.%]="m[1]" [style.animation-delay.ms]="$index * 55 + 40"></i></div>
+              }
+            </div>
+            <div class="months">@for (m of months; track m) { <span>{{ m }}</span> }</div>
+            <div class="legend"><span><i style="background:#10955d"></i>Billed</span><span><i style="background:#2563eb"></i>Collected</span></div>
+          </div>
+          <div class="card alerts">
+            <h4>Alerts and to-dos</h4>
+            <div class="alert"><span class="sign red"><span nz-icon nzType="warning"></span></span><div><div class="tags"><span class="tag">Finance</span><span class="tag red">Action needed</span></div><p>3 invoices are overdue</p></div></div>
+            <div class="alert"><span class="sign amber"><span nz-icon nzType="bulb"></span></span><div><div class="tags"><span class="tag">Inventory</span><span class="tag red">Action needed</span></div><p>1 item at or below their reorder level</p></div></div>
+            <div class="alert"><span class="sign amber"><span nz-icon nzType="bulb"></span></span><div><div class="tags"><span class="tag">HR</span><span class="tag amber">Upcoming</span></div><p>1 document expires within 30 days.</p></div></div>
+            <div class="alert"><span class="sign amber"><span nz-icon nzType="check-square"></span></span><div><div class="tags"><span class="tag">Approvals</span><span class="tag amber">Upcoming</span></div><p>2 requests are waiting for your decision</p></div></div>
+          </div>
+        </div>
+      </div>
+    </main>

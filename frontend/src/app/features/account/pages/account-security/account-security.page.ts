@@ -16,36 +16,7 @@ import { asProblem } from '@core/http/problem-details';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslatePipe, FormsModule, NzAlertModule, NzButtonModule, NzCardModule, NzInputModule],
-  template: `
-    <h1 class="erp-page-title">{{ 'security.title' | translate: 'Account security' }}</h1>
-    <nz-card [nzTitle]="'security.twoFactor' | translate: 'Two-factor authentication'" style="max-width:640px">
-      @if (enabled()) {
-        <nz-alert nzType="success" nzShowIcon [nzMessage]="'security.on' | translate: 'Two-factor authentication is on.'" style="margin-bottom:16px" data-testid="tf-on"></nz-alert>
-        <p>To switch it off, confirm your password and a current code.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input aria-label="Password" nz-input type="password" placeholder="Password" [(ngModel)]="password" style="width:200px" data-testid="tf-password" />
-          <input aria-label="Code" nz-input placeholder="Code" [(ngModel)]="code" style="width:140px" data-testid="tf-code" />
-          <button nz-button nzDanger [nzLoading]="busy()" (click)="disable()" data-testid="tf-disable">{{ 'security.turnOff' | translate: 'Turn off' }}</button>
-        </div>
-      } @else if (!secret()) {
-        <p>Protect your account with a code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy).</p>
-        <button nz-button nzType="primary" [nzLoading]="busy()" (click)="begin()" data-testid="tf-begin">{{ 'security.setup' | translate: 'Set up' }}</button>
-      } @else {
-        <p>1. In your authenticator app choose <b>Enter a setup key</b> and type this key:</p>
-        <p><code style="font-size:18px" data-testid="tf-secret">{{ secret() }}</code></p>
-        <p style="word-break:break-all;opacity:.7">{{ 'ui.security.openLink' | translate: 'Or open this link on your phone' }}: {{ uri() }}</p>
-        <p>2. Enter the 6-digit code the app shows:</p>
-        <div style="display:flex;gap:8px">
-          <input aria-label="123456" nz-input placeholder="123456" [(ngModel)]="code" style="width:140px" maxlength="7" data-testid="tf-code" />
-          <button nz-button nzType="primary" [nzLoading]="busy()" (click)="enable()" data-testid="tf-enable">{{ 'security.turnOn' | translate: 'Turn on' }}</button>
-        </div>
-      }
-      @if (recovery().length) {
-        <nz-alert nzType="warning" nzShowIcon style="margin-top:16px" nzMessage="Save these recovery codes now. Each works once if you lose your phone. They will not be shown again."
-                  [nzDescription]="codes" data-testid="tf-recovery"></nz-alert>
-        <ng-template #codes><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-family:monospace">@for (c of recovery(); track c) { <span>{{ c }}</span> }</div></ng-template>
-      }
-    </nz-card>`,
+  templateUrl: './account-security.page.html',
 })
 export class AccountSecurityPage {
   private readonly http = inject(HttpClient);

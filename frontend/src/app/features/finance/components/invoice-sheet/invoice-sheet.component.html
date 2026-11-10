@@ -1,0 +1,69 @@
+
+    @if (invoice(); as inv) {
+      <div class="sheet" [class.compact]="compact()" data-testid="invoice-sheet">
+        <div class="head">
+          <div>
+            <div class="doc-type">{{ docType() }}</div>
+            <div class="doc-no" data-testid="sheet-number">{{ inv.number || 'Draft' }}</div>
+            <erp-status [value]="invoice()?.status" [label]="statusLabel()" data-testid="sheet-status" />
+            @if (overdueDays() > 0) { <nz-tag nzColor="red">{{ 'ui.inv.overdue' | translate: 'Overdue' }} {{ overdueDays() }}{{ 'ui.common.dayShort' | translate: 'd' }}</nz-tag> }
+          </div>
+          @if (extras()?.header; as h) {
+            <div class="issuer">
+              <b>{{ h.legalEntityName || h.organizationName }}</b>
+              @if (h.legalEntityAddress) { <div>{{ h.legalEntityAddress }}</div> }
+              @if (h.taxRegistrationNo) { <div>{{ taxReg() }}: {{ h.taxRegistrationNo }}</div> }
+              @if (h.phone || h.email) { <div>{{ [h.phone, h.email].filter(truthy).join(' · ') }}</div> }
+            </div>
+          }
+        </div>
+
+        <div class="grid2">
+          <div class="block" data-testid="sheet-bill-to">
+            <h5>Bill to</h5>
+            <div class="party-name">
+              @if (partyLink()) { <a [routerLink]="['/parties', inv.partyId]">{{ partyName() }}</a> } @else { {{ partyName() }} }
+            </div>
+            @if (extras()?.partyAddress) { <div class="muted">{{ extras()!.partyAddress }}</div> }
+            @if (extras()?.partyPhone || extras()?.partyEmail) { <div class="muted">{{ [extras()!.partyPhone, extras()!.partyEmail].filter(truthy).join(' · ') }}</div> }
+            @if (extras()?.partyTaxNumber) { <div>{{ taxReg() }}: <b>{{ extras()!.partyTaxNumber }}</b></div> }
+          </div>
+          <div class="block" data-testid="sheet-meta">
+            <h5>Details</h5>
+            <div class="meta">
+              <span>{{ inv.isCreditNote ? 'Credit note date' : 'Invoice date' }}</span><span>{{ inv.invoiceDate | erpDate }}</span>
+              <span>Due date</span><span [class.overdue]="overdueDays() > 0">{{ inv.dueDate | erpDate }}@if (overdueDays() > 0) { ({{ overdueDays() }} {{ 'ui.inv.daysOverdue' | translate: 'days overdue' }}) }</span>
+              <span>Currency</span><span>{{ inv.currencyCode }}</span>
+              @if (source()) { <span>Source</span><span>{{ source() }}</span> }
+              @if (originalInvoiceId(); as oid) { <span>Credits</span><span><a [routerLink]="['/finance/invoices', oid]">{{ extras()?.originalInvoiceNumber ? 'Invoice ' + extras()!.originalInvoiceNumber : 'Original invoice' }}</a></span> }
+            </div>
+          </div>
+        </div>
+
+        <div class="lines-wrap"><table class="lines" data-testid="sheet-lines">
+          <thead><tr>
+            <th style="width:32px">#</th><th>Description</th><th class="r">Qty</th><th class="r">Price</th>
+            <th class="r">Taxable</th><th class="r">{{ taxName() }} %</th><th class="r">{{ taxName() }}</th><th class="r">Amount</th>
+          </tr></thead>
+          <tbody>
+            @for (l of rows(); track $index) {
+              <tr>
+                <td>{{ l.seq }}</td><td>{{ l.description }}</td><td class="r">{{ l.quantity }}</td><td class="r">{{ money(l.price) }}</td>
+                <td class="r">{{ money(l.net) }}</td><td class="r">{{ l.rate === null ? '—' : l.rate + '%' }}</td><td class="r">{{ money(l.tax) }}</td><td class="r">{{ money(l.net + l.tax) }}</td>
+              </tr>
+            } @empty { <tr><td colspan="8" class="muted">No lines</td></tr> }
+          </tbody>
+        </table></div>
+
+        <div class="totals" data-testid="sheet-totals">
+          <div><span>Subtotal (taxable)</span><span>{{ money(inv.net) }}</span></div>
+          <div><span>{{ taxName() }}</span><span>{{ money(inv.tax) }}</span></div>
+          <div class="grand"><span>{{ 'common.total' | translate: 'Total' }} {{ inv.currencyCode }}</span><span>{{ money(inv.total) }}</span></div>
+          <div><span>{{ inv.isCreditNote ? 'Applied' : 'Paid' }}</span><span>{{ money(inv.paid) }}</span></div>
+          <div class="due"><span>{{ inv.isCreditNote ? 'Unapplied' : 'Balance due' }}</span><span>{{ money(inv.status === 'voided' ? 0 : inv.total - inv.paid) }}</span></div>
+        </div>
+
+        @if (inv.notes) { <div class="notes"><h5 style="margin:0 0 4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b89b5e">Notes</h5><div class="muted">{{ noteText(inv.notes) }}</div></div> }
+      </div>
+    }
+  

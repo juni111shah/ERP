@@ -1,0 +1,14 @@
+
+    @let r = result();
+    <div class="panel" [attr.data-state]="r.status" [attr.data-testid]="'register-result-' + r.status">
+      <div class="icon" aria-hidden="true"><span nz-icon [nzType]="icon()"></span></div>
+      <h2>{{ heading() }}</h2>
+      <p>{{ r.message }}</p>
+      @if (r.status === 'provisioned') {
+        @if (r.signInKey) { <div class="code"><small>Workspace code</small><strong data-testid="register-result-code">{{ r.signInKey }}</strong></div> }
+        <div><a nz-button nzType="primary" routerLink="/auth/login" data-testid="register-result-signin">Sign in</a></div>
+      } @else {
+        @if (supportEmail(); as mail) { <p>Questions? Write to <a [href]="'mailto:' + mail">{{ mail }}</a>.</p> }
+        <a routerLink="/auth/login">Back to sign in</a>
+      }
+    </div>

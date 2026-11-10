@@ -18,19 +18,7 @@ import { I18nService } from '@core/i18n/i18n.service';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NzButtonModule, NzIconModule],
-  template: `
-    <section class="erp-success-panel" role="status" data-testid="success-panel">
-      <span class="erp-success-panel__icon" nz-icon nzType="check-circle" nzTheme="fill" aria-hidden="true"></span>
-      <div class="erp-success-panel__body">
-        <h2 class="erp-success-panel__title" data-testid="success-title">{{ title() }}</h2>
-        @if (detail()) { <p class="erp-success-panel__detail" data-testid="success-detail">{{ detail() }}</p> }
-        <div class="erp-success-panel__actions"><ng-content select="[actions]" /></div>
-        <p class="erp-success-panel__loop"><ng-content select="[loop]" /></p>
-      </div>
-      <button nz-button nzType="text" nzSize="small" type="button" class="erp-success-panel__close" [attr.aria-label]="closeLabel()" (click)="dismissed.emit()" data-testid="success-close">
-        <span nz-icon nzType="close"></span>
-      </button>
-    </section>`,
+  templateUrl: './success-panel.component.html',
 })
 export class SuccessPanelComponent {
   private readonly i18n = inject(I18nService);

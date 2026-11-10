@@ -1,0 +1,3 @@
+.line { display:grid; grid-template-columns: 2fr 1fr 1fr 1.4fr 32px; gap:8px; margin-bottom:8px; align-items:center } .line nz-input-number { width:100% }
+    .line-head { margin-bottom:4px; font-size:12px; font-weight:600; color: var(--erp-color-text-muted) }
+    .totals { display:flex; gap:24px; justify-content:flex-end; margin:8px 0; font-variant-numeric: tabular-nums } .bad { color: var(--erp-color-error, #cf1322) }

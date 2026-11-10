@@ -53,60 +53,8 @@ export function parseImport(text: string, idByNumber: ReadonlyMap<string, string
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpDatePipe, DecimalPipe, FormsModule, RecordDrawerComponent, HasPermissionDirective, StatePanelComponent, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, NzTableModule, NzTagModule],
-  styles: [`.num { text-align: end; white-space: nowrap; } .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; } .import-error { color: var(--erp-color-error-text); margin: 4px 0 0; } .gap { margin-inline-end: 10px; }`],
-  template: `
-    <h1 class="erp-page-title">Daily attendance</h1>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0">
-      <label class="sr" for="daily-month">Month</label>
-      <nz-date-picker nzId="daily-month" nzMode="month" [nzAllowClear]="false" [(ngModel)]="month" (ngModelChange)="load()" data-testid="daily-month"></nz-date-picker>
-      <label class="sr" for="daily-employee">Employee</label>
-      <nz-select nzId="daily-employee" style="width:240px" nzAllowClear nzShowSearch nzPlaceHolder="All employees" [(ngModel)]="employeeId" (ngModelChange)="load()" data-testid="daily-employee">
-        @for (e of employees().items; track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.number + ' · ' + e.fullName"></nz-option> }
-      </nz-select>
-      <span style="flex:1"></span>
-      <button *erpHasPermission="'hr.attendance.manage'" nz-button (click)="startAdd()" data-testid="daily-add"><span nz-icon nzType="plus"></span>Add a day</button>
-      <button *erpHasPermission="'hr.attendance.manage'" nz-button (click)="importOpen.set(true)" data-testid="daily-import"><span nz-icon nzType="upload"></span>Import</button>
-      <button *erpHasPermission="'hr.attendance.manage'" nz-button nzType="primary" [disabled]="busy()" (click)="rollUp()" data-testid="daily-rollup">Roll up to the month</button>
-    </div>
-    @if (failed()) {
-      <erp-state-panel kind="error" title="Daily attendance could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
-    } @else {
-      <nz-table [nzData]="rows()" [nzLoading]="loading()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzNoResult]="noDays" data-testid="daily-table">
-        <thead><tr><th>Date</th><th>Employee</th><th>In</th><th>Out</th><th>Status</th><th class="num">Worked</th><th class="num">Late (min)</th><th class="num">Overtime (min)</th><th></th></tr></thead>
-        <tbody>
-          @for (r of rows(); track r.id) {
-            <tr>
-              <td>{{ r.date | erpDate }}</td><td>{{ name(r.employeeId) }}</td><td>{{ r.checkIn?.slice(0, 5) }}</td><td>{{ r.checkOut?.slice(0, 5) }}</td>
-              <td><erp-status [value]="r.status" [label]="statusLabel(r.status)" /></td>
-              <td class="num">{{ hours(r.workedMinutes) }}</td><td class="num">{{ r.lateMinutes || '' }}</td><td class="num">{{ r.overtimeMinutes || '' }}</td>
-              <td><a class="gap" *erpHasPermission="'hr.attendance.manage'" (click)="startEdit(r)">Edit</a><a *erpHasPermission="'hr.attendance.manage'" (click)="remove(r)">Delete</a></td>
-            </tr>
-          }
-        </tbody>
-      </nz-table>
-      <ng-template #noDays><erp-state-panel title="No days recorded for this month" hint="Add a day by hand, or import the export from your attendance device." icon="calendar" /></ng-template>
-    }
-
-    <erp-record-drawer [title]="editing() ? 'Edit day' : 'Add a day'" [open]="form()" [fields]="fields()" [value]="$any(editing())" [saving]="busy()" [errors]="errors()" [width]="440"
-                       testId="daily-form" (submitted)="save($event)" (closed)="form.set(false)" />
-
-    <nz-modal [nzVisible]="importOpen()" nzTitle="Import attendance" [nzWidth]="560" nzOkText="Import" [nzOkLoading]="busy()" (nzOnOk)="runImport()" (nzOnCancel)="importOpen.set(false)">
-      <ng-container *nzModalContent>
-        <p>One line per day: <code>employee number, date, check-in, check-out</code>, for example <code>EMP-001,2026-10-05,08:00,17:30</code>. Leave the times blank for an absent day.</p>
-        <textarea nz-input rows="8" aria-label="Attendance lines to import" [(ngModel)]="importText" data-testid="daily-import-text"></textarea>
-        @for (e of importErrors(); track e) { <p class="import-error">{{ e }}</p> }
-      </ng-container>
-    </nz-modal>
-
-    <nz-modal [nzVisible]="summary() !== null" nzTitle="Monthly attendance updated" [nzWidth]="720" [nzFooter]="null" (nzOnCancel)="summary.set(null)">
-      <ng-container *nzModalContent>
-        <nz-table [nzData]="summary() ?? []" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="rollup-table">
-          <thead><tr><th>Employee</th><th>Working days</th><th>Present</th><th>Unpaid absent</th><th>On leave</th><th>Overtime (h)</th><th>Late days</th></tr></thead>
-          <tbody>@for (r of summary() ?? []; track r.employeeId) { <tr><td>{{ r.employeeName }}</td><td>{{ r.workingDays }}</td><td>{{ r.daysPresent }}</td><td>{{ r.unpaidAbsentDays }}</td><td>{{ r.paidLeaveDays }}</td><td>{{ r.overtimeHours | number: '1.2-2' }}</td><td>{{ r.lateDays }}</td></tr> }</tbody>
-        </nz-table>
-        <p style="margin-top:8px;color:var(--erp-color-text-secondary)">Payroll reads these figures. Recalculate a draft payroll to pick them up.</p>
-      </ng-container>
-    </nz-modal>`,
+  styleUrl: './daily-attendance.page.scss',
+  templateUrl: './daily-attendance.page.html',
 })
 export class DailyAttendancePage {
   private readonly api = inject(DailyAttendanceApi);

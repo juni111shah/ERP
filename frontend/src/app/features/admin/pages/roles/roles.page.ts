@@ -23,33 +23,8 @@ import { TranslatePipe } from '@core/i18n/translate.pipe';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslatePipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, PagedTableComponent, HasPermissionDirective, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzCheckboxModule, NzIconModule],
-  styles: [`.perm-group { margin-bottom: 16px } .perm-group h4 { margin: 0 0 4px; text-transform: capitalize } .perm { display:block; margin: 2px 0 }`],
-  template: `
-    <h1 class="erp-page-title">Roles</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search roles" emptyText="No roles" (rowClick)="open($event)">
-      <button toolbar *erpHasPermission="'core.roles.write'" nz-button nzType="primary" (click)="open(null)" data-testid="role-new"><span nz-icon nzType="plus"></span> New role</button>
-    </erp-paged-table>
-    <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="560" [nzTitle]="editing() ? editing()!.name : 'New role'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
-      <ng-container *nzDrawerContent>
-        <form nz-form nzLayout="vertical" [formGroup]="form" data-testid="role-form">
-          <nz-form-item><nz-form-label nzRequired>Name</nz-form-label><nz-form-control [nzErrorTip]="err('name')"><input nz-input formControlName="name" data-testid="role-name" /></nz-form-control></nz-form-item>
-          <nz-form-item><nz-form-label>Description</nz-form-label><nz-form-control><input nz-input formControlName="description" /></nz-form-control></nz-form-item>
-        </form>
-        <h4>Permissions</h4>
-        @for (g of groups(); track g.title) {
-          <div class="perm-group">
-            <h4>{{ g.title }}</h4>
-            @for (p of g.items; track p.key) {
-              <label nz-checkbox class="perm" [nzChecked]="selected().has(p.key)" [nzDisabled]="readOnly()" (nzCheckedChange)="toggle(p.key, $event)" [attr.data-testid]="'perm-' + p.key">{{ p.description }}</label>
-            }
-          </div>
-        }
-      </ng-container>
-    </nz-drawer>
-    <ng-template #footer>
-      <button nz-button (click)="drawerOpen.set(false)">Cancel</button>
-      @if (!readOnly()) { <button nz-button nzType="primary" [nzLoading]="saving()" (click)="save()" style="margin-inline-start:8px" data-testid="role-save">Save</button> }
-    </ng-template>`,
+  styleUrl: './roles.page.scss',
+  templateUrl: './roles.page.html',
 })
 export class RolesPage {
   private readonly api = inject(RolesApi);

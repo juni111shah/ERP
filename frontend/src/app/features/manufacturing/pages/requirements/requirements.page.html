@@ -1,0 +1,38 @@
+
+    <h1 class="erp-page-title">Material requirements</h1>
+    <p class="note">What the open work orders need, level by level through the bills of materials, against what is on hand and in production. Add a quantity of one product to see what making it would need as well.</p>
+    <div class="bar">
+      <div class="field">Legal entity
+        <nz-select [ngModel]="entityId()" (ngModelChange)="entityId.set($event)" style="width:240px" data-testid="req-entity">@for (o of entities; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label" /> }</nz-select>
+      </div>
+      <div class="field">Warehouse
+        <nz-select [ngModel]="warehouseId()" (ngModelChange)="warehouseId.set($event)" nzAllowClear nzPlaceHolder="Those of the open orders" style="width:240px" data-testid="req-warehouse">@for (w of warehouses(); track w.id) { <nz-option [nzValue]="w.id" [nzLabel]="w.code + ' · ' + w.name" /> }</nz-select>
+      </div>
+      <div class="field">What-if product
+        <nz-select [ngModel]="itemId()" (ngModelChange)="itemId.set($event)" nzAllowClear nzShowSearch nzPlaceHolder="None" style="width:240px" data-testid="req-item">@for (i of items(); track i.id) { <nz-option [nzValue]="i.id" [nzLabel]="i.sku + ' · ' + i.name" /> }</nz-select>
+      </div>
+      <div class="field">Quantity <nz-input-number [ngModel]="quantity()" (ngModelChange)="quantity.set($event)" [nzMin]="0" style="width:110px" data-testid="req-quantity" /></div>
+      <button nz-button nzType="primary" type="button" [disabled]="!entityId()" (click)="run()" data-testid="req-run">Show requirements</button>
+    </div>
+    @if (loading()) {
+      <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 6 }" />
+    } @else if (error()) {
+      <erp-state-panel kind="error" title="Could not work out the requirements" [hint]="error()" actionLabel="Try again" (action)="run()" />
+    } @else if (result(); as r) {
+      <p data-testid="req-summary"><b>{{ r.openWorkOrders }}</b> open work orders. <nz-tag [nzColor]="r.shortages.length ? 'red' : 'green'">{{ r.shortages.length ? r.shortages.length + ' items short' : 'Nothing short' }}</nz-tag>
+        @if (!r.openPurchaseNetted) { <span class="note">Open purchase orders are not counted, so a shortage may already be on order.</span> }</p>
+      @if (r.rows.length) {
+        <nz-table [nzData]="r.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="req-table">
+          <thead><tr><th>Item</th><th>Level</th><th>Kind</th><th class="r">Required</th><th class="r">On hand</th><th class="r">On order</th><th class="r">In production</th><th class="r">To make or buy</th></tr></thead>
+          <tbody>
+            @for (row of r.rows; track row.itemId) {
+              <tr>
+                <td>{{ row.itemCode }} · {{ row.itemName }}</td><td>{{ row.level }}</td><td>{{ row.isManufactured ? 'Make' : 'Buy' }}</td>
+                <td class="r">{{ row.grossRequired | number: '1.0-4' }} {{ row.uom }}</td><td class="r">{{ row.onHand | number: '1.0-4' }}</td><td class="r">{{ row.onOrder | number: '1.0-4' }}</td><td class="r">{{ row.inProduction | number: '1.0-4' }}</td>
+                <td class="r" [class.short]="row.netRequired > 0">{{ row.netRequired | number: '1.0-4' }}</td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      } @else { <erp-state-panel title="Nothing is required" hint="There are no open work orders and no what-if quantity." /> }
+    }

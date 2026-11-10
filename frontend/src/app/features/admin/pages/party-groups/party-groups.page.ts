@@ -20,19 +20,7 @@ import { RevealDirective } from '@shared/directives/reveal.directive';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule, NzModalModule],
-  template: `
-    <h1 class="erp-page-title">Party groups</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No party groups yet" (rowClick)="state.edit($event)">
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'actions') {
-          <button *erpHasPermission="'core.partygroups.write'" nz-button nzDanger nzSize="small" type="button" (click)="$event.stopPropagation(); remove(row)" [attr.data-testid]="'pg-delete-' + row.code">Delete</button>
-        } @else { {{ value }} }
-      </ng-template>
-      <button toolbar *erpHasPermission="'core.partygroups.write'" nz-button nzType="primary" (click)="state.create()" data-testid="pg-new"><span nz-icon nzType="plus"></span> New party group</button>
-    </erp-paged-table>
-    <erp-record-drawer [title]="state.editing() ? 'Edit party group' : 'New party group'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="pg-form"
-                       (submitted)="state.submit($event)" (closed)="state.close()" />`,
+  templateUrl: './party-groups.page.html',
 })
 export class PartyGroupsPage {
   private readonly api = inject(PartyGroupsApi);

@@ -1,0 +1,49 @@
+
+    <div class="prj-toolbar">
+      <div class="prj-chips" role="tablist" aria-label="What to approve">
+        @if (canTime()) { <button type="button" role="tab" class="prj-chip" [class.on]="active() === 'time'" [attr.aria-selected]="active() === 'time'" (click)="go('time')" data-testid="approvals-time">Time ({{ time().length }})</button> }
+        @if (canCost()) { <button type="button" role="tab" class="prj-chip" [class.on]="active() === 'expenses'" [attr.aria-selected]="active() === 'expenses'" (click)="go('expenses')" data-testid="approvals-expenses">Expenses ({{ costs().length }})</button> }
+      </div>
+      <span class="prj-spacer"></span>
+      <span class="prj-muted" data-testid="approvals-picked">{{ picked().size }} of {{ lines().length }} selected · {{ currency() }} {{ pickedAmount() | number: '1.2-2' }}</span>
+      <button nz-button (click)="selectAll()" [disabled]="!lines().length">{{ picked().size === lines().length && lines().length ? 'Clear selection' : 'Select all' }}</button>
+      <button nz-button nzType="primary" [disabled]="!picked().size" (click)="decide(true)" [attr.data-testid]="active() === 'time' ? 'time-approve' : 'expense-approve'"><span nz-icon nzType="check"></span> Approve</button>
+      <button nz-button nzDanger [disabled]="!picked().size" (click)="askReason()" [attr.data-testid]="active() === 'time' ? 'time-reject' : 'expense-reject'"><span nz-icon nzType="stop"></span> Reject</button>
+    </div>
+
+    <div [attr.data-testid]="active() === 'time' ? 'time-approvals' : 'expense-approvals'">
+      @for (g of groups(); track g.person) {
+        <section class="prj-card person">
+          <header>
+            <label><input type="checkbox" [checked]="allOf(g)" (change)="pickGroup(g, $any($event.target).checked)" [attr.aria-label]="'Select all of ' + g.person" /> <b>{{ g.person }}</b></label>
+            <span class="prj-muted">{{ g.lines.length }} {{ g.lines.length === 1 ? 'line' : 'lines' }}@if (active() === 'time') { · {{ g.hours | number: '1.0-2' }} h } · {{ currency() }} {{ g.amount | number: '1.2-2' }}</span>
+          </header>
+          <div class="prj-table-wrap">
+            <table>
+              <tbody>
+                @for (l of g.lines; track l.id) {
+                  <tr>
+                    <td class="tick"><input type="checkbox" [attr.aria-label]="'Select ' + l.what + ' ' + l.date" [checked]="picked().has(l.id)" (change)="pick(l.id, $any($event.target).checked)" /></td>
+                    <td class="date">{{ l.date | erpDate }}</td>
+                    <td><a [routerLink]="['/projects', l.projectId]" class="prj-link">{{ l.project }}</a></td>
+                    <td class="what">{{ l.what }}</td>
+                    @if (active() === 'time') { <td class="prj-num">{{ l.hours | number: '1.2-2' }} h</td> }
+                    <td class="prj-num">{{ currency() }} {{ l.amount | number: '1.2-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      } @empty {
+        <div class="prj-card prj-empty">Nothing is waiting for your decision.</div>
+      }
+    </div>
+
+    <nz-modal [nzVisible]="asking()" nzTitle="Why is it rejected?" nzOkText="Reject" [nzOkDanger]="true" (nzOnOk)="reject()" (nzOnCancel)="asking.set(false)">
+      <ng-container *nzModalContent>
+        <p class="prj-muted">The person sees this reason and can correct the work.</p>
+        <textarea nz-input rows="3" [(ngModel)]="reason" maxlength="300" aria-label="Reason" data-testid="reject-reason"></textarea>
+      </ng-container>
+    </nz-modal>
+  

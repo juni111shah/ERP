@@ -20,56 +20,8 @@ interface ModuleView { key: string; name: string; description: string; category:
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StatePanelComponent, NzCardModule, NzGridModule, NzTagModule, NzButtonModule, HasPermissionDirective],
-  styles: [`
-    .module-card {
-      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
-      border-radius: 14px;
-      display: flex;
-      flex-direction: column;
-      padding: 20px;
-      height: 100%;
-    }
-    .head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:10px }
-    .mod-title { font-size:16px; font-weight:700; color: var(--erp-color-text-primary); }
-    .mod-desc { color: var(--erp-color-text-muted); font-size:13.5px; line-height:1.5; flex:1; min-height: 44px; margin-bottom:16px }
-    .group-title { font-size: 15px; font-weight: 600; margin: 24px 0 12px; color: var(--erp-color-text-primary); }
-    .mod-requires { margin: -8px 0 12px; font-size: 12.5px; color: var(--erp-color-text-muted); }
-    .action-row { margin-top: auto; display: flex; align-items: center; justify-content: space-between; }
-  `],
-  template: `
-    <h1 class="erp-page-title">Modules</h1>
-    <p style="color:var(--erp-color-text-muted); margin-top:-8px; margin-bottom:20px;">Turn on the parts of the system your business needs. Each module shows what it needs switched on first.</p>
-    @if (failed()) {
-      <erp-state-panel kind="error" title="Could not load the modules" hint="The server did not return the list." actionLabel="Try again" (action)="load()" />
-    }
-    @for (g of groups(); track g.category) {
-      <h2 class="group-title" [attr.data-testid]="'module-group-' + g.category">{{ g.category }}</h2>
-      <div nz-row [nzGutter]="[16, 16]" class="group-row">
-      @for (m of g.modules; track m.key) {
-        <div nz-col [nzXs]="24" [nzMd]="12" [nzXl]="8" [attr.data-testid]="'module-row-' + m.key">
-          <div class="module-card">
-            <div class="head">
-              <span class="mod-title">{{ m.name }}</span>
-              <nz-tag [nzColor]="m.state === 'enabled' ? 'green' : m.state === 'disabled' ? 'default' : 'blue'">
-                {{ m.isCore ? 'Always on' : m.state === 'unavailable' ? 'Coming soon' : m.state === 'enabled' ? 'Enabled' : 'Disabled' }}
-              </nz-tag>
-            </div>
-            <p class="mod-desc">{{ m.description }}</p>
-            @if (m.requires.length) {
-              <p class="mod-requires" [attr.data-testid]="'module-requires-' + m.key">Needs: {{ requiredNames(m) }}</p>
-            }
-            <div class="action-row">
-              <span style="font-size:12px; color:var(--erp-color-text-muted); font-weight:500;">v{{ m.version || '1.0' }}</span>
-              @if (!m.isCore && m.state !== 'unavailable') {
-                <button *erpHasPermission="'core.modules.manage'" nz-button [nzType]="m.state === 'enabled' ? 'default' : 'primary'" [nzLoading]="busy() === m.key"
-                        (click)="toggle(m)" [attr.data-testid]="'module-toggle-' + m.key">{{ m.state === 'enabled' ? 'Disable' : 'Enable module' }}</button>
-              }
-            </div>
-          </div>
-        </div>
-      }
-      </div>
-    }`,
+  styleUrl: './modules.page.scss',
+  templateUrl: './modules.page.html',
 })
 export class ModulesPage {
   private readonly http = inject(HttpClient);

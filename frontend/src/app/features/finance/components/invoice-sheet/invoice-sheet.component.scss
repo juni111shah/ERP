@@ -1,0 +1,28 @@
+
+    :host { display:block; --gold:#b89b5e; --muted: var(--erp-color-text-muted); }
+    .sheet { background: var(--erp-color-bg-surface); border:1px solid var(--erp-color-border-subtle); border-top:4px solid var(--gold); border-radius:6px; padding:20px 24px; }
+    .head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+    .doc-type { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); font-weight:600; }
+    .doc-no { font-size:22px; font-weight:600; margin:2px 0 4px; }
+    .issuer { text-align:right; font-size:12px; color:var(--muted); white-space:pre-line; max-width:320px; }
+    .issuer b { color: var(--erp-color-text-primary); font-size:14px; }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:16px; }
+    .compact .grid2 { grid-template-columns: 1fr; }
+    .block { border:1px solid var(--erp-color-border-subtle); border-radius:6px; padding:12px 14px; }
+    .block h5 { margin:0 0 6px; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); font-weight:600; }
+    .party-name { font-weight:600; font-size:15px; }
+    .muted { color:var(--muted); white-space:pre-line; }
+    .meta { display:grid; grid-template-columns: max-content 1fr; gap:4px 16px; font-size:13px; }
+    .meta span:nth-child(odd) { color:var(--muted); }
+    .overdue { color: var(--erp-color-error-text); font-weight:600; }
+    .lines-wrap { width:100%; overflow-x:auto; } table.lines td.r, table.lines th.r { white-space:nowrap; } table.lines td { word-break:break-word; }
+    table.lines { width:100%; min-width:640px; border-collapse:collapse; margin-top:16px; font-size:13px; }
+    table.lines th { background: var(--erp-color-bg-subtle); color: var(--erp-color-text-muted); font-weight:600; text-align:left; padding:8px; border-bottom:2px solid var(--gold); white-space:nowrap; }
+    table.lines td { padding:8px; border-bottom:1px solid var(--erp-color-border-subtle); vertical-align:top; }
+    .r { text-align:right !important; white-space:nowrap; }
+    .totals { margin-left:auto; margin-top:12px; width:320px; max-width:100%; font-size:13px; }
+    .totals div { display:flex; justify-content:space-between; padding:4px 0; }
+    .totals .grand { border-top:2px solid var(--gold); margin-top:4px; padding-top:8px; font-size:15px; font-weight:600; }
+    .totals .due { background: var(--erp-color-bg-subtle); padding:6px 8px; margin-top:4px; border-radius:4px; font-weight:600; }
+    .notes { margin-top:16px; font-size:13px; }
+  

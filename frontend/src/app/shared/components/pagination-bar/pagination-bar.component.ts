@@ -42,76 +42,8 @@ export class ClientPager {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, NzIconModule, NzSelectModule],
   host: { class: 'erp-pagination-bar', '[class.is-hidden]': 'hidden()' },
-  styles: [`
-    :host { display: block; container-type: inline-size; } :host(.is-hidden) { display: none; }
-    .pg { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; font-size: 13px; color: var(--erp-color-text-primary, rgba(0,0,0,.88)); }
-    .pg.busy { opacity: .6; }
-    .range { color: var(--erp-color-text-muted, #8c8c8c); font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .range b { color: var(--erp-color-text-primary, rgba(0,0,0,.88)); font-weight: 600; }
-    .spacer { flex: 1; }
-    .nav { display: flex; align-items: center; gap: 4px; }
-    .pb { min-width: 32px; height: 32px; padding: 0 6px; border: 1px solid var(--erp-color-border-default, #d9d9d9); border-radius: 6px; background: var(--erp-color-bg-surface, #fff);
-      color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-      transition: border-color .15s, color .15s, background-color .15s, transform .15s; }
-    .pb:hover:not(:disabled) { border-color: var(--erp-color-primary, #1677ff); color: var(--erp-color-primary, #1677ff); }
-    .pb:focus-visible { outline: 2px solid var(--erp-color-focus-ring, rgba(22,119,255,.4)); outline-offset: 1px; }
-    .pb:active:not(:disabled) { transform: scale(.94); }
-    .pb:disabled { cursor: not-allowed; opacity: .4; }
-    .pb.on { background: var(--erp-color-primary, #1677ff); border-color: var(--erp-color-primary, #1677ff); color: var(--erp-color-on-primary, #fff); font-weight: 600; }
-    .pb.more { border-color: transparent; background: transparent; letter-spacing: 1px; }
-    .pb.more .alt { display: none; } .pb.more:hover:not(:disabled) .dots, .pb.more:focus-visible .dots { display: none; } .pb.more:hover:not(:disabled) .alt, .pb.more:focus-visible .alt { display: inline-flex; }
-    .cur { display: none; padding: 0 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .tools { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-    .jump { width: 64px; height: 32px; padding: 0 8px; border: 1px solid var(--erp-color-border-default, #d9d9d9); border-radius: 6px; background: var(--erp-color-bg-surface, #fff); color: inherit; font: inherit; text-align: center; }
-    .jump:focus { outline: none; border-color: var(--erp-color-primary, #1677ff); box-shadow: 0 0 0 2px var(--erp-color-focus-ring, rgba(22,119,255,.2)); }
-    .lbl { color: var(--erp-color-text-muted, #8c8c8c); }
-    .size { width: 116px; }
-    :host-context([dir=rtl]) .flip { transform: scaleX(-1); }
-    @container (max-width: 720px) { .num, .more, .lbl-go { display: none; } .cur { display: inline; } .jump { width: 56px; } }
-    @container (max-width: 520px) { .pg { gap: 8px; } .range { width: 100%; order: -1; } .spacer { display: none; } .edge { display: none; } .jumpbox { display: none; } }
-    @media (prefers-reduced-motion: reduce) { .pb { transition: none; } .pb:active:not(:disabled) { transform: none; } }
-  `],
-  template: `
-    <nav class="pg" [class.busy]="loading()" [attr.aria-label]="t('pager.label', 'Pagination')" [attr.aria-busy]="loading()" (keydown)="onKey($event)" data-testid="pagination-bar">
-      <span class="range" aria-live="polite" data-testid="pager-range">
-        @if (total() > 0) { {{ t('pager.showing', 'Showing') }} <b>{{ n(from()) }}–{{ n(to()) }}</b> {{ t('pager.of', 'of') }} <b>{{ n(total()) }}</b> }
-        @else { {{ t('pager.noItems', 'No items') }} }
-      </span>
-      <span class="spacer"></span>
-      <div class="nav">
-        <button type="button" class="pb edge" (click)="go(1)" [disabled]="busy() || cur() <= 1" [attr.aria-label]="t('pager.first', 'First page')" [title]="t('pager.first', 'First page')" data-testid="pager-first">
-          <span class="flip" nz-icon nzType="double-left"></span></button>
-        <button type="button" class="pb" (click)="go(cur() - 1)" [disabled]="busy() || cur() <= 1" [attr.aria-label]="t('pager.prev', 'Previous page')" [title]="t('pager.prev', 'Previous page')" data-testid="pager-prev">
-          <span class="flip" nz-icon nzType="left"></span></button>
-        @for (s of slots(); track $index) {
-          @if (s === 'prev5' || s === 'next5') {
-            <button type="button" class="pb more" (click)="go(s === 'prev5' ? cur() - 5 : cur() + 5)" [disabled]="busy()"
-                    [attr.aria-label]="s === 'prev5' ? t('pager.prev5', 'Previous 5 pages') : t('pager.next5', 'Next 5 pages')" [title]="s === 'prev5' ? t('pager.prev5', 'Previous 5 pages') : t('pager.next5', 'Next 5 pages')">
-              <span class="dots" aria-hidden="true">•••</span><span class="alt flip" nz-icon [nzType]="s === 'prev5' ? 'double-left' : 'double-right'"></span></button>
-          } @else {
-            <button type="button" class="pb num" [class.on]="s === cur()" (click)="go(s)" [disabled]="busy()" [attr.aria-current]="s === cur() ? 'page' : null"
-                    [attr.aria-label]="t('pager.page', 'Page') + ' ' + s" [attr.data-testid]="'pager-page-' + s">{{ n(s) }}</button>
-          }
-        }
-        <span class="cur" data-testid="pager-current">{{ t('pager.page', 'Page') }} {{ n(cur()) }} / {{ n(pageCount()) }}</span>
-        <button type="button" class="pb" (click)="go(cur() + 1)" [disabled]="busy() || cur() >= pageCount()" [attr.aria-label]="t('pager.next', 'Next page')" [title]="t('pager.next', 'Next page')" data-testid="pager-next">
-          <span class="flip" nz-icon nzType="right"></span></button>
-        <button type="button" class="pb edge" (click)="go(pageCount())" [disabled]="busy() || cur() >= pageCount()" [attr.aria-label]="t('pager.last', 'Last page')" [title]="t('pager.last', 'Last page')" data-testid="pager-last">
-          <span class="flip" nz-icon nzType="double-right"></span></button>
-      </div>
-      <div class="tools">
-        @if (showJumper() && pageCount() > 1) {
-          <label class="jumpbox"><span class="lbl lbl-go">{{ t('pager.goTo', 'Go to') }}</span>
-            <input class="jump" type="number" inputmode="numeric" min="1" [max]="pageCount()" [disabled]="busy()" [(ngModel)]="jumpTo" (keydown.enter)="jump()" (blur)="jump()"
-                   [placeholder]="'' + cur()" [attr.aria-label]="t('pager.goToPage', 'Go to page')" data-testid="pager-jump" /></label>
-        }
-        @if (showSizeChanger()) {
-          <nz-select class="size" nzSize="default" [ngModel]="pageSize()" (ngModelChange)="setSize($event)" [nzDisabled]="busy()" [attr.aria-label]="t('pager.rowsPerPage', 'Rows per page')" data-testid="pager-size">
-            @for (o of sizes(); track o) { <nz-option [nzValue]="o" [nzLabel]="o + ' ' + t('pager.perPage', '/ page')"></nz-option> }
-          </nz-select>
-        }
-      </div>
-    </nav>`,
+  styleUrl: './pagination-bar.component.scss',
+  templateUrl: './pagination-bar.component.html',
 })
 export class PaginationBarComponent {
   private readonly i18n = inject(I18nService);

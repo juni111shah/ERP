@@ -1,0 +1,52 @@
+
+    <h1 class="erp-page-title">Owner dashboard</h1>
+    <div class="controls" data-testid="owner-controls">
+      <erp-range-control [range]="range()" [loading]="loading()" (rangeChange)="setRange($event)" (refresh)="load()" />
+      @if (entities().length > 1 || allEntities()) {
+        <nz-select style="min-width:220px" [ngModel]="entityId()" (ngModelChange)="setEntity($event)" [nzDropdownMatchSelectWidth]="false" aria-label="Legal entity" data-testid="owner-entity">
+          @if (allEntities()) { <nz-option [nzValue]="null" nzLabel="All legal entities"></nz-option> }
+          @for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }
+        </nz-select>
+      }
+      @if (data(); as d) { <span class="caption" data-testid="owner-caption"><bdi>{{ date(d.from) }}</bdi> – <bdi>{{ date(d.to) }}</bdi></span> }
+    </div>
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load the owner dashboard" hint="The figures for this period did not load." actionLabel="Try again" (action)="load()" />
+    } @else if (!data()) {
+      <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 8 }" data-testid="owner-loading"></nz-skeleton>
+    } @else {
+      @for (s of data()!.sections; track s.key) {
+        <section [attr.data-testid]="'owner-section-' + s.key">
+          <h2>{{ s.title }}</h2>
+          @if (isEmpty(s)) {
+            <erp-state-panel title="No data for this period" hint="Nothing was recorded for this part of the business in the chosen period." [attr.data-testid]="'owner-empty-' + s.key" />
+          } @else {
+            @if (s.cards.length) {
+              <div class="erp-stat-grid erp-stat-grid--auto">
+                @for (c of s.cards; track c.key; let i = $index) {
+                  <erp-stat-card [label]="c.label" [value]="c.value" [format]="format(c.format)" [currency]="currencyCode()" [caption]="c.caption ?? null" [link]="c.link ?? null" [tone]="i"
+                                 [testId]="'owner-card-' + c.key" />
+                }
+              </div>
+            }
+            @if (s.table && s.table.rows.length) {
+              <nz-card class="block" nzSize="small" [attr.data-testid]="'owner-table-' + s.key">
+                <nz-table [nzData]="s.table.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
+                  <thead><tr>@for (col of s.table.columns; track $index; let ci = $index) { <th [class.r]="isNumeric(s.table, ci)">{{ col }}</th> }</tr></thead>
+                  <tbody>
+                    @for (row of s.table.rows; track $index) {
+                      <tr>@for (cell of row; track $index; let ci = $index) { <td [class.r]="isNumeric(s.table, ci)">{{ cellText(s.table, ci, cell) }}</td> }</tr>
+                    }
+                  </tbody>
+                </nz-table>
+              </nz-card>
+            }
+            @if (chartOf(s); as c) {
+              <nz-card class="block" nzSize="small" [attr.data-testid]="'owner-chart-' + s.key"><erp-apex-chart [chart]="c" /></nz-card>
+            }
+          }
+          @if (s.note) { <p class="note" [attr.data-testid]="'owner-note-' + s.key">{{ s.note }}</p> }
+        </section>
+      }
+    }

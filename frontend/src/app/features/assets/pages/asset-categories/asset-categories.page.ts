@@ -20,24 +20,7 @@ import { StatusTagComponent } from '@shared/components/status-tag/status-tag.com
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NzButtonModule, NzIconModule, NzPopconfirmModule, HasPermissionDirective, PagedTableComponent, RecordDrawerComponent, StatusTagComponent],
-  template: `
-    <h1 class="erp-page-title">Asset categories</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No asset categories yet. Add one before you register assets." (rowClick)="edit($event)">
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @switch (column.key) {
-          @case ('code') { <span class="code-pill">{{ row.code }}</span> }
-          @case ('isActive') { <erp-status [value]="row.isActive ? 'active' : 'inactive'" /> }
-          @case ('actions') {
-            <button *erpHasPermission="'assets.categories.manage'" nz-button nzSize="small" nzDanger type="button" data-testid="category-delete"
-                    nz-popconfirm nzPopconfirmTitle="Delete this category?" (nzOnConfirm)="remove(row)">Delete</button>
-          }
-          @default { {{ value }} }
-        }
-      </ng-template>
-      <button toolbar *erpHasPermission="'assets.categories.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="category-new"><span nz-icon nzType="plus"></span>New category</button>
-    </erp-paged-table>
-    <erp-record-drawer [title]="state.editing() ? 'Edit asset category' : 'New asset category'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="category-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
+  templateUrl: './asset-categories.page.html',
 })
 export class AssetCategoriesPage {
   private readonly api = inject(AssetCategoriesApi);

@@ -15,68 +15,8 @@ const ORDER_STATUSES = ['draft', 'confirmed', 'processing', 'delivered', 'invoic
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NzGridModule, NzButtonModule, NzIconModule, StatCardComponent, StatePanelComponent, StatusCountsComponent],
-  template: `
-    <h1 class="erp-page-title">Sales Analytics & Performance</h1>
-
-    <div class="analytics-toolbar">
-      <button nz-button (click)="loadMetrics()" [nzLoading]="loading()" data-testid="sales-analytics-refresh">
-        <span nz-icon nzType="reload"></span>Refresh
-      </button>
-    </div>
-
-    @if (failed()) {
-      <erp-state-panel kind="error" title="The sales figures could not be loaded." hint="Check your connection and try again." actionLabel="Try again" (action)="loadMetrics()" />
-    } @else {
-      <div class="erp-stat-grid erp-stat-grid--auto" data-testid="sales-analytics-stats">
-        <erp-stat-card
-          label="Total Booked"
-          [value]="kpis()?.totalSales ?? 0"
-          format="money"
-          caption="all orders except cancelled"
-          [loading]="loading()"
-          [tone]="0" />
-
-        <erp-stat-card
-          label="Order Backlog"
-          [value]="kpis()?.openOrdersAmount ?? 0"
-          format="money"
-          [caption]="(kpis()?.openOrdersCount ?? 0) + ' confirmed or processing'"
-          [loading]="loading()"
-          [tone]="3" />
-
-        <erp-stat-card
-          label="Open Quote Value"
-          [value]="kpis()?.openQuotesAmount ?? 0"
-          format="money"
-          [caption]="(kpis()?.openQuotesCount ?? 0) + ' draft or sent'"
-          [loading]="loading()"
-          [tone]="1" />
-
-        <erp-stat-card
-          label="Quotes Converted"
-          [value]="kpis()?.conversionRate ?? 0"
-          format="percent"
-          [caption]="'of ' + (kpis()?.totalQuotesCount ?? 0) + ' quotes became orders'"
-          [loading]="loading()"
-          [tone]="4" />
-      </div>
-
-      <div nz-row [nzGutter]="[16, 16]" class="insights-row">
-        <div nz-col [nzXs]="24" [nzLg]="12">
-          <erp-status-counts title="Quotes by status" link="/sales/quotes" linkLabel="Open quotes" emptyText="No quotes yet."
-            [rows]="quotes()" [failed]="countsFailed()" [note]="waitingNote()" (retry)="loadCounts()" testId="sales-quote-counts" />
-        </div>
-        <div nz-col [nzXs]="24" [nzLg]="12">
-          <erp-status-counts title="Orders by status" link="/sales/orders" linkLabel="Open orders" emptyText="No orders yet."
-            [rows]="orders()" [failed]="countsFailed()" (retry)="loadCounts()" testId="sales-order-counts" />
-        </div>
-      </div>
-    }
-  `,
-  styles: [`
-    .analytics-toolbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 16px; }
-    .insights-row { margin-top: 16px; }
-  `],
+  templateUrl: './sales-analytics.page.html',
+  styleUrl: './sales-analytics.page.scss',
 })
 export class SalesAnalyticsPage {
   private readonly kpiApi = inject(SalesKpiApi);

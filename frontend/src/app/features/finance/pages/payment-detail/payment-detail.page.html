@@ -1,0 +1,59 @@
+
+    @if (loading()) {
+      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
+    } @else if (error()) {
+      <erp-state-panel kind="error" title="Could not load this payment" [hint]="error()" actionLabel="Try again" (action)="retry()" />
+    } @else if (payment()) {
+      @if (justRecorded() && payment(); as p) {
+        <erp-success-panel [title]="recordedTitle()" [detail]="recordedDetail()" (dismissed)="justRecorded.set(false)">
+          <a actions nz-button nzType="primary" [href]="'/print/payment/' + p.id" target="_blank" rel="noopener" data-testid="success-print">Print payment</a>
+          <button actions *erpHasPermission="'core.email.send'" nz-button type="button" (click)="emailOpen.set(true)" data-testid="success-email">Email to vendor</button>
+          <a actions nz-button [routerLink]="['/finance/payments']" [queryParams]="{ new: 1 }" data-testid="success-another">Record another</a>
+          <span loop>
+            @if (p.unallocated > 0) {
+              {{ money(p.unallocated) }} {{ 'ui.success.notAppliedBill' | translate: 'is not applied to a bill yet.' }}
+              <a [routerLink]="['/finance/payments']" [queryParams]="{ open: p.id }" data-testid="success-loop">{{ 'ui.success.applyIt' | translate: 'Apply it' }}</a>
+            } @else {
+              <a [routerLink]="['/parties', p.partyId]" data-testid="success-loop">{{ 'ui.success.seeWhatWeOwe' | translate: 'See what is still owed to this vendor' }}</a>
+            }
+          </span>
+        </erp-success-panel>
+      }
+      <erp-detail-page
+        [backLink]="['/finance/payments']"
+        [backLabel]="'Back to Payments'"
+        [title]="('ui.title.paymentNo' | translate: 'Payment #') + payment()!.number"
+        [status]="payment()!.status === 'issued' ? 'posted' : payment()!.status"
+        [showDocuments]="false"
+        [actions]="actions()"
+        [kpiCards]="kpiCards()"
+        [descriptions]="descriptions()"
+        [createdAt]="payment()!.date"
+        [entityName]="'Payment'"
+        recordType="Settlement" [recordId]="payment()!.id">
+        
+        @if (payment()!.allocations.length > 0) {
+          <div content style="margin-top: 16px;">
+            <h3>Applied to Bills</h3>
+            <nz-table #allocTable [nzData]="payment()!.allocations" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
+              <thead>
+                <tr>
+                  <th>Bill Number</th>
+                  <th style="width: 150px; text-align: end;">Amount Applied</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (alloc of allocTable.data; track alloc.id) {
+                  <tr>
+                    <td><a [routerLink]="['/finance/bills', alloc.billId]">{{ alloc.billNumber }}</a></td>
+                    <td style="text-align: end;">{{ money(alloc.amount) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </nz-table>
+          </div>
+        }
+      </erp-detail-page>
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/payments/' + payment()!.id + '/email'" [documentLabel]="'Payment ' + payment()!.number" (closed)="emailOpen.set(false)" />
+    }
+  

@@ -1,0 +1,157 @@
+
+    <nav class="coa-crumbs" [attr.aria-label]="'coa.breadcrumb' | translate: 'Account path'" data-testid="coa-breadcrumb">
+      @for (c of store.crumbs(); track $index; let last = $last) {
+        @if (!last) {
+          <button type="button" class="coa-crumb" (click)="store.goTo(c.target)">{{ crumbLabel(c) }}</button>
+          <span class="coa-crumb-sep" nz-icon [nzType]="chevron()" aria-hidden="true"></span>
+        } @else {
+          <span class="coa-crumb is-current" aria-current="page">{{ crumbLabel(c) }}</span>
+        }
+      }
+    </nav>
+
+    <div class="coa-columns" #columns>
+      @for (p of store.panels(); track p.key; let i = $index) {
+        <section class="coa-panel" [attr.data-testid]="'coa-panel-' + i" [attr.data-kind]="p.kind" [attr.aria-label]="panelTitle(p)" [attr.aria-busy]="p.loading">
+          <header class="coa-panel-head">
+            <div class="coa-panel-title">
+              @if (p.kind === 'categories') { <span nz-icon nzType="partition"></span> }
+              @else if (p.sub) { <span nz-icon nzType="folder-open"></span> }
+              @else if (p.type) { <span nz-icon [nzType]="typeIcon(p.type)"></span> }
+              @else { <span nz-icon nzType="folder-open"></span> }
+              <span class="coa-title-text">{{ panelTitle(p) }}</span>
+              @if (p.kind === 'accounts' && !p.loading) { <span class="coa-count" data-testid="coa-count">{{ p.total }}</span> }
+            </div>
+            @if (p.kind === 'accounts') {
+              <button *erpHasPermission="'finance.accounts.write'" nz-button nzSize="small" nzType="link" (click)="add(p)" [attr.data-testid]="'coa-add-' + i"
+                      [attr.aria-label]="(p.parent ? 'coa.addSub' : 'coa.addAccount') | translate: (p.parent ? 'Add sub-account' : 'Add account')"
+                      [title]="(p.parent ? 'coa.addSub' : 'coa.addAccount') | translate: (p.parent ? 'Add sub-account' : 'Add account')">
+                <span nz-icon nzType="plus"></span>{{ (p.parent ? 'coa.addSub' : 'coa.addAccount') | translate: (p.parent ? 'Add sub-account' : 'Add account') }}
+              </button>
+            }
+          </header>
+
+          @if (p.kind === 'accounts' && p.parent) {
+            <div class="coa-owner">
+              <div class="coa-owner-name"><span class="coa-code">{{ p.parent.code }}</span> {{ p.parent.name }}</div>
+              <ng-container *ngTemplateOutlet="tags; context: { $implicit: p.parent }" />
+              <ng-container *ngTemplateOutlet="actions; context: { $implicit: p.parent, index: i }" />
+            </div>
+          }
+
+          <div class="coa-search">
+            <erp-expand-search size="small" width="100%" [value]="p.search" (valueChange)="onSearch(p.key, $event)" [testId]="'coa-search-' + i"
+                               [placeholder]="searchKey(p) | translate: searchFallback(p)"
+                               [label]="searchKey(p) | translate: searchFallback(p)" />
+          </div>
+
+          <div class="coa-panel-body">
+            @if (p.loading) {
+              <div class="coa-skeleton" data-testid="coa-skeleton" aria-hidden="true">
+                @for (n of skeletonRows; track n) { <div class="coa-skel-row"><span class="coa-skel a"></span><span class="coa-skel b"></span></div> }
+              </div>
+            } @else if (p.error) {
+              <div class="coa-empty">
+                <p>{{ 'coa.loadFailed' | translate: 'Could not load this level.' }}</p>
+                <button nz-button nzSize="small" (click)="store.retry(p.key)"><span nz-icon nzType="reload"></span>{{ 'coa.retry' | translate: 'Retry' }}</button>
+              </div>
+            } @else if (p.kind === 'categories') {
+              <ul class="coa-list" role="list">
+                @for (c of visibleCategories(p); track c.type) {
+                  <li>
+                    <button type="button" class="coa-item" [class.is-selected]="p.selected === c.type" [attr.aria-current]="p.selected === c.type ? 'true' : null"
+                            (click)="store.selectCategory(c.type)" [attr.data-testid]="'coa-cat-' + c.type">
+                      <span class="coa-cat-icon" [attr.data-type]="c.type"><span nz-icon [nzType]="typeIcon(c.type)"></span></span>
+                      <span class="coa-item-main">
+                        <span class="coa-item-name">{{ typeLabel(c.type) }}</span>
+                        <span class="coa-item-sub">{{ c.accountCount }} {{ 'coa.accounts' | translate: 'accounts' }} · {{ c.primaryCount }} {{ 'coa.primary' | translate: 'primary' }}</span>
+                      </span>
+                      @if (c.balance != null) { <span class="coa-balance" [class.is-negative]="c.balance < 0">{{ money(c.balance) }}</span> }
+                      <span class="coa-chevron" nz-icon [nzType]="chevron()"></span>
+                    </button>
+                  </li>
+                } @empty { <li class="coa-empty">{{ 'coa.noMatch' | translate: 'Nothing matches.' }}</li> }
+              </ul>
+            } @else if (p.kind === 'subcategories') {
+              <ul class="coa-list" role="list">
+                @for (sc of visibleSubcategories(p); track sc.key) {
+                  <li>
+                    <button type="button" class="coa-item" [class.is-selected]="p.selected === sc.key" [attr.aria-current]="p.selected === sc.key ? 'true' : null"
+                            (click)="store.selectSubcategory(i, sc)" [attr.data-testid]="'coa-sub-' + sc.key">
+                      <span class="coa-cat-icon"><span nz-icon nzType="folder-open"></span></span>
+                      <span class="coa-item-main">
+                        <span class="coa-item-name">{{ subLabel(sc.type, sc.key, sc.name) }}</span>
+                        <span class="coa-item-sub">{{ sc.accountCount }} {{ 'coa.accounts' | translate: 'accounts' }} · {{ sc.primaryCount }} {{ 'coa.primary' | translate: 'primary' }}</span>
+                      </span>
+                      @if (sc.balance != null) { <span class="coa-balance" [class.is-negative]="sc.balance < 0">{{ money(sc.balance) }}</span> }
+                      <span class="coa-chevron" nz-icon [nzType]="chevron()"></span>
+                    </button>
+                  </li>
+                } @empty {
+                  <li class="coa-empty" data-testid="coa-empty">{{ (p.search ? 'coa.noMatch' : 'coa.noSubcategories') | translate: (p.search ? 'Nothing matches.' : 'No sub-categories here yet.') }}</li>
+                }
+              </ul>
+            } @else if (p.kind === 'accounts') {
+              <ul class="coa-list" role="list">
+                @for (a of p.items; track a.id) {
+                  <li>
+                    <button type="button" class="coa-item" [class.is-selected]="p.selected === a.id" [class.is-inactive]="!a.isActive" [attr.aria-current]="p.selected === a.id ? 'true' : null"
+                            (click)="store.selectAccount(i, a)" (dblclick)="onEdit(a)" [attr.data-testid]="'coa-acct-' + a.code">
+                      <span class="coa-code">{{ a.code }}</span>
+                      <span class="coa-item-main">
+                        <span class="coa-item-name">@if (a.hasChildren) { <span class="coa-group-icon" nz-icon nzType="folder-open" [attr.aria-label]="'coa.tag.group' | translate: 'Group'"></span> }{{ a.name }}</span>
+                        <ng-container *ngTemplateOutlet="tags; context: { $implicit: a }" />
+                      </span>
+                      @if (a.balance != null) { <span class="coa-balance" [class.is-negative]="a.balance < 0">{{ money(a.balance) }}</span> }
+                      @if (a.hasChildren) { <span class="coa-kids" [title]="'coa.subAccounts' | translate: 'Sub-accounts'">{{ a.childCount }}</span><span class="coa-chevron" nz-icon [nzType]="chevron()"></span> }
+                    </button>
+                  </li>
+                } @empty {
+                  <li class="coa-empty" data-testid="coa-empty">{{ (p.search ? 'coa.noMatch' : 'coa.noAccounts') | translate: (p.search ? 'Nothing matches.' : 'No accounts here yet.') }}</li>
+                }
+              </ul>
+              @if (p.items.length < p.total) {
+                <div class="coa-more">
+                  <button nz-button nzSize="small" nzBlock [nzLoading]="p.loadingMore" (click)="store.loadMore(p.key)" [attr.data-testid]="'coa-more-' + i">
+                    {{ 'coa.loadMore' | translate: 'Load more' }} ({{ p.items.length }} / {{ p.total }})
+                  </button>
+                </div>
+              }
+            }
+          </div>
+        </section>
+      }
+    </div>
+
+    <erp-account-detail-drawer [account]="store.detail()" [subcategory]="detailSubcategory()" [typeLabel]="typeLabelFn"
+                               (closed)="store.closeDetail()" (edit)="onEdit($event)" (addSub)="addSubFromDetail($event)" (toggleActive)="toggleActive($event)" />
+
+    <ng-template #tags let-a>
+      <span class="coa-tags">
+        @if (!a.isPostable) { <span class="coa-tag">{{ 'coa.tag.header' | translate: 'Header' }}</span> }
+        @if (a.isBank) { <span class="coa-tag is-info">{{ 'coa.tag.bank' | translate: 'Bank' }}</span> }
+        @if (a.isSystem) { <span class="coa-tag is-system">{{ 'coa.tag.system' | translate: 'System' }}</span> }
+        @if (!a.isActive) { <span class="coa-tag is-off">{{ 'coa.tag.inactive' | translate: 'Inactive' }}</span> }
+      </span>
+    </ng-template>
+
+    <ng-template #actions let-a let-index="index" let-withSub="withSub">
+      <div class="coa-actions" erpReveal *erpHasPermission="'finance.accounts.write'">
+        <button nz-button nzSize="small" (click)="onEdit(a)" data-testid="coa-edit"
+                [attr.aria-label]="'common.edit' | translate: 'Edit'" [title]="'common.edit' | translate: 'Edit'"><span nz-icon nzType="edit"></span>{{ 'common.edit' | translate: 'Edit' }}</button>
+        @if (withSub) {
+          <button nz-button nzSize="small" (click)="create.emit({ type: a.type, parent: a })" data-testid="coa-add-sub"
+                  [attr.aria-label]="'coa.addSub' | translate: 'Add sub-account'" [title]="'coa.addSub' | translate: 'Add sub-account'"><span nz-icon nzType="plus"></span>{{ 'coa.addSub' | translate: 'Add sub-account' }}</button>
+        }
+        @if (!a.isSystem) {
+          <button nz-button nzSize="small" [nzDanger]="a.isActive" nz-popconfirm
+                  [nzPopconfirmTitle]="(a.isActive ? 'coa.confirmDeactivate' : 'coa.confirmActivate') | translate: (a.isActive ? 'Deactivate this account? It stays in history but cannot be used on new entries.' : 'Activate this account again?')"
+                  (nzOnConfirm)="toggleActive(a)" data-testid="coa-toggle-active"
+                  [attr.aria-label]="(a.isActive ? 'coa.deactivate' : 'coa.activate') | translate: (a.isActive ? 'Deactivate' : 'Activate')"
+                  [title]="(a.isActive ? 'coa.deactivate' : 'coa.activate') | translate: (a.isActive ? 'Deactivate' : 'Activate')">
+            <span nz-icon [nzType]="a.isActive ? 'stop' : 'check-circle'"></span>{{ (a.isActive ? 'coa.deactivate' : 'coa.activate') | translate: (a.isActive ? 'Deactivate' : 'Activate') }}
+          </button>
+        }
+      </div>
+    </ng-template>
+  

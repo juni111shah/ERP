@@ -1,0 +1,8 @@
+
+    .low-panel { margin-bottom: 16px; border: 1px solid var(--erp-color-warning-border); border-radius: 12px; background: var(--erp-color-bg-surface); overflow: hidden; }
+    .low-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 16px; background: var(--erp-color-warning-bg); color: var(--erp-color-warning-text); font-weight: 600; }
+    .low-head .grow { flex: 1; }
+    .num { text-align: end; white-space: nowrap; }
+    tr.low-row > td { background: var(--erp-color-warning-bg); }
+    .low-tag { margin-inline-end: 8px; }
+  

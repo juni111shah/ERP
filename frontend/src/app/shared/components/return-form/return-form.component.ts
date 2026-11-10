@@ -25,51 +25,8 @@ export interface ReturnFormValue { returnDate: string; reason: string; notes: st
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, FormsModule, NzAlertModule, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzInputModule, NzInputNumberModule, NzSelectModule, NzSwitchModule],
-  styles: [`
-    .head { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-    .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--erp-color-text-muted); }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
-    th { background: var(--erp-color-bg-subtle); padding: 8px; border: 1px solid var(--erp-color-border-subtle); text-align: start; }
-    td { padding: 6px; border: 1px solid var(--erp-color-border-subtle); vertical-align: middle; }
-    .num { text-align: end; font-variant-numeric: tabular-nums; }
-    .hint { font-size: 12px; color: var(--erp-color-text-muted); margin-top: 6px; }
-  `],
-  template: `
-    <nz-drawer [nzVisible]="open()" [nzTitle]="title()" [nzWidth]="720" (nzOnClose)="closed.emit()" [nzFooter]="footer">
-      <ng-container *nzDrawerContent>
-        @if (error()) { <nz-alert nzType="error" nzShowIcon [nzMessage]="error()" style="margin-bottom:12px" data-testid="return-error"></nz-alert> }
-        <div class="head">
-          <div class="field">Return date <nz-date-picker [(ngModel)]="date" [nzAllowClear]="false" data-testid="return-date" /></div>
-          @if (warehouses().length) {
-            <div class="field">Warehouse the goods leave
-              <nz-select [(ngModel)]="warehouseId" nzAllowClear nzPlaceHolder="Where the order was received" data-testid="return-warehouse">
-                @for (w of warehouses(); track w.value) { <nz-option [nzValue]="w.value" [nzLabel]="w.label" /> }
-              </nz-select>
-            </div>
-          }
-        </div>
-        <div class="field">Reason <input nz-input [(ngModel)]="reason" maxlength="500" data-testid="return-reason" /></div>
-        <div class="field" style="margin-top:12px">Notes <textarea nz-input rows="2" [(ngModel)]="notes" maxlength="1000"></textarea></div>
-        <table data-testid="return-lines">
-          <thead><tr><th>Item</th><th class="num">Can come back</th><th>Quantity</th>@if (showRestock()) { <th>Back on the shelf</th> }</tr></thead>
-          <tbody>
-            @for (l of lines(); track l.key; let i = $index) {
-              <tr>
-                <td>{{ l.label }}</td>
-                <td class="num">{{ l.max | number: '1.0-4' }} {{ l.unit }}</td>
-                <td><nz-input-number [ngModel]="quantities()[i]" (ngModelChange)="setQuantity(i, $event)" [nzMin]="0" [nzMax]="l.max" [nzPrecision]="2" style="width:110px" [attr.aria-label]="'Quantity to return, ' + l.label" /></td>
-                @if (showRestock()) { <td><nz-switch [ngModel]="restocks()[i]" (ngModelChange)="setRestock(i, $event)" [attr.aria-label]="'Restock ' + l.label" /></td> }
-              </tr>
-            }
-          </tbody>
-        </table>
-        @if (showRestock()) { <p class="hint">Goods that are not restocked (damaged, for example) stay at cost in the books and are not added back to the shelf.</p> }
-      </ng-container>
-    </nz-drawer>
-    <ng-template #footer>
-      <button nz-button type="button" (click)="closed.emit()">Cancel</button>
-      <button nz-button nzType="primary" type="button" [nzLoading]="saving()" [disabled]="!valid()" (click)="submit()" style="margin-inline-start:8px" data-testid="return-save">Create return</button>
-    </ng-template>`,
+  styleUrl: './return-form.component.scss',
+  templateUrl: './return-form.component.html',
 })
 export class ReturnFormComponent {
   readonly open = input.required<boolean>();

@@ -1,0 +1,19 @@
+
+    <nz-card style="margin-top:16px" nzTitle="Security deposit" data-testid="deposit-card">
+      @if (deposit(); as d) {
+        <p>Agreed <b>{{ d.agreed.toLocaleString() }}</b> · received <b>{{ d.received.toLocaleString() }}</b> · applied or refunded <b>{{ d.applied.toLocaleString() }}</b> · held <b data-testid="deposit-held">{{ d.held.toLocaleString() }}</b> {{ lease().currencyCode }}</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" *erpHasPermission="'realestate.deposits.manage'">
+          @if (lease().status !== 'cancelled' && d.received < d.agreed) { <button nz-button nzType="primary" (click)="open('record')" data-testid="deposit-record">Record deposit</button> }
+          @if (canSettle() && d.held > 0) { <button nz-button (click)="open('settle')" data-testid="deposit-settle">Settle deposit</button> }
+          @if (lease().renewedAsLeaseId && d.held > 0) { <button nz-button (click)="rollOver()" data-testid="deposit-rollover">Roll over to renewal</button> }
+        </div>
+        @if (d.transactions.length) {
+          <nz-table [nzData]="d.transactions" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
+            <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th></tr></thead>
+            <tbody>@for (t of d.transactions; track t.id) { <tr><td>{{ t.date | erpDate }}</td><td>{{ humanize(t.kind) }}</td><td>{{ t.amount.toLocaleString() }}</td><td>{{ t.description }}</td></tr> }</tbody>
+          </nz-table>
+        }
+      }
+    </nz-card>
+    <erp-record-drawer [title]="mode() === 'record' ? 'Record security deposit' : 'Settle security deposit'" [open]="mode() !== null" [fields]="fields()" [saving]="saving()" [errors]="errors()" [width]="480"
+                       testId="deposit-form" (submitted)="submit($event)" (closed)="mode.set(null)" />

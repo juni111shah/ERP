@@ -27,35 +27,7 @@ import { StatusTagComponent } from '@shared/components/status-tag/status-tag.com
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule],
-  template: `
-    <h1 class="erp-page-title">Payroll</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search run number" emptyText="No payroll runs yet" (rowClick)="open($event)">
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @switch (column.key) {
-          @case ('number') {
-            <span class="code-pill">{{ row.number }}</span>
-          }
-          @case ('grossEarnings') {
-            {{ currency() }} {{ row.grossEarnings | number: '1.2-2' }}
-          }
-          @case ('deductions') {
-            {{ currency() }} {{ row.deductions | number: '1.2-2' }}
-          }
-          @case ('netPay') {
-            <b>{{ currency() }} {{ row.netPay | number: '1.2-2' }}</b>
-          }
-          @case ('status') {
-            <erp-status [value]="row.status" [label]="label(row.status)" />
-          }
-          @default {
-            {{ value }}
-          }
-        }
-      </ng-template>
-      <button toolbar *erpHasPermission="'hr.payroll.manage'" nz-button nzType="primary" (click)="drawer.set(true)" data-testid="payroll-new"><span nz-icon nzType="plus"></span>Generate payroll</button>
-    </erp-paged-table>
-    <erp-record-drawer title="Generate payroll" [open]="drawer()" [fields]="fields()" [saving]="saving()" [errors]="errors()" [width]="440" testId="payroll-form" submitLabel="Generate"
-                       (submitted)="generate($event)" (closed)="drawer.set(false)" />`,
+  templateUrl: './payroll.page.html',
 })
 export class PayrollPage {
   private readonly i18n = inject(I18nService);

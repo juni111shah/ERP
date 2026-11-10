@@ -1,0 +1,19 @@
+
+    .po-link { color: var(--erp-color-primary); font-weight: 600; white-space: nowrap; }
+    .amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .po-link:hover { text-decoration: underline; color: var(--erp-color-primary-hover); }
+    .vendor-cell { display: flex; flex-direction: column; }
+    .vendor-name { font-weight: 600; color: var(--erp-color-text-primary); }
+    .vendor-ref { font-size: 12px; color: var(--erp-color-text-muted); }
+    .action-buttons { display: flex; gap: 4px; align-items: center; }
+    .lines-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 8px; border-top: 1px solid var(--erp-color-border-subtle); padding-top: 16px; }
+    .lines-header h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--erp-color-text-primary); }
+    .lines-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .lines-table th { background: var(--erp-color-bg-subtle); padding: 8px; text-align: left; font-weight: 600; color: var(--erp-color-text-secondary); border: 1px solid var(--erp-color-border-subtle); }
+    .lines-table td { padding: 4px; border: 1px solid var(--erp-color-border-subtle); vertical-align: middle; }
+    .line-calc { text-align: end; padding-inline-end: 8px; font-weight: 600; color: var(--erp-color-text-primary); }
+    .po-summary-panel { margin-top: 16px; margin-inline-start: auto; width: 280px; background: var(--erp-color-bg-subtle); border-radius: 8px; padding: 12px; border: 1px solid var(--erp-color-border-subtle); }
+    .summary-line { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: var(--erp-color-text-secondary); }
+    .total-highlight { border-top: 1px solid var(--erp-color-border-default); padding-top: 6px; margin-top: 6px; font-weight: 700; font-size: 15px; color: var(--erp-color-text-primary); }
+    .drawer-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; border-top: 1px solid var(--erp-color-border-subtle); padding-top: 16px; }
+  

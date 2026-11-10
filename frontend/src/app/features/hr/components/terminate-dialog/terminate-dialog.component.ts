@@ -19,45 +19,8 @@ const iso = (d: Date | null): string | null => (d ? `${d.getFullYear()}-${String
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, FormsModule, NzButtonModule, NzDatePickerModule, NzInputModule, NzModalModule],
-  styles: [`.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } label { display: block; font-size: 12px; color: var(--erp-color-text-secondary, #64748b); margin-bottom: 2px; } table.p { width: 100%; margin-top: 14px; border-collapse: collapse; } table.p td { padding: 4px 0; border-bottom: 1px solid var(--erp-color-border, #e2e8f0); } table.p td:last-child { text-align: end; } .total td { font-weight: 700; }`],
-  template: `
-    <nz-modal [nzVisible]="open()" [nzTitle]="(done() ? 'Employment ended · ' : 'End employment · ') + employeeName()" [nzWidth]="560" [nzFooter]="footer" (nzOnCancel)="close()">
-      <ng-container *nzModalContent>
-        @if (!done()) {
-          <div class="grid">
-            <div><label>Termination date *</label><nz-date-picker [(ngModel)]="terminationDate" (ngModelChange)="preview.set(null)" style="width:100%" data-testid="term-date"></nz-date-picker></div>
-            <div><label>Last working day</label><nz-date-picker [(ngModel)]="lastWorkingDay" style="width:100%"></nz-date-picker></div>
-            <div><label>Notice given on</label><nz-date-picker [(ngModel)]="noticeGivenOn" (ngModelChange)="preview.set(null)" style="width:100%"></nz-date-picker></div>
-            <div><label>Reason</label><input nz-input [(ngModel)]="reason" maxlength="300" data-testid="term-reason" /></div>
-          </div>
-        }
-        @if (preview(); as p) {
-          <table class="p" data-testid="settlement-preview">
-            <tr><td>Salary for {{ month(p.month) }} {{ p.year }} (prorated)</td><td>{{ p.finalBasic + p.finalAllowances | number: '1.2-2' }}</td></tr>
-            <tr><td>Unused leave ({{ p.leaveDays }} days)</td><td>{{ p.leaveEncashment | number: '1.2-2' }}</td></tr>
-            <tr><td>End of service @if (p.gratuityRule) { <small>· {{ p.gratuityRule }}</small> }</td><td>{{ p.endOfService | number: '1.2-2' }}</td></tr>
-            <tr class="total"><td>Gross</td><td>{{ p.gross | number: '1.2-2' }}</td></tr>
-            @if (p.recurringDeductions > 0) { <tr><td>Recurring deductions</td><td>−{{ p.recurringDeductions | number: '1.2-2' }}</td></tr> }
-            @if (p.noticeShortfallDeduction > 0) { <tr><td>Notice not served ({{ p.noticeShortfallDays }} days)</td><td>−{{ p.noticeShortfallDeduction | number: '1.2-2' }}</td></tr> }
-            @if (p.loanBalance > 0) { <tr><td>Loans and advances (balance {{ p.loanBalance | number: '1.2-2' }})</td><td>−{{ p.loanRecovery | number: '1.2-2' }}</td></tr> }
-            <tr class="total"><td>Net to pay</td><td data-testid="settlement-net">{{ p.netPay | number: '1.2-2' }}</td></tr>
-          </table>
-          @if (p.unrecoveredLoan > 0) { <p style="color:var(--erp-color-warning-text);margin-top:8px">{{ p.unrecoveredLoan | number: '1.2-2' }} of loans cannot be recovered from this settlement.</p> }
-          @for (n of p.notes; track n) { <p style="color:var(--erp-color-text-secondary);margin:6px 0 0">{{ n }}</p> }
-        }
-        @if (error()) { <p style="color:var(--erp-color-error-text);margin-top:8px">{{ error() }}</p> }
-      </ng-container>
-    </nz-modal>
-    <ng-template #footer>
-      <button nz-button (click)="close()">Close</button>
-      @if (!done()) {
-        <button nz-button (click)="doPreview()" [disabled]="!terminationDate || busy()" data-testid="term-preview">Preview settlement</button>
-        <button nz-button nzType="primary" nzDanger (click)="confirm()" [disabled]="!terminationDate || busy()" data-testid="term-confirm">End employment</button>
-      } @else {
-        @if (preview()?.settlementRunId) { <span style="margin-inline-end:8px">A settlement already exists.</span> }
-        @else { <button nz-button nzType="primary" (click)="settle()" [disabled]="busy()" data-testid="term-settle">Prepare final settlement</button> }
-      }
-    </ng-template>`,
+  styleUrl: './terminate-dialog.component.scss',
+  templateUrl: './terminate-dialog.component.html',
 })
 export class TerminateDialogComponent {
   private readonly api = inject(TerminationApi);

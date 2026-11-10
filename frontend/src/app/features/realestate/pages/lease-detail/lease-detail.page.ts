@@ -39,80 +39,8 @@ type Action = 'terminate' | 'renew';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpDatePipe, StatCardComponent, StatePanelComponent, NzIconModule, RecordHistoryComponent, TranslatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
     NzStatisticModule, NzTableModule, NzTagModule],
-  styles: [`.num { text-align: end; white-space: nowrap; }`],
-  template: `
-    @if (failed()) {
-      <p><a routerLink="/real-estate/leases">← Leases</a></p>
-      <erp-state-panel kind="error" title="This lease could not be loaded" hint="It may have been removed, or your connection dropped." actionLabel="Try again" (action)="reload()" />
-    }
-    @if (lease(); as l) {
-      <p><a routerLink="/real-estate/leases">← Leases</a></p>
-      <h1 data-testid="lease-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;font-size:20px;font-weight:600">{{ l.number }} <erp-status-tag [status]="l.status" /></h1>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0" data-testid="lease-actions">
-        @if (l.status === 'draft') {
-          <button *erpHasPermission="'realestate.leases.activate'" nz-button nzType="primary" [disabled]="busy()" (click)="activate()" data-testid="lease-activate">Activate</button>
-          <button *erpHasPermission="'realestate.leases.edit'" nz-button (click)="state.edit(l)" data-testid="lease-edit">Edit</button>
-          <button *erpHasPermission="'realestate.leases.edit'" nz-button nzDanger [disabled]="busy()" (click)="cancel()" data-testid="lease-cancel">Cancel draft</button>
-        }
-        @if (l.status === 'active' || l.status === 'holdingOver') {
-          <button *erpHasPermission="'realestate.leases.renew'" nz-button nzType="primary" (click)="startAction('renew')" data-testid="lease-renew">Renew</button>
-          <button *erpHasPermission="'realestate.leases.terminate'" nz-button nzDanger (click)="startAction('terminate')" data-testid="lease-terminate">Terminate early</button>
-        }
-        @if (l.status === 'active') {
-          <button *erpHasPermission="'realestate.leases.edit'" nz-button [disabled]="busy()" (click)="toggleHoldingOver(l)" data-testid="lease-holding-over">{{ l.holdingOverFlag ? 'Tenant is leaving' : 'Tenant will hold over' }}</button>
-        }
-        @if (l.status === 'terminated') {
-          <button *erpHasPermission="'realestate.leases.terminate'" nz-button nzType="primary" [disabled]="busy()" (click)="creditNotes()" data-testid="lease-credit-notes">Raise credit notes for rent after termination</button>
-        }
-        @if (l.status === 'holdingOver') {
-          <button *erpHasPermission="'realestate.leases.terminate'" nz-button [disabled]="busy()" (click)="moveOut()" data-testid="lease-move-out">Confirm move-out</button>
-        }
-        <a [href]="'/print/lease/' + l.id" target="_blank" nz-button data-testid="lease-print">
-          <span nz-icon nzType="printer"></span>Print contract
-        </a>
-      </div>
-      <div class="erp-stat-grid" data-testid="lease-kpis">
-        <erp-stat-card label="Annual rent" [value]="l.annualRent" format="number" [suffix]="l.currencyCode" [caption]="planLabel(l.paymentFrequency)" [tone]="0" />
-        <erp-stat-card label="Rent for term" [value]="l.rentForTerm" format="number" [suffix]="l.currencyCode" [tone]="1" />
-        <erp-stat-card label="Security deposit (agreed)" [value]="l.securityDepositAmount" format="number" [suffix]="l.currencyCode" [tone]="2" />
-        <erp-stat-card label="Days to expiry" [value]="l.daysToExpiry ?? null" format="number" [tone]="l.daysToExpiry !== null && l.daysToExpiry !== undefined && l.daysToExpiry < 30 ? 'danger' : 3" />
-      </div>
-      <nz-card style="margin-top:16px" nzTitle="Details">
-        <nz-descriptions nzBordered [nzColumn]="descriptionColumns">
-          <nz-descriptions-item nzTitle="Tenant">{{ l.tenantName }}</nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Unit"><a [routerLink]="['/real-estate/properties', l.propertyId]">{{ l.unitNumber }}</a></nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Term">{{ l.startDate | erpDate }} → {{ l.endDate | erpDate }}</nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Rent-free days">{{ l.graceDays }}</nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Notice period">{{ l.noticePeriodDays }} {{ 'ui.common.days' | translate: 'days' }}</nz-descriptions-item>
-          <nz-descriptions-item nzTitle="VAT on rent">{{ humanize(l.suggestedVat) }}</nz-descriptions-item>
-          @if (l.activatedAt) { <nz-descriptions-item nzTitle="Activated">{{ l.activatedAt | erpDate }}</nz-descriptions-item> }
-          @if (l.terminationDate) { <nz-descriptions-item nzTitle="Terminated on">{{ l.terminationDate | erpDate }} · {{ l.terminationReason }}</nz-descriptions-item> }
-          @if (l.renewalOfLeaseId) { <nz-descriptions-item nzTitle="Renewal of"><a [routerLink]="['/real-estate/leases', l.renewalOfLeaseId]">previous lease</a></nz-descriptions-item> }
-          @if (l.renewedAsLeaseId) { <nz-descriptions-item nzTitle="Renewed as"><a [routerLink]="['/real-estate/leases', l.renewedAsLeaseId]">renewal lease</a></nz-descriptions-item> }
-          @for (cf of customFieldList(l); track cf[0]) { <nz-descriptions-item [nzTitle]="cf[0]">{{ cf[1] }}</nz-descriptions-item> }
-          @if (l.notes) { <nz-descriptions-item nzTitle="Notes" [nzSpan]="2">{{ l.notes }}</nz-descriptions-item> }
-        </nz-descriptions>
-      </nz-card>
-      <nz-card style="margin-top:16px" nzTitle="Rent schedule">
-        @if (l.schedule.length) {
-          <nz-table #t [nzData]="l.schedule" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="rent-schedule">
-            <thead><tr><th>#</th><th>Period</th><th>Due</th><th class="num">Rent excl. VAT ({{ l.currencyCode }})</th><th>Status</th></tr></thead>
-            <tbody>
-              @for (i of t.data; track i.id) {
-                <tr><td>{{ i.sequence }}</td><td>{{ i.periodFrom | erpDate }} → {{ i.periodTo | erpDate }}</td><td>{{ i.dueDate | erpDate }}</td><td class="num">{{ i.amount.toLocaleString() }}</td><td><erp-status-tag [status]="i.status" /></td></tr>
-              }
-            </tbody>
-          </nz-table>
-        } @else { <p>The rent schedule is generated when the lease is activated.</p> }
-      </nz-card>
-      @if (l.status !== 'draft') { <erp-lease-deposit [lease]="l" /> }
-      <erp-attachments ownerType="lease" [ownerId]="l.id" />
-      <nz-card *erpHasPermission="'core.audit.read'" style="margin-top:16px" [nzTitle]="'history.title' | translate: 'History'"><erp-record-history recordType="Lease" [recordId]="l.id" /></nz-card>
-      <erp-record-drawer title="Edit draft lease" [open]="state.open()" [fields]="editFields" [value]="$any(state.editing())" customFieldEntityType="realestate.lease"
-                         [saving]="state.saving()" [errors]="state.errors()" testId="lease-form" (submitted)="state.submit($event)" (closed)="state.close()" />
-      <erp-record-drawer [title]="action() === 'renew' ? 'Renew lease' : 'Terminate lease'" [open]="!!action()" [fields]="actionFields()" [saving]="actionSaving()" [errors]="actionErrors()"
-                         [width]="440" testId="lease-action-form" (submitted)="runAction($event)" (closed)="action.set(null)" />
-    }`,
+  styleUrl: './lease-detail.page.scss',
+  templateUrl: './lease-detail.page.html',
 })
 export class LeaseDetailPage {
   private readonly i18n = inject(I18nService);

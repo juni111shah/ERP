@@ -18,25 +18,7 @@ import { countOf } from '@features/finance/finance-kpis';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ErpLabelPipe, StatusTagComponent, PagedTableComponent, FormsModule, NzButtonModule, NzInputModule, NzTagModule],
-  template: `
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search subject or recipient" emptyText="No messages sent yet" [clickable]="false">
-      <div toolbar style="display:flex;align-items:center;gap:8px">
-        <input aria-label="Test email address" nz-input style="width:200px" placeholder="Test email address" [(ngModel)]="testTo" data-testid="test-email-to" />
-        <button nz-button [nzLoading]="testing()" (click)="sendTest()" data-testid="test-email">Send test email</button>
-        <button nz-button nzType="primary" [nzLoading]="running()" (click)="run()" data-testid="send-reminders">Send due reminders now</button>
-      </div>
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @if (column.key === 'channel') {
-          <nz-tag [nzColor]="row.channel === 'email' ? 'blue' : 'purple'">{{ row.channel | erpLabel }}</nz-tag>
-        } @else if (column.key === 'subject') {
-          <span style="font-weight:600;">{{ row.subject }}</span>
-        } @else if (column.key === 'status') {
-          <erp-status [value]="row.status" />
-        } @else {
-          {{ value }}
-        }
-      </ng-template>
-    </erp-paged-table>`,
+  templateUrl: './messages.page.html',
 })
 export class MessagesPage {
   private readonly api = inject(MessageLogApi);

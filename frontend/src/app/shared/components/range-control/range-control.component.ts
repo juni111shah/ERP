@@ -17,29 +17,8 @@ import { DashboardRange, RANGE_PRESETS, RangePreset, isoDate, parseIso, presetRa
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, TranslatePipe, NzButtonModule, NzDatePickerModule, NzIconModule, NzSelectModule],
-  styles: [`
-    .range-control { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--erp-space-2, 8px); }
-    .range-select { min-width: 150px; } .range-picker { width: 260px; }
-    .range-error { font-size: 12px; color: var(--erp-color-error-text); }
-    @media (hover: none) { .range-control .range-btn-label { display: none; } }
-    @media (max-width: 767px) { .range-control { width: 100%; } .range-select { flex: 1 1 140px; } .range-picker { flex: 1 1 100%; width: auto; } }
-  `],
-  template: `
-    <div class="range-control" role="group" [attr.aria-label]="'ui.overview.range.group' | translate: 'Date range'" data-testid="dashboard-range">
-      <nz-select class="range-select" [ngModel]="selectValue()" (ngModelChange)="setPreset($event)" [nzDropdownMatchSelectWidth]="false"
-                 [attr.aria-label]="'ui.overview.range.group' | translate: 'Date range'" data-testid="dashboard-range-preset">
-        @for (p of presets; track p.key) { <nz-option [nzValue]="p.key" [nzLabel]="p.labelKey | translate: p.label"></nz-option> }
-        <nz-option nzValue="custom" [nzLabel]="'ui.overview.range.custom' | translate: 'Custom'"></nz-option>
-      </nz-select>
-      @if (showPicker()) {
-        <nz-range-picker class="range-picker" nzFormat="dd MMM yyyy" [nzInputReadOnly]="true" [ngModel]="dates()" (ngModelChange)="setCustom($event)" [nzAllowClear]="false"
-                         [nzDisabledDate]="disabledDate" [nzPlaceHolder]="placeholders()" data-testid="dashboard-range-picker"></nz-range-picker>
-      }
-      <button nz-button type="button" (click)="refresh.emit()" [attr.aria-label]="'ui.overview.range.refresh' | translate: 'Refresh'" data-testid="dashboard-range-refresh">
-        <span nz-icon nzType="reload" [nzSpin]="loading()"></span><span class="range-btn-label">{{ 'ui.overview.range.refresh' | translate: 'Refresh' }}</span>
-      </button>
-      @if (error(); as e) { <span class="range-error" role="alert" data-testid="dashboard-range-error">{{ e }}</span> }
-    </div>`,
+  styleUrl: './range-control.component.scss',
+  templateUrl: './range-control.component.html',
 })
 export class RangeControlComponent {
   private readonly i18n = inject(I18nService);

@@ -76,35 +76,8 @@ export interface OneTimeSecret {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NzAlertModule, NzButtonModule, NzIconModule, NzModalModule],
-  styles: [`
-    dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 16px; margin: 0 0 12px; }
-    dt { color: var(--erp-color-text-muted); }
-    dd { margin: 0; overflow-wrap: anywhere; font-weight: 600; }
-    .secret { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--erp-color-bg-subtle); border: 1px solid var(--erp-color-border-default, var(--erp-color-border-subtle)); }
-    .secret code { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; color: var(--erp-color-text-primary); background: none; user-select: all; }
-  `],
-  template: `
-    <nz-modal [nzVisible]="!!secret()" [nzTitle]="secret()?.title ?? ''" [nzMaskClosable]="false" [nzKeyboard]="false" [nzClosable]="false" [nzFooter]="footer" (nzOnCancel)="close()">
-      <ng-container *nzModalContent>
-        @if (secret(); as s) {
-          @if (s.facts.length) {
-            <dl>@for (f of s.facts; track f.label) { <dt>{{ f.label }}</dt><dd>{{ f.value }}</dd> }</dl>
-          }
-          @if (s.password) {
-            <nz-alert nzType="warning" nzShowIcon nzMessage="This password will not be shown again. Copy it now and share it privately."></nz-alert>
-            <div class="secret">
-              <code data-testid="one-time-password">{{ s.password }}</code>
-              <button nz-button type="button" (click)="copy(s.password)" data-testid="one-time-copy"><span nz-icon [nzType]="copied() ? 'check' : 'copy'"></span>{{ copied() ? 'Copied' : 'Copy' }}</button>
-            </div>
-            @if (copyFailed()) { <p style="margin:8px 0 0;color:var(--erp-color-error-text)" role="alert" data-testid="one-time-copy-failed">This browser would not copy it. Select the password and copy it yourself.</p> }
-            <p style="margin:12px 0 0;color:var(--erp-color-text-muted)">They will be asked to choose their own password when they sign in.</p>
-          } @else {
-            <nz-alert nzType="info" nzShowIcon nzMessage="This email already has an account. It keeps its own password, so nothing new was created." data-testid="one-time-existing"></nz-alert>
-          }
-        }
-      </ng-container>
-    </nz-modal>
-    <ng-template #footer><button nz-button nzType="primary" type="button" (click)="close()" data-testid="one-time-done">{{ actionLabel() }}</button></ng-template>`,
+  styleUrl: './platform-ui.scss',
+  templateUrl: './platform-ui.html',
 })
 export class OneTimePasswordComponent {
   readonly secret = input<OneTimeSecret | null>(null);

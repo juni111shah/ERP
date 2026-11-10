@@ -28,70 +28,8 @@ import { RevealDirective } from '@shared/directives/reveal.directive';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [StatePanelComponent, StatCardComponent, FormsModule, RouterLink, HasPermissionDirective, NzTableModule, NzButtonModule, NzDatePickerModule, NzInputNumberModule, NzIconModule, NzSelectModule, RevealDirective],
-  styles: [`
-    .hub { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:16px; }
-    .card {
-      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
-      display:block;
-      padding:18px 20px;
-      border-radius:12px;
-      color:inherit;
-      text-decoration:none;
-    }
-    .card b { display:block; font-size:15px; font-weight:700; color: var(--erp-color-text-primary); margin-bottom:6px; }
-    .card span { font-size:13px; color: var(--erp-color-text-muted); line-height:1.4; }
-    .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:16px 0 } .spacer { flex:1 } .num { text-align:end; font-variant-numeric: tabular-nums; white-space:nowrap } .total td { font-weight:600 }
-    .kpis { display:flex; gap:24px; flex-wrap:wrap; margin-bottom:12px } .kpi { padding:8px 14px; border:1px solid var(--erp-color-border, #e5e8ec); border-radius:8px } .kpi b { display:block; font-size:18px }
-    @media print { .bar button, .bar nz-date-picker, .bar nz-input-number { display:none } }
-  `],
-  template: `
-    @if (!def()) {
-      <h1 class="erp-page-title">Reports</h1>
-      <p style="color:var(--erp-color-text-muted); margin-top:-8px; margin-bottom:16px;">Operational summaries, tax filings, financial statements, and performance analytics.</p>
-      <div class="hub" data-testid="reports-hub">
-        @for (r of available(); track r.slug) { <a class="card erp-lift" [routerLink]="['/reports', r.slug]" [attr.data-testid]="'report-' + r.slug"><b>{{ r.title }}</b><span>{{ r.subtitle }}</span></a> }
-        @for (l of ledgerLinks; track l.title) { <a class="card erp-lift" [routerLink]="l.link" [queryParams]="{ tab: l.tab }"><b>{{ l.title }}</b><span>{{ l.note }}</span></a> }
-      </div>
-    } @else {
-      <h1 class="erp-page-title">{{ def()!.title }}</h1>
-      <p>{{ def()!.subtitle }}</p>
-      <div class="bar" erpReveal>
-        <a nz-button routerLink="/reports" data-testid="report-back"><span nz-icon nzType="arrow-left"></span>All reports</a>
-        @if (has('owner')) {
-          <nz-select style="width:260px" nzShowSearch nzServerSearch nzPlaceHolder="Property owner" [(ngModel)]="ownerId" (nzOnSearch)="searchOwners($event)" data-testid="report-owner">@for (o of owners(); track o.id) { <nz-option [nzValue]="o.id" [nzLabel]="o.name"></nz-option> }</nz-select>
-        }
-        @if (has('range')) { <nz-date-picker [(ngModel)]="from" nzFormat="dd MMM yyyy" nzPlaceHolder="From"></nz-date-picker><nz-date-picker [(ngModel)]="to" nzFormat="dd MMM yyyy" nzPlaceHolder="To"></nz-date-picker> }
-        @if (has('asOf')) { <span>As of</span> <nz-date-picker [(ngModel)]="to" nzFormat="dd MMM yyyy" nzPlaceHolder="As of"></nz-date-picker> }
-        @if (has('weeks')) { <nz-input-number [(ngModel)]="weeks" [nzMin]="1" [nzMax]="52" [nzPrecision]="0"></nz-input-number> <span>weeks</span> }
-        @if (has('days')) { <nz-input-number [(ngModel)]="days" [nzMin]="1" [nzMax]="3650" [nzPrecision]="0"></nz-input-number> <span>days idle</span> }
-        @if (has('months')) { <nz-input-number [(ngModel)]="months" [nzMin]="1" [nzMax]="36" [nzPrecision]="0"></nz-input-number> <span>months</span> }
-        <button nz-button nzType="primary" [nzLoading]="loading()" (click)="run()" data-testid="report-run">Run</button>
-        <span class="spacer"></span>
-        @if (def()!.action; as a) { <button *erpHasPermission="a.permission" nz-button [disabled]="!data() || !entity()" (click)="runAction()" data-testid="report-action">{{ a.label }}</button> }
-        <button nz-button (click)="csv()" [disabled]="!data()" data-testid="report-csv"><span nz-icon nzType="download"></span>CSV</button>
-        <button nz-button (click)="print()" [disabled]="!data()"><span nz-icon nzType="printer"></span>Print</button>
-      </div>
-      @if (waitingForEntity()) { <erp-state-panel icon="bank" title="Choose a legal entity" hint="This report covers one legal entity. Choose it with the selector at the top of the page." data-testid="report-needs-entity" /> }
-      @if (failed(); as msg) { <erp-state-panel kind="error" title="Could not run this report" [hint]="msg" actionLabel="Try again" (action)="run()" data-testid="report-error" /> }
-      @if (loading() && !data()) { <div class="erp-stat-grid erp-stat-grid--auto" data-testid="report-loading">@for (i of [0, 1, 2, 3]; track i) { <erp-stat-card label="" [loading]="true" [tone]="i" /> }</div> }
-      @if (data(); as d) {
-        @if (summary().length) { <div class="erp-stat-grid erp-stat-grid--auto" data-testid="report-summary">@for (s of summary(); track s.label; let i = $index) { <erp-stat-card [label]="s.label" [value]="s.value" [tone]="i" /> }</div> }
-        <nz-table [nzData]="rows()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="Nothing to report for these filters." data-testid="report-table">
-          <thead><tr>@for (c of columns(); track c.key) { <th [class.num]="isNum(c)">{{ c.label }}</th> }</tr></thead>
-          <tbody>
-            @for (r of rows(); track $index) { <tr>@for (c of columns(); track c.key) { <td [class.num]="isNum(c)">{{ cell(r, c) }}</td> }</tr> }
-            @if (totals(); as t) { <tr class="total">@for (c of columns(); track c.key) { <td [class.num]="isNum(c)">{{ cell(t, c) }}</td> }</tr> }
-          </tbody>
-        </nz-table>
-        @for (sec of details(); track sec.title) {
-          <h3 style="margin-top:20px">{{ sec.title }}</h3>
-          <nz-table [nzData]="sec.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="report-detail-table">
-            <thead><tr>@for (c of sec.columns; track c.key) { <th [class.num]="isNum(c)">{{ c.label }}</th> }</tr></thead>
-            <tbody>@for (r of sec.rows; track $index) { <tr>@for (c of sec.columns; track c.key) { <td [class.num]="isNum(c)">{{ cell(r, c) }}</td> }</tr> }</tbody>
-          </nz-table>
-        }
-      } @else if (!loading() && !failed() && !waitingForEntity()) { <erp-state-panel icon="bar-chart" title="Choose the filters and run the report" /> }
-    }`,
+  styleUrl: './report.page.scss',
+  templateUrl: './report.page.html',
 })
 export class ReportPage {
   private readonly http = inject(HttpClient);

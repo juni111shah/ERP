@@ -1,0 +1,27 @@
+
+    <div class="which">
+      <nz-radio-group [ngModel]="bot()" (ngModelChange)="bot.set($event)" nzButtonStyle="solid" [nzDisabled]="sending()" data-testid="assistant-try-bot">
+        <label nz-radio-button nzValue="brand">Public assistant's services</label>
+        <label nz-radio-button nzValue="workspace">Client data services</label>
+      </nz-radio-group>
+    </div>
+    @if (messages().length) {
+      <!-- data-no-i18n: the page translator must never rewrite what the person or the model wrote. -->
+      <div class="log" data-no-i18n aria-live="polite" data-testid="assistant-try-log">
+        @for (m of messages(); track $index) {
+          <div class="bubble" [class.user]="m.role === 'user'" [class.assistant]="m.role === 'assistant'" dir="auto" [attr.data-testid]="'assistant-try-' + m.role">{{ m.text }}</div>
+        }
+        @if (status(); as s) { <div class="status" data-testid="assistant-try-status">{{ s }}...</div> }
+      </div>
+    }
+    @if (error(); as e) { <div class="error" role="alert" data-testid="assistant-try-error">{{ e }}</div> }
+    <div class="send">
+      <textarea nz-input rows="2" maxlength="2000" dir="auto" aria-label="Your message" placeholder="Type a message" [ngModel]="draft()" (ngModelChange)="draft.set($event)" (keydown.enter)="enter($any($event))" data-testid="assistant-try-input"></textarea>
+      @if (sending()) {
+        <button nz-button type="button" (click)="stop()" data-testid="assistant-try-stop">Stop</button>
+      } @else {
+        <button nz-button nzType="primary" type="button" [disabled]="!draft().trim()" (click)="send()" data-testid="assistant-try-send">Send</button>
+      }
+      @if (messages().length && !sending()) { <button nz-button type="button" (click)="clear()" data-testid="assistant-try-clear">Clear</button> }
+    </div>
+    @if (meta(); as m) { <div class="meta" data-testid="assistant-try-meta">{{ m }}</div> }

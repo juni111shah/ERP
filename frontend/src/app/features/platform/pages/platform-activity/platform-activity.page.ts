@@ -13,19 +13,7 @@ import { PLATFORM_STYLES } from '../../platform-ui';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, ErpDatePipe, PagedTableComponent],
   styles: [PLATFORM_STYLES],
-  template: `
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search the log" emptyText="Nothing has happened yet" [filterable]="false" [configurable]="false" [exportable]="false" [clickable]="false"
-                     tableName="platform-activity" scrollX="980px">
-      <ng-template #cell let-r let-col="column">
-        @switch (col.key) {
-          @case ('at') { <span class="pf-nowrap">{{ r.at | erpDate }}</span> }
-          @case ('actor') { {{ r.actor }} }
-          @case ('action') { <strong>{{ r.action }}</strong> }
-          @case ('client') { @if (r.orgId) { <a [routerLink]="['/platform/clients', r.orgId]">{{ r.clientName }}</a> } @else { {{ r.clientName ?? '—' }} } }
-          @case ('detail') { <span class="pf-muted">{{ r.detail }}</span> }
-        }
-      </ng-template>
-    </erp-paged-table>`,
+  templateUrl: './platform-activity.page.html',
 })
 export class PlatformActivityPage {
   private readonly api = inject(PlatformApi);

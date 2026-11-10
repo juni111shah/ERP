@@ -19,20 +19,7 @@ const CAN_HOVER = '(hover: hover) and (pointer: fine)';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgTemplateOutlet, NzButtonModule, NzIconModule, NzPopoverModule],
   host: { '(click)': '$event.stopPropagation()', '(keydown.enter)': '$event.stopPropagation()', '(keydown.space)': '$event.stopPropagation()' },
-  template: `
-    <ng-template #actions><ng-content /></ng-template>
-    @if (canHover()) {
-      <div class="erp-row-actions__inline"><ng-container *ngTemplateOutlet="actions" /></div>
-    } @else {
-      <button nz-button nzType="text" nzSize="small" type="button" class="erp-row-actions__kebab" nz-popover nzPopoverTrigger="click" nzPopoverPlacement="bottomRight"
-              nzPopoverOverlayClassName="erp-row-actions__overlay" [nzPopoverContent]="menu" [nzPopoverVisible]="open()" (nzPopoverVisibleChange)="open.set($event)"
-              [attr.aria-label]="label()" [attr.aria-expanded]="open()" data-testid="row-actions-menu">
-        <span nz-icon nzType="more"></span>
-      </button>
-      <ng-template #menu>
-        <div class="erp-row-actions__menu" (click)="closeAfter($event)" (keydown.escape)="open.set(false)"><ng-container *ngTemplateOutlet="actions" /></div>
-      </ng-template>
-    }`,
+  templateUrl: './row-actions.component.html',
 })
 export class RowActionsComponent {
   private readonly i18n = inject(I18nService);

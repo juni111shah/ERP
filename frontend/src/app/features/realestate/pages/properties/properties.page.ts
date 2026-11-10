@@ -45,63 +45,7 @@ import { StatusTagComponent } from '@shared/components/status-tag/status-tag.com
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, NzTagModule, StatusTagComponent, StatCardComponent, TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
-  template: `
-    <h1 class="erp-page-title">Properties</h1>
-
-    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="property-stats">
-      <erp-stat-card label="Total properties"
-                     [value]="list.total()"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().count + ' ' + ('table.onThisPage' | translate: 'on this page')"
-                     [tone]="0" />
-      <erp-stat-card label="Total units"
-                     [value]="stats().totalUnits"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().partial ? 'lettable, on this page' : 'lettable capacity'"
-                     [tone]="1" />
-      <erp-stat-card label="Portfolio value"
-                     [value]="stats().totalValue"
-                     format="money"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().partial ? 'indicative, on this page' : 'indicative appraisal'"
-                     [tone]="2" />
-      <erp-stat-card label="Active properties"
-                     [value]="stats().activeCount"
-                     format="number"
-                     [loading]="list.loading() && list.items().length === 0"
-                     [caption]="stats().partial ? 'on this page' : 'operational sites'"
-                     [tone]="3" />
-    </div>
-
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code, name, community" emptyText="No properties yet" (rowClick)="open($event)">
-      <ng-template #cell let-row let-column="column" let-value="value">
-        @switch (column.key) {
-          @case ('code') {
-            <span class="code-pill">{{ row.code }}</span>
-          }
-          @case ('name') {
-            <span class="name-cell">{{ row.name }}</span>
-          }
-          @case ('propertyType') {
-            <nz-tag>{{ humanize(row.propertyType) }}</nz-tag>
-          }
-          @case ('indicativeValue') {
-            <b>{{ currency() }} {{ row.indicativeValue | number: '1.2-2' }}</b>
-          }
-          @case ('isActive') {
-            <erp-status [value]="row.isActive ? 'active' : 'inactive'" />
-          }
-          @default {
-            {{ value }}
-          }
-        }
-      </ng-template>
-      <button toolbar *erpHasPermission="'realestate.properties.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="property-new"><span nz-icon nzType="plus"></span>New property</button>
-    </erp-paged-table>
-    <erp-record-drawer title="New property" [open]="state.open()" [fields]="fields" customFieldEntityType="realestate.property"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="property-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
+  templateUrl: './properties.page.html',
 })
 export class PropertiesPage {
   private readonly api = inject(PropertiesApi);

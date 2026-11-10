@@ -1,0 +1,98 @@
+
+    :host {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --rule: #e2e8f0;
+      --accent: var(--erp-brand-solid-light, var(--erp-brand-600, #10955d));
+      --accent-subtle: var(--erp-brand-subtle-light, var(--erp-brand-50, #ecfdf5));
+      --accent-border: var(--erp-brand-border-light, var(--erp-brand-200, #a7f3d0));
+      --accent-ink: var(--erp-brand-ink, #064e3b);
+      --link: var(--accent);
+      display: block; background: #eef0f3; min-height: 100vh; padding: 24px 0 48px;
+      font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif; color: var(--ink);
+    }
+    .toolbar { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; }
+    .toolbar .pdf-err { align-self: center; color: #cf1322; font-size: 13px; }
+    .sheet {
+      position: relative; width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff;
+      box-shadow: 0 4px 20px rgba(0,0,0,.08); padding: 14mm 14mm 16mm; box-sizing: border-box; font-size: 12px; line-height: 1.5;
+      border-top: 5px solid var(--accent);
+    }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 14px; border-bottom: 2.5px solid var(--accent); }
+    .company-name { font-size: 21px; font-weight: 800; color: var(--accent-ink); margin: 0 0 4px; }
+    .company-line { font-size: 11.5px; color: var(--muted); }
+    .trn strong { font-weight: 700; color: var(--ink); }
+    .doc-id { text-align: right; white-space: nowrap; }
+    .doc-title { font-size: 22px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin: 2px 0 6px; }
+    .doc-no { font-size: 12px; font-weight: 700; color: var(--ink); }
+    .parties { display: flex; justify-content: space-between; gap: 32px; margin: 20px 0 24px; }
+    .label { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+    .party-name { font-weight: 700; font-size: 13.5px; color: var(--ink); }
+    .party-address { color: var(--muted); white-space: pre-line; }
+    .meta { border-collapse: collapse; }
+    .meta td { padding: 3px 0; vertical-align: top; }
+    .meta td:first-child { padding-right: 18px; color: var(--muted); font-size: 11.5px; }
+    .meta td.strong { font-weight: 700; color: var(--ink); }
+    .pdc { display: inline-block; margin-left: 8px; padding: 0 6px; border: 1.5px solid var(--accent); color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 1px; line-height: 1.5; border-radius: 3px; }
+    
+    table.lines { width: 100%; border-collapse: collapse; margin-bottom: 16px; margin-top: 10px; }
+    table.lines thead { display: table-header-group; }
+    table.lines th {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; text-align: left;
+      padding: 9px 8px; background: var(--accent-subtle); color: var(--accent-ink); border-top: 1px solid var(--accent-border); border-bottom: 2px solid var(--accent);
+    }
+    table.lines td { padding: 9px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+    table.lines tr { break-inside: avoid; page-break-inside: avoid; }
+    .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    
+    .totals { margin-left: auto; width: 84mm; break-inside: avoid; page-break-inside: avoid; margin-top: 12px; }
+    .totals .row { display: flex; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid var(--rule); }
+    .totals .row.grand {
+      background: var(--accent-subtle); border-left: 4px solid var(--accent); border-top: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
+      margin-top: 6px; padding: 8px 10px; font-size: 14px; font-weight: 800; color: var(--accent-ink);
+    }
+    .totals .row.due { font-weight: 700; border-bottom: none; }
+    
+    .notes { color: var(--ink); margin: 20px 0 0; white-space: pre-line; break-inside: avoid; padding: 10px 14px; background: #f8fafc; border: 1px solid var(--rule); border-radius: 6px; }
+    .notes-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .terms { border-top: 1px solid var(--rule); margin-top: 24px; padding-top: 10px; font-size: 10.5px; color: var(--muted); break-inside: avoid; }
+    .terms p { margin: 0 0 5px; }
+
+    .signatures { display: flex; justify-content: space-between; gap: 48px; margin-top: 40px; break-inside: avoid; }
+    .sig-block { flex: 1; border-top: 1px solid var(--ink); padding-top: 8px; text-align: center; }
+    .sig-label { font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
+
+    .stamp {
+      position: absolute; top: 95mm; left: 50%; transform: translateX(-50%) rotate(-18deg);
+      font-size: 60px; font-weight: 800; letter-spacing: 8px; text-transform: uppercase; pointer-events: none;
+      padding: 4px 28px; border-radius: 8px;
+    }
+    .stamp.paid, .stamp.active, .stamp.approved, .stamp.sent, .stamp.received {
+      color: rgba(16, 149, 93, .22); border: 5px solid rgba(16, 149, 93, .22);
+    }
+    .stamp.draft, .stamp.pending {
+      color: rgba(100, 116, 139, .22); border: 5px solid rgba(100, 116, 139, .22);
+    }
+    .stamp.void, .stamp.cancelled, .stamp.terminated {
+      color: rgba(220, 38, 38, .22); border: 5px solid rgba(220, 38, 38, .22);
+    }
+
+    .state { text-align: center; padding: 64px; color: var(--muted); }
+    .state.err { color: #dc2626; }
+    .pos-shift-print { max-width: 560px; margin: 16px auto; padding: 16px; background: #fff; color: #111; }
+    .pos-shift-print h2 { margin: 0 0 8px; font-size: 16px; font-weight: 700; text-align: center; }
+    .pos-receipt-print-wrapper {
+      display: flex;
+      justify-content: center;
+      padding: 30px 10px;
+    }
+
+    @page { size: A4 portrait; margin: 12mm; }
+    @media print {
+      :host { background: #fff; padding: 0; min-height: 0; }
+      .toolbar { display: none !important; }
+      .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; border-top: 4px solid var(--accent); }
+      .pos-receipt-print-wrapper { padding: 0; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  

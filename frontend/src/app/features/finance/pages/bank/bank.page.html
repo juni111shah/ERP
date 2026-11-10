@@ -1,0 +1,149 @@
+
+    <h1 class="erp-page-title">Cash and bank</h1>
+    <div class="bar" erpReveal>
+      <nz-select [(ngModel)]="entityId" nzAllowClear nzPlaceHolder="All legal entities" style="width:240px" (ngModelChange)="refresh()" data-testid="bank-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select>
+      <nz-date-picker [(ngModel)]="asOf" (ngModelChange)="refresh()" nzFormat="dd MMM yyyy" nz-tooltip nzTooltipTitle="Balances as of this date" data-testid="bank-asof"></nz-date-picker>
+      <button *erpHasPermission="'finance.bank.write'" nz-button (click)="openTransfer()" data-testid="bank-transfer"><span nz-icon nzType="swap"></span>Transfer</button>
+      <button nz-button nzType="default" type="button" (click)="refresh()" data-testid="bank-refresh"><span nz-icon nzType="reload"></span> {{ 'ui.common.refresh' | translate: 'Refresh' }}</button>
+    </div>
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load cash and bank" hint="The server did not return the balances." actionLabel="Try again" (action)="refresh()" data-testid="bank-error" />
+    } @else if (!position()) {
+      <div class="loading"><nz-spin nzSimple></nz-spin></div>
+    } @else if (!position()!.accounts.length) {
+      <erp-state-panel title="No cash or bank accounts yet" hint="Mark an account as a bank or cash account in the chart of accounts, and it appears here." icon="bank" />
+    }
+    @if (position(); as p) {
+      <div class="bank-accounts-grid" data-testid="bank-cards">
+        @for (a of p.accounts; track a.accountId) {
+          <div erpKeyboardClick class="bank-card erp-lift" [class.sel]="a.accountId === accountId()" (click)="select(a.accountId)" [attr.data-testid]="'bank-card-' + a.code">
+            <div class="bank-card-header">
+              <span>{{ a.code }} · {{ a.name }}</span>
+              @if (a.accountId === accountId()) {
+                <nz-tag nzColor="success">Selected</nz-tag>
+              }
+            </div>
+            <div class="bank-card-balance">{{ currency() }} {{ a.balance | number: '1.2-2' }}</div>
+          </div>
+        }
+        <div class="bank-card" style="cursor:default">
+          <div class="bank-card-header"><span>Total cash and bank</span></div>
+          <div class="bank-card-balance">{{ currency() }} {{ p.total | number: '1.2-2' }}</div>
+        </div>
+      </div>
+    }
+
+    @if (rec(); as r) {
+      <div class="bar" style="margin-top:12px">
+        <h3 style="margin:0;font-size:16px;font-weight:600">{{ 'ui.bank.reconciliation' | translate: 'Reconciliation' }}: {{ r.code }} {{ r.name }}</h3>
+        <nz-tag [nzColor]="r.reconciled ? 'green' : 'orange'" data-testid="rec-status" style="margin:0">{{ r.reconciled ? 'Reconciled' : 'Differences to review' }}</nz-tag>
+        <span style="flex:1"></span>
+        <ng-container *erpHasPermission="'finance.bank.write'">
+          <button nz-button (click)="importOpen.set(true)" data-testid="bank-import"><span nz-icon nzType="plus"></span>Import statement</button>
+          <button nz-button nzType="primary" [disabled]="!statementEntity()" (click)="autoMatch()" data-testid="bank-automatch"><span nz-icon nzType="sync"></span>Auto-match</button>
+        </ng-container>
+      </div>
+
+      @if (!statementEntity()) {
+        <p style="color:var(--erp-color-text-secondary);margin-bottom:12px">Choose a legal entity above to import and match statements.</p>
+      }
+
+      <div class="rec-metrics-strip">
+        <div class="rec-metric-item">
+          <span class="rec-metric-label">{{ 'ui.bank.ledgerBalance' | translate: 'Ledger balance' }}</span>
+          <span class="rec-metric-val">{{ currency() }} {{ r.ledgerBalance | number: '1.2-2' }}</span>
+        </div>
+        <div class="rec-metric-divider"></div>
+        <div class="rec-metric-item">
+          <span class="rec-metric-label">Lines matched</span>
+          <span class="rec-metric-val">{{ r.matched }}</span>
+        </div>
+        <div class="rec-metric-divider"></div>
+        <div class="rec-metric-item">
+          <span class="rec-metric-label">Not in the books</span>
+          <span class="rec-metric-val">{{ currency() }} {{ r.unmatchedStatementTotal | number: '1.2-2' }}</span>
+        </div>
+        <div class="rec-metric-divider"></div>
+        <div class="rec-metric-item">
+          <span class="rec-metric-label">Not on the statement</span>
+          <span class="rec-metric-val">{{ currency() }} {{ r.unmatchedLedgerTotal | number: '1.2-2' }}</span>
+        </div>
+      </div>
+
+      <div class="bank-table-card">
+        <div class="bank-table-header">
+          <span class="bank-table-title"><span nz-icon nzType="file-text"></span> On the statement, not in the books</span>
+          <nz-tag>{{ r.unmatchedStatement.length }} {{ r.unmatchedStatement.length === 1 ? 'line' : 'lines' }}</nz-tag>
+        </div>
+        <nz-table #st [nzData]="statementRows()" [nzPageIndex]="stPg.page()" [nzPageSize]="stPg.size()" [nzShowPagination]="false" nzNoResult="Every statement line is matched." nzSize="middle" data-testid="rec-statement">
+          <thead><tr><th>Date</th><th>Description</th><th>Reference</th><th class="num">Amount</th><th></th></tr></thead>
+          <tbody>
+            @for (l of st.data; track l.id) {
+              <tr>
+                <td class="nowrap">{{ l.date | erpDate }}</td>
+                <td>{{ l.description }}</td>
+                <td><span class="code-pill">{{ l.reference || '—' }}</span></td>
+                <td class="num" [class.amt-inflow]="l.amount > 0" [class.amt-outflow]="l.amount < 0">
+                  {{ l.amount < 0 ? '- ' + currency() + ' ' + ((-l.amount) | number: '1.2-2') : currency() + ' ' + (l.amount | number: '1.2-2') }}
+                </td>
+                <td class="erp-cell-actions nowrap"><erp-row-actions><button *erpHasPermission="'finance.bank.write'" nz-button nzType="link" nzSize="small" type="button" (click)="startBook(l)" data-testid="rec-book">Book it</button></erp-row-actions></td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+        <div class="pager"><erp-pagination-bar [total]="statementRows().length" [page]="stPg.page()" [pageSize]="stPg.size()" [hideOnSinglePage]="true" (pageChange)="stPg.change($event)" /></div>
+      </div>
+
+      <div class="bank-table-card">
+        <div class="bank-table-header">
+          <span class="bank-table-title"><span nz-icon nzType="book"></span> In the books, not on the statement</span>
+          <nz-tag>{{ r.unmatchedLedger.length }} {{ r.unmatchedLedger.length === 1 ? 'line' : 'lines' }}</nz-tag>
+        </div>
+        <nz-table #lt [nzData]="ledgerRows()" [nzPageIndex]="ltPg.page()" [nzPageSize]="ltPg.size()" [nzShowPagination]="false" nzNoResult="Every ledger entry is matched." nzSize="middle" data-testid="rec-ledger">
+          <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Amount</th></tr></thead>
+          <tbody>
+            @for (l of lt.data; track l.journalLineId) {
+              <tr>
+                <td class="nowrap">{{ l.date | erpDate }}</td>
+                <td><span class="code-pill">{{ l.number }}</span></td>
+                <td>{{ l.description }}</td>
+                <td class="num" [class.amt-inflow]="l.amount > 0" [class.amt-outflow]="l.amount < 0">
+                  {{ l.amount < 0 ? '- ' + currency() + ' ' + ((-l.amount) | number: '1.2-2') : currency() + ' ' + (l.amount | number: '1.2-2') }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+        <div class="pager"><erp-pagination-bar [total]="ledgerRows().length" [page]="ltPg.page()" [pageSize]="ltPg.size()" [hideOnSinglePage]="true" (pageChange)="ltPg.change($event)" /></div>
+      </div>
+    }
+
+    <nz-modal [nzVisible]="importOpen()" nzTitle="Import bank statement" (nzOnCancel)="importOpen.set(false)" (nzOnOk)="runImport()" nzOkText="Import" [nzOkLoading]="busy()" [nzWidth]="640">
+      <ng-container *nzModalContent>
+        <p>Paste one line per row: <code>date, description, reference, amount</code> (date as 2026-05-31; money out is negative).</p>
+        <textarea aria-label="Statement lines" nz-input rows="10" [(ngModel)]="importText" placeholder="2026-05-03, Deposit, D1, 10000" data-testid="import-text"></textarea>
+      </ng-container>
+    </nz-modal>
+
+    <nz-modal [nzVisible]="bookLine() !== null" nzTitle="Book statement line" (nzOnCancel)="bookLine.set(null)" (nzOnOk)="runBook()" nzOkText="Book and match" [nzOkLoading]="busy()">
+      <ng-container *nzModalContent>
+        @if (bookLine(); as l) { <p>{{ l.date | erpDate }} · {{ l.description }} · <b>{{ currency() }} {{ l.amount | number: '1.2-2' }}</b></p> }
+        <div class="field">Other account
+          <nz-select [(ngModel)]="bookAccount" nzShowSearch style="width:100%" nzPlaceHolder="For example, bank charges" data-testid="book-account">
+            @for (a of postable(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }
+          </nz-select>
+        </div>
+        <div class="field">Memo (optional)<input nz-input [(ngModel)]="bookMemo" /></div>
+      </ng-container>
+    </nz-modal>
+
+    <nz-modal [nzVisible]="transferOpen()" nzTitle="Transfer between cash and bank accounts" (nzOnCancel)="transferOpen.set(false)" (nzOnOk)="runTransfer()" nzOkText="Transfer" [nzOkLoading]="busy()">
+      <ng-container *nzModalContent>
+        <div class="field">Legal entity <nz-select [(ngModel)]="trEntity" style="width:100%" nzPlaceHolder="Choose" data-testid="tr-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select></div>
+        <div class="field">From <nz-select [(ngModel)]="trFrom" style="width:100%" nzPlaceHolder="Account the money leaves" data-testid="tr-from">@for (a of cashAccounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select></div>
+        <div class="field">To <nz-select [(ngModel)]="trTo" style="width:100%" nzPlaceHolder="Account the money reaches" data-testid="tr-to">@for (a of cashAccounts(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select></div>
+        <div class="field">Amount <nz-input-number [(ngModel)]="trAmount" [nzMin]="0.01" [nzPrecision]="2" style="width:100%" data-testid="tr-amount"></nz-input-number></div>
+        <div class="field">Date <nz-date-picker [(ngModel)]="trDate" nzFormat="dd MMM yyyy" style="width:100%"></nz-date-picker></div>
+      </ng-container>
+    </nz-modal>

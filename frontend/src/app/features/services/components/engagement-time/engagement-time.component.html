@@ -1,0 +1,36 @@
+
+    <div class="bar">
+      <button *erpHasPermission="'services.timeentries.manage'" nz-button nzSize="small" type="button" [disabled]="!canLog()" (click)="form.show(null)" data-testid="time-log"><span nz-icon nzType="plus"></span>Log time</button>
+      @if (engagement().type === 'timeAndMaterials') {
+        <button *erpHasPermission="'services.engagements.manage'" nz-button nzSize="small" nzType="primary" type="button" [disabled]="!billable()" (click)="invoiceTime()" data-testid="time-invoice">Invoice approved time</button>
+      }
+    </div>
+    @if (entries().length) {
+      <nz-table [nzData]="entries()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="time-table">
+        <thead><tr><th>Date</th><th>Who</th><th class="r">Hours</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          @for (e of entries(); track e.id) {
+            <tr>
+              <td>{{ fmt(e.activityDate) }}<div class="muted">{{ e.taskDescription }}</div></td><td>{{ e.consultantName }}</td>
+              <td class="r">{{ e.hours | number: '1.0-2' }}</td><td class="r">{{ e.totalAmount | number: '1.2-2' }}</td>
+              <td>
+                <erp-status [value]="e.invoiceId ? 'invoiced' : e.isApproved ? 'approved' : 'pending'" />
+                @if (!e.isBillable) { <span class="muted"> Not billable</span> }
+              </td>
+              <td>
+                <div class="acts" *erpHasPermission="'services.timeentries.manage'">
+                  @if (!e.isApproved) {
+                    <button nz-button nzSize="small" nzType="primary" type="button" [disabled]="e.consultantName === me()" (click)="approve(e)" data-testid="time-approve">Approve</button>
+                    <button nz-button nzSize="small" type="button" (click)="form.show(e)" data-testid="time-edit">Edit</button>
+                    <button nz-button nzSize="small" nzDanger type="button" nz-popconfirm nzPopconfirmTitle="Delete this time entry?" (nzOnConfirm)="remove(e)" data-testid="time-delete">Delete</button>
+                  }
+                  @if (e.invoiceId) { <a [routerLink]="['/finance/invoices', e.invoiceId]" data-testid="time-invoice-link">Invoice</a> }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    } @else { <p class="muted">No time has been logged against this engagement.</p> }
+    <erp-record-drawer [title]="form.target() ? 'Edit time entry' : 'Log time'" [open]="form.open()" [fields]="fields" [value]="$any(form.target())" [saving]="form.saving()" [errors]="form.errors()"
+                       testId="time-form" (submitted)="form.submit($event)" (closed)="form.close()" />
