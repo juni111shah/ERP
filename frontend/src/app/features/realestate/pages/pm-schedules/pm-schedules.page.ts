@@ -2,33 +2,31 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { PRIORITIES, PmScheduleDto, PmSchedulesApi, RealEstateLookups, humanize } from '@core/api/realestate.api';
 import { I18nService } from '@core/i18n/i18n.service';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
 
 /** Recurring maintenance tasks; the nightly job (or "Run now") raises a work order shortly before each is due. */
 @Component({
   selector: 'erp-pm-schedules',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [NzToolTipModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   templateUrl: './pm-schedules.page.html',
 })
 export class PmSchedulesPage {
   private readonly i18n = inject(I18nService);
-  private readonly api = inject(PmSchedulesApi);
+  private readonly schedulesApi = inject(PmSchedulesApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: 'nextDue' });
+  readonly list = createPagedList((q) => this.schedulesApi.list(q), { sort: 'nextDue' });
   readonly state = new MasterDataState<PmScheduleDto>({
-    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Schedule',
+    save: (id, body) => (id ? this.schedulesApi.update(id, body) : this.schedulesApi.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Schedule',
   });
   readonly columns: TableColumn<PmScheduleDto>[] = [
     { key: 'title', label: 'Task' },
@@ -53,7 +51,8 @@ export class PmSchedulesPage {
     { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 4000 },
   ];
 
+  /** Raises the work orders that are due now instead of waiting for the nightly job. */
   run(): void {
-    this.api.run().subscribe({ next: (r) => { this.message.success(`${r.workOrdersCreated} ${this.i18n.t('ui.msg.workOrdersRaised', 'work order(s) raised')}`); this.list.reload(); }, error: () => this.message.error('Could not run the schedules') });
+    this.schedulesApi.run().subscribe({ next: (r) => { this.message.success(`${r.workOrdersCreated} ${this.i18n.t('ui.msg.workOrdersRaised', 'work order(s) raised')}`); this.list.reload(); }, error: () => this.message.error('Could not run the schedules') });
   }
 }

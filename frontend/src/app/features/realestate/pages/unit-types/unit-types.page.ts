@@ -2,28 +2,27 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
+import { USAGES, UnitTypeDto, UnitTypesApi, humanize } from '@core/api/realestate.api';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { USAGES, UnitTypeDto, UnitTypesApi, humanize } from '@core/api/realestate.api';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
 
+/** Unit types (studio, 2BR, office...): the default usage and bedrooms a new unit of the type starts with. */
 @Component({
   selector: 'erp-unit-types',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  imports: [NzToolTipModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   templateUrl: './unit-types.page.html',
 })
 export class UnitTypesPage {
-  private readonly api = inject(UnitTypesApi);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
+  private readonly unitTypesApi = inject(UnitTypesApi);
+  readonly list = createPagedList((q) => this.unitTypesApi.list(q), { sort: 'code' });
   readonly state = new MasterDataState<UnitTypeDto>({
-    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)),
+    save: (id, body) => (id ? this.unitTypesApi.update(id, body) : this.unitTypesApi.create(body)),
     reload: () => this.list.reload(), message: inject(NzMessageService), entityName: 'Unit type',
   });
   readonly columns: TableColumn<UnitTypeDto>[] = [

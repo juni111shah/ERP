@@ -1,23 +1,35 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { doneText } from '@core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { catchError, of } from 'rxjs';
-import { AccountDto, AccountsApi } from '@core/api/admin.api';
+import { Observable } from 'rxjs';
+import { AccountsApi } from '@core/api/admin.api';
 import { ProblemDetails } from '@core/api/api.models';
+import { LOAN_KINDS, LOAN_STATUSES, LoanInput, LoanRow, LoansApi } from '@core/api/hr-people.api';
+import { EmployeesApi } from '@core/api/hr.api';
 import { createPagedList } from '@core/api/paged-list';
+import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { LOAN_KINDS, LOAN_STATUSES, LoanRow, LoansApi } from '@core/api/hr-people.api';
-import { EmployeeSummary, EmployeesApi, MONTHS } from '@core/api/hr.api';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { itemsSignal } from '@shared/utils/items-signal';
+import { accountOptions, bankAccounts } from '@shared/utils/payment-accounts';
+import { dayText, monthYear } from '../../hr-format';
+import { currentEmployees, employeeOptions, optionLabel } from '../../hr-options';
+
+/** The new-loan drawer's values as the API takes them: recovery starts in the month of the picked day. */
+function loanInput(v: Record<string, unknown>): LoanInput {
+  const [year, month] = dayText(v['start']).split('-').map(Number);
+  return {
+    employeeId: v['employeeId'] as string, kind: v['kind'] as string, principal: v['principal'] as number, instalments: v['instalments'] as number,
+    instalmentAmount: (v['instalmentAmount'] as number | undefined) ?? null, startYear: year, startMonth: month, reason: (v['reason'] as string | undefined) ?? null,
+  };
+}
 
 /** Staff loans and salary advances: instalments are recovered by the monthly payroll run. */
 @Component({
@@ -28,13 +40,13 @@ import { WorkspaceCurrencyService } from '@core/services/workspace-currency.serv
   templateUrl: './loans.page.html',
 })
 export class LoansPage {
-  private readonly api = inject(LoansApi);
+  private readonly loansApi = inject(LoansApi);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   readonly currency = inject(WorkspaceCurrencyService).currency;
-  private readonly employeePage = toSignal(inject(EmployeesApi).list({ page: 1, pageSize: 200, sort: 'fullName' }).pipe(catchError(() => of({ items: [] as EmployeeSummary[] }))), { initialValue: { items: [] as EmployeeSummary[] } });
-  private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-startYear' });
+  private readonly employeePage = itemsSignal(inject(EmployeesApi).list({ page: 1, pageSize: 200, sort: 'fullName' }));
+  private readonly accountPage = itemsSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }));
+  readonly list = createPagedList((q) => this.loansApi.list(q), { sort: '-startYear' });
   readonly mode = signal<'create' | 'disburse' | null>(null);
   readonly saving = signal(false);
   readonly errors = signal<ProblemDetails | null>(null);
@@ -42,10 +54,10 @@ export class LoansPage {
 
   readonly columns: TableColumn<LoanRow>[] = [
     { key: 'employee', label: 'Employee', value: (l) => this.employeePage().items.find((e) => e.id === l.employeeId)?.fullName ?? '' },
-    { key: 'kind', label: 'Type', value: (l) => LOAN_KINDS.find((k) => k.value === l.kind)?.label ?? l.kind, width: '130px' },
+    { key: 'kind', label: 'Type', value: (l) => optionLabel(LOAN_KINDS, l.kind), width: '130px' },
     { key: 'principal', label: 'Amount', align: 'right', value: (l) => l.principal.toLocaleString(), width: '140px' },
     { key: 'remaining', label: 'Remaining', align: 'right', width: '140px' },
-    { key: 'start', label: 'Recovery starts', value: (l) => `${MONTHS[l.startMonth - 1]} ${l.startYear}`, width: '150px' },
+    { key: 'start', label: 'Recovery starts', value: (l) => monthYear(l.startYear, l.startMonth), width: '150px' },
     { key: 'instalments', label: 'Instalments', width: '100px' },
     { key: 'disbursedOn', label: 'Paid out on', width: '120px' },
     { key: 'status', label: 'Status', width: '110px', filterField: 'status', filterOptions: LOAN_STATUSES },
@@ -54,11 +66,11 @@ export class LoansPage {
 
   readonly fields = computed<FieldSpec[]>(() => this.mode() === 'disburse'
     ? [
-        { key: 'bankAccountId', label: 'Pay from', type: 'select', required: true, options: this.accountPage().items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'bank')).map((a) => ({ value: a.id, label: `${a.code} · ${a.name}` })) },
+        { key: 'bankAccountId', label: 'Pay from', type: 'select', required: true, options: accountOptions(bankAccounts(this.accountPage().items)) },
         { key: 'date', label: 'Payment date', type: 'date', required: true, default: new Date() },
       ]
     : [
-        { key: 'employeeId', label: 'Employee', type: 'select', required: true, options: this.employeePage().items.filter((e) => e.status !== 'terminated').map((e) => ({ value: e.id, label: `${e.number} · ${e.fullName}` })) },
+        { key: 'employeeId', label: 'Employee', type: 'select', required: true, options: employeeOptions(currentEmployees(this.employeePage().items)) },
         { key: 'kind', label: 'Type', type: 'select', required: true, options: LOAN_KINDS, default: 'loan' },
         { key: 'principal', label: 'Amount', type: 'number', required: true, min: 0.01 },
         { key: 'instalments', label: 'Number of instalments', type: 'number', required: true, min: 1, max: 120, default: 1 },
@@ -67,26 +79,22 @@ export class LoansPage {
         { key: 'reason', label: 'Reason', type: 'text', maxLength: 300 },
       ]);
 
-
   startPayOut(l: LoanRow): void { this.target.set(l); this.errors.set(null); this.mode.set('disburse'); }
 
   cancel(l: LoanRow): void {
     this.modal.confirm({
       nzTitle: 'Cancel this loan?', nzContent: 'Recovery stops. Instalments already taken in posted payrolls stay.', nzOkText: 'Cancel loan', nzOkDanger: true,
-      nzOnOk: () => new Promise<void>((resolve) => this.api.cancel(l.id).subscribe({ next: () => { this.message.success(doneText('cancelled', 'Loan')); this.list.reload(); resolve(); }, error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not cancel'); resolve(); } })),
+      nzOnOk: () => new Promise<void>((resolve) => this.loansApi.cancel(l.id).subscribe({ next: () => { this.message.success(doneText('cancelled', 'Loan')); this.list.reload(); resolve(); }, error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not cancel'); resolve(); } })),
     });
   }
 
+  /** The drawer's OK: pays out the chosen loan, or saves a new one. */
   submit(v: Record<string, unknown>): void {
     this.saving.set(true); this.errors.set(null);
     const payOut = this.mode() === 'disburse';
-    let call;
-    if (this.mode() === 'disburse') {
-      call = this.api.disburse(this.target()!.id, v['bankAccountId'] as string, String(v['date']).slice(0, 10));
-    } else {
-      const [year, month] = String(v['start']).slice(0, 10).split('-').map(Number);
-      call = this.api.create({ employeeId: v['employeeId'], kind: v['kind'], principal: v['principal'], instalments: v['instalments'], instalmentAmount: v['instalmentAmount'] ?? null, startYear: year, startMonth: month, reason: v['reason'] ?? null });
-    }
+    const call: Observable<unknown> = payOut
+      ? this.loansApi.disburse(this.target()!.id, v['bankAccountId'] as string, dayText(v['date']))
+      : this.loansApi.create(loanInput(v));
     call.subscribe({
       next: () => { this.saving.set(false); this.mode.set(null); this.message.success(payOut ? `Loan of ${this.target()?.principal} paid out` : `Loan of ${v['principal']} saved`); this.list.reload(); },
       error: (e) => { this.saving.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not save'); },

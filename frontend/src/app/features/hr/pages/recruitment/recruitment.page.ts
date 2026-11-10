@@ -1,24 +1,26 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { doneText } from '@core/format/done-text';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
-import { catchError, of } from 'rxjs';
-import { LegalEntitiesApi, LegalEntityDto } from '@core/api/admin.api';
+import { LegalEntitiesApi } from '@core/api/admin.api';
 import { ProblemDetails } from '@core/api/api.models';
+import { CANDIDATE_STAGES, CandidateDto, CandidateRow, CandidatesApi, ChecklistsApi, OPENING_STATUSES, OpeningDto, OpeningRow, OpeningsApi } from '@core/api/hr-people.api';
 import { createPagedList } from '@core/api/paged-list';
+import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { CANDIDATE_STAGES, CandidateDto, CandidateRow, CandidatesApi, ChecklistRow, ChecklistsApi, OPENING_STATUSES, OpeningDto, OpeningRow, OpeningsApi } from '@core/api/hr-people.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { itemsSignal } from '@shared/utils/items-signal';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { dayText } from '../../hr-format';
+import { entityOptions, optionLabel } from '../../hr-options';
 
+/** The stage a candidate moves to next; offer, hired and rejected have none. */
 const NEXT: Record<string, string> = { applied: 'screening', screening: 'interview', interview: 'offer' };
 
 /** Vacancies and the candidates for them: move people along the pipeline, then hire (which creates the employee and starts their onboarding). */
@@ -35,8 +37,8 @@ export class RecruitmentPage {
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly router = inject(Router);
-  private readonly entityPage = toSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }).pipe(catchError(() => of({ items: [] as LegalEntityDto[] }))), { initialValue: { items: [] as LegalEntityDto[] } });
-  private readonly templatePage = toSignal(inject(ChecklistsApi).list({ page: 1, pageSize: 100, filters: [{ field: 'kind', op: 'eq', value: 'onboarding' }] }).pipe(catchError(() => of({ items: [] as ChecklistRow[] }))), { initialValue: { items: [] as ChecklistRow[] } });
+  private readonly entityPage = itemsSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }));
+  private readonly templatePage = itemsSignal(inject(ChecklistsApi).list({ page: 1, pageSize: 100, filters: [{ field: 'kind', op: 'eq', value: 'onboarding' }] }));
 
   readonly openings = createPagedList((q) => this.openingsApi.list(q), { sort: '-createdAt' });
   readonly candidates = createPagedList((q) => this.candidatesApi.list(q), { sort: '-createdAt' });
@@ -54,7 +56,7 @@ export class RecruitmentPage {
   readonly openingColumns: TableColumn<OpeningRow>[] = [
     { key: 'title', label: 'Vacancy', sortField: 'title' },
     { key: 'headcount', label: 'Positions', width: '100px' },
-    { key: 'status', label: 'Status', value: (o) => OPENING_STATUSES.find((s) => s.value === o.status)?.label ?? o.status, width: '120px', filterField: 'status', filterOptions: OPENING_STATUSES },
+    { key: 'status', label: 'Status', value: (o) => optionLabel(OPENING_STATUSES, o.status), width: '120px', filterField: 'status', filterOptions: OPENING_STATUSES },
     { key: 'closingDate', label: 'Closes', width: '120px' },
   ];
   readonly candidateColumns: TableColumn<CandidateRow>[] = [
@@ -82,7 +84,7 @@ export class RecruitmentPage {
     { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 2000 },
   ]);
   readonly hireFields = computed<FieldSpec[]>(() => [
-    { key: 'legalEntityId', label: 'Employer (legal entity)', type: 'select', required: true, options: this.entityPage().items.map((e) => ({ value: e.id, label: e.name })) },
+    { key: 'legalEntityId', label: 'Employer (legal entity)', type: 'select', required: true, options: entityOptions(this.entityPage().items) },
     { key: 'joinDate', label: 'Join date', type: 'date', required: true, default: new Date() },
     { key: 'designation', label: 'Designation', type: 'text', required: true, maxLength: 150 },
     { key: 'basicSalary', label: 'Basic salary (monthly)', type: 'number', required: true, min: 0.01 },
@@ -92,7 +94,7 @@ export class RecruitmentPage {
     { key: 'onboardingTemplateId', label: 'Start the onboarding checklist', type: 'select', options: this.templatePage().items.filter((t) => t.isActive).map((t) => ({ value: t.id, label: t.name })) },
   ]);
 
-  stageLabel(s: string): string { return CANDIDATE_STAGES.find((x) => x.value === s)?.label ?? s; }
+  stageLabel(s: string): string { return optionLabel(CANDIDATE_STAGES, s); }
   next(stage: string): string | undefined { return NEXT[stage]; }
 
   openOpening(row: OpeningRow): void { this.openingsApi.detail(row.id).subscribe((o) => this.openingState.edit(o)); }
@@ -109,6 +111,7 @@ export class RecruitmentPage {
 
   openCandidate(row: CandidateRow): void { this.candidatesApi.detail(row.id).subscribe((c) => this.candidateState.edit(c)); }
 
+  /** Moves the candidate to `stage`; a rejection asks first. */
   move(c: CandidateRow, stage: string): void {
     const run = () => new Promise<void>((resolve) => this.candidatesApi.move(c.id, stage).subscribe({
       next: () => { this.candidates.reload(); resolve(); }, error: (e) => { this.message.error(asProblem(e)?.detail ?? 'Could not move the candidate'); resolve(); },
@@ -123,7 +126,7 @@ export class RecruitmentPage {
     const c = this.hiring();
     if (!c) return;
     this.busy.set(true); this.errors.set(null);
-    this.candidatesApi.hire(c.id, { ...v, joinDate: String(v['joinDate']).slice(0, 10), onboardingTemplateId: v['onboardingTemplateId'] ?? null }).subscribe({
+    this.candidatesApi.hire(c.id, { ...v, joinDate: dayText(v['joinDate']), onboardingTemplateId: v['onboardingTemplateId'] ?? null }).subscribe({
       next: (r) => {
         this.busy.set(false); this.hiring.set(null); this.candidates.reload(); this.openings.reload();
         this.message.success(`${c.fullName} is now employee ${r.employeeNumber}${r.tasksCreated ? ` with ${r.tasksCreated} onboarding tasks` : ''}`);

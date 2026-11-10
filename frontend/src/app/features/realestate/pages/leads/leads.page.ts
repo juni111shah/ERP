@@ -3,27 +3,28 @@ import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { doneText } from '@core/format/done-text';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { Observable, map } from 'rxjs';
 import { ProblemDetails } from '@core/api/api.models';
 import { createPagedList } from '@core/api/paged-list';
+import { LEAD_STAGES, LeadDto, LeadPipeline, LeadsApi, ListingsApi, RealEstateLookups, humanize } from '@core/api/realestate.api';
 import { LookupOption } from '@core/custom-fields/lookup-registry';
+import { toUtcIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { LEAD_STAGES, LeadDto, LeadPipeline, LeadsApi, ListingsApi, RealEstateLookups, humanize } from '@core/api/realestate.api';
-import { StatusTagComponent } from '../../components/status-tag/status-tag.component';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
+import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { KeyboardClickDirective } from '@shared/directives/keyboard-click.directive';
-import { ErpLabelPipe, ErpDatePipe } from '@shared/pipes/display.pipes';
+import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { StatusTagComponent } from '../../components/status-tag/status-tag.component';
 
+/** The stage a lead moves to next; negotiating leads are won by converting them, or lost. */
 const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', viewing: 'negotiating' };
 
 /** Prospects with a stage filter and pipeline counts; a lead is moved along, lost with a reason, or converted into a brokerage deal. */
@@ -31,21 +32,21 @@ const NEXT: Record<string, string> = { new: 'contacted', contacted: 'viewing', v
   selector: 'erp-leads',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, ErpDatePipe, KeyboardClickDirective, NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, StatCardComponent],
+  imports: [ErpLabelPipe, ErpDatePipe, KeyboardClickDirective, NzToolTipModule, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule, NzTagModule, StatCardComponent],
   styleUrl: './leads.page.scss',
   templateUrl: './leads.page.html',
 })
 export class LeadsPage {
-  private readonly api = inject(LeadsApi);
+  private readonly leadsApi = inject(LeadsApi);
   private readonly listingsApi = inject(ListingsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
   readonly humanize = humanize;
   readonly stages = LEAD_STAGES;
   readonly pipeline = signal<LeadPipeline | null>(null);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-createdAt' });
+  readonly list = createPagedList((q) => this.leadsApi.list(q), { sort: '-createdAt' });
   readonly state = new MasterDataState<LeadDto>({
-    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)), reload: () => this.refresh(), message: this.message, entityName: 'Lead',
+    save: (id, body) => (id ? this.leadsApi.update(id, body) : this.leadsApi.create(body)), reload: () => this.refresh(), message: this.message, entityName: 'Lead',
   });
   readonly columns: TableColumn<LeadDto>[] = [
     { key: 'name', label: 'Name' },
@@ -55,6 +56,7 @@ export class LeadsPage {
     { key: 'stage', label: 'Stage', width: '120px', filterField: 'stage', filterOptions: LEAD_STAGES },
     { key: 'followUpOn', label: 'Follow up', sortField: 'followUpOn', width: '120px' },
   ];
+  /** Server-searched listings for the lead's "Listing" field. */
   private readonly listingLookup = (term: string): Observable<LookupOption[]> =>
     this.listingsApi.list({ page: 1, pageSize: 20, search: term }).pipe(map((r) => r.items.map((l) => ({ value: l.id, label: l.title }))));
   readonly fields: FieldSpec[] = [
@@ -87,6 +89,7 @@ export class LeadsPage {
 
   readonly selectedStage = signal<string | null>(null);
 
+  /** Leads still in play: every stage but won and lost. */
   readonly activeLeadsCount = computed(() => {
     const p = this.pipeline();
     if (!p) return 0;
@@ -99,15 +102,13 @@ export class LeadsPage {
     return p.stages.find((s) => s.stage === 'won')?.count ?? 0;
   });
 
-  isOverdue(d?: string): boolean {
-    if (!d) return false;
-    const today = new Date().toISOString().slice(0, 10);
-    return d < today;
-  }
-
   constructor() { this.refresh(); }
 
-  private refresh(): void { this.list.reload(); this.api.pipeline().subscribe((p) => this.pipeline.set(p)); }
+  /** A follow-up date before today (UTC). */
+  isOverdue(d?: string): boolean {
+    if (!d) return false;
+    return d < toUtcIsoDate(new Date());
+  }
 
   nextStage(l: LeadDto): string | null { return NEXT[l.stage] ?? null; }
   filterStage(stage: string | null): void {
@@ -117,7 +118,7 @@ export class LeadsPage {
 
   move(l: LeadDto, stage: string, reason?: string): void {
     this.busy.set(true);
-    this.api.moveStage(l.id, stage, reason).subscribe({
+    this.leadsApi.moveStage(l.id, stage, reason).subscribe({
       next: () => { this.busy.set(false); this.losing.set(null); this.state.close(); this.message.success(doneText('updated', 'Lead', l.name)); this.refresh(); },
       error: (e) => { this.busy.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? 'Could not move the lead'); },
     });
@@ -131,9 +132,11 @@ export class LeadsPage {
     const l = this.converting();
     if (!l) return;
     this.busy.set(true); this.errors.set(null);
-    this.api.convert(l.id, { dealType: (v['dealType'] as string) ?? null, dealValue: (v['dealValue'] as number) ?? null, commissionRatePercent: (v['commissionRatePercent'] as number) ?? null }).subscribe({
+    this.leadsApi.convert(l.id, { dealType: (v['dealType'] as string) ?? null, dealValue: (v['dealValue'] as number) ?? null, commissionRatePercent: (v['commissionRatePercent'] as number) ?? null }).subscribe({
       next: () => { this.busy.set(false); this.converting.set(null); this.state.close(); this.message.success(`Lead ${l.name} converted to a deal`); this.refresh(); },
       error: (e) => { this.busy.set(false); const p = asProblem(e); this.errors.set(p); if (!p?.errors) this.message.error(p?.detail ?? 'Could not convert the lead'); },
     });
   }
+
+  private refresh(): void { this.list.reload(); this.leadsApi.pipeline().subscribe((p) => this.pipeline.set(p)); }
 }

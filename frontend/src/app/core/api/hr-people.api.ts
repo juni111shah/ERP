@@ -53,9 +53,13 @@ export const LOAN_KINDS = [{ value: 'loan', label: 'Loan' }, { value: 'advance',
 export const LOAN_STATUSES = [{ value: 'active', label: 'Active' }, { value: 'settled', label: 'Settled' }, { value: 'cancelled', label: 'Cancelled' }];
 export interface LoanRow { id: string; employeeId: string; kind: string; principal: number; remaining: number; startYear: number; startMonth: number; instalments: number; status: string; disbursedOn?: string; }
 export interface LoanDto extends LoanRow { employeeName: string; instalmentAmount: number; reason?: string; disbursementJournalId?: string; }
+/** A new loan or salary advance; a blank instalment amount divides the principal equally. */
+export interface LoanInput {
+  employeeId: string; kind: string; principal: number; instalments: number; instalmentAmount: number | null; startYear: number; startMonth: number; reason: string | null;
+}
 
 @Injectable({ providedIn: 'root' })
-export class LoansApi extends CrudApiService<LoanRow, unknown> {
+export class LoansApi extends CrudApiService<LoanRow, LoanInput> {
   protected readonly resource = `${BASE}/loans`;
   detail(id: string): Observable<LoanDto> { return this.http.get<LoanDto>(`${this.url}/${id}`); }
   cancel(id: string): Observable<LoanDto> { return this.http.post<LoanDto>(`${this.url}/${id}/cancel`, {}); }

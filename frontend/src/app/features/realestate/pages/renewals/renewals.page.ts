@@ -9,12 +9,12 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { RenewalWorkbench, RenewalsApi } from '@core/api/realestate.api';
+import { RenewalDraftResult, RenewalWorkbench, RenewalsApi } from '@core/api/realestate.api';
+import { I18nService } from '@core/i18n/i18n.service';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { matchText, TableToolsComponent } from '@shared/components/table-tools/table-tools.component';
-import { I18nService } from '@core/i18n/i18n.service';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 
 /** Leases ending soon: see who is due, compare rent with the unit's asking rent and create draft renewals in bulk with a rent change. */
@@ -28,7 +28,7 @@ import { ErpDatePipe } from '@shared/pipes/display.pipes';
 })
 export class RenewalsPage {
   private readonly i18n = inject(I18nService);
-  private readonly api = inject(RenewalsApi);
+  private readonly renewalsApi = inject(RenewalsApi);
   private readonly message = inject(NzMessageService);
   readonly days = signal(120);
   readonly uplift = signal(0);
@@ -47,23 +47,29 @@ export class RenewalsPage {
 
   load(): void {
     this.selected.set(new Set()); this.failed.set(false);
-    this.api.workbench(this.days()).subscribe({ next: (d) => this.data.set(d), error: () => this.failed.set(true) });
+    this.renewalsApi.workbench(this.days()).subscribe({ next: (d) => this.data.set(d), error: () => this.failed.set(true) });
   }
 
   toggleAll(on: boolean): void { this.selected.set(new Set(on ? this.dueShown().map((r) => r.leaseId) : [])); }
 
   toggle(id: string, on: boolean): void { this.selected.update((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; }); }
 
+  /** Creates a draft renewal for each selected lease with the rent change; leases the server skips are reported. */
   createDrafts(): void {
     this.busy.set(true);
-    this.api.createDrafts([...this.selected()], this.uplift()).subscribe({
+    this.renewalsApi.createDrafts([...this.selected()], this.uplift()).subscribe({
       next: (results) => {
         this.busy.set(false);
         const failed = results.filter((r) => r.error);
-        this.message[failed.length ? 'warning' : 'success'](`${results.length - failed.length} ${this.i18n.t('ui.msg.draftRenewalsCreated', 'draft renewal(s) created')}${failed.length ? `, ${failed.length} ${this.i18n.t('ui.msg.skipped', 'skipped')}: ${failed[0].error}` : ''}`);
+        this.message[failed.length ? 'warning' : 'success'](this.draftsText(results, failed));
         this.load();
       },
       error: () => { this.busy.set(false); this.message.error('Could not create the renewals'); },
     });
+  }
+
+  /** "3 draft renewal(s) created, 1 skipped: <first reason>". */
+  private draftsText(results: RenewalDraftResult[], failed: RenewalDraftResult[]): string {
+    return `${results.length - failed.length} ${this.i18n.t('ui.msg.draftRenewalsCreated', 'draft renewal(s) created')}${failed.length ? `, ${failed.length} ${this.i18n.t('ui.msg.skipped', 'skipped')}: ${failed[0].error}` : ''}`;
   }
 }

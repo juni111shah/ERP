@@ -1,46 +1,48 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { catchError, of } from 'rxjs';
-import { AccountDto, AccountsApi } from '@core/api/admin.api';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { doneText } from '@core/format/done-text';
 import { NzSelectModule } from 'ng-zorro-antd/select';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { AccountsApi } from '@core/api/admin.api';
 import { ProblemDetails } from '@core/api/api.models';
 import { createPagedList } from '@core/api/paged-list';
-import { asProblem } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { DEAL_TYPES, DealDto, DealsApi, RealEstateLookups, humanize } from '@core/api/realestate.api';
-import { StatusTagComponent } from '../../components/status-tag/status-tag.component';
+import { doneText } from '@core/format/done-text';
+import { asProblem } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { itemsSignal } from '@shared/utils/items-signal';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { accountOptions, bankOrCashAccounts } from '@shared/utils/payment-accounts';
+import { StatusTagComponent } from '../../components/status-tag/status-tag.component';
 
+/** The stages a deal moves through before it is won; "lost" can be reached from any of them. */
 const PIPELINE = ['lead', 'viewing', 'negotiation', 'agreed'];
 
+/** Brokerage deals (sales and leases): the pipeline, commission and the agent's share; invoicing and paying the agent. */
 @Component({
   selector: 'erp-deals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzToolTipModule, RevealDirective, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
+  imports: [NzToolTipModule, TranslatePipe, FormsModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzIconModule, NzSelectModule],
   templateUrl: './deals.page.html',
 })
 export class DealsPage {
-  private readonly api = inject(DealsApi);
+  private readonly dealsApi = inject(DealsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  private readonly accountPage = itemsSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }));
   readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;
   readonly stages = [...PIPELINE, 'lost'];
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-dealDate' });
+  readonly list = createPagedList((q) => this.dealsApi.list(q), { sort: '-dealDate' });
   readonly state = new MasterDataState<DealDto>({
-    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Deal',
+    save: (id, body) => (id ? this.dealsApi.update(id, body) : this.dealsApi.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Deal',
   });
   readonly columns: TableColumn<DealDto>[] = [
     { key: 'number', label: 'Number', sortField: 'number', width: '150px' },
@@ -70,10 +72,9 @@ export class DealsPage {
     { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 2000 },
   ];
   readonly lostFields: FieldSpec[] = [{ key: 'lostReason', label: 'Reason', type: 'text', required: true, maxLength: 500 }];
-  private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
   readonly payOpen = signal<DealDto | null>(null);
   readonly payFields = computed<FieldSpec[]>(() => [
-    { key: 'bankAccountId', label: 'Pay from', type: 'select', required: true, options: this.accountPage().items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'cash' || a.systemRole === 'bank')).map((a) => ({ value: a.id, label: `${a.code} · ${a.name}` })) },
+    { key: 'bankAccountId', label: 'Pay from', type: 'select', required: true, options: accountOptions(bankOrCashAccounts(this.accountPage().items)) },
     { key: 'date', label: 'Payment date', type: 'date', required: true, default: new Date() },
   ]);
   readonly losing = signal<DealDto | null>(null);
@@ -90,7 +91,7 @@ export class DealsPage {
 
   invoice(d: DealDto): void {
     this.moveSaving.set(true);
-    this.api.invoiceCommission(d.id).subscribe({
+    this.dealsApi.invoiceCommission(d.id).subscribe({
       next: () => { this.moveSaving.set(false); this.state.close(); this.message.success(`Commission invoice issued for deal ${d.number ?? d.clientName}`); this.list.reload(); },
       error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.message.error(p?.detail ?? p?.title ?? 'Could not invoice the commission'); },
     });
@@ -100,7 +101,7 @@ export class DealsPage {
     const d = this.payOpen();
     if (!d) return;
     this.moveSaving.set(true);
-    this.api.payAgent(d.id, values['bankAccountId'] as string, values['date'] as string).subscribe({
+    this.dealsApi.payAgent(d.id, values['bankAccountId'] as string, values['date'] as string).subscribe({
       next: () => { this.moveSaving.set(false); this.payOpen.set(null); this.state.close(); this.message.success(`Agent paid for deal ${d.number ?? d.clientName}`); this.list.reload(); },
       error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.moveErrors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not pay the agent'); },
     });
@@ -108,7 +109,7 @@ export class DealsPage {
 
   private send(d: DealDto, body: { stage: string; lostReason?: string | null }): void {
     this.moveSaving.set(true);
-    this.api.moveStage(d.id, body).subscribe({
+    this.dealsApi.moveStage(d.id, body).subscribe({
       next: () => { this.moveSaving.set(false); this.losing.set(null); this.state.close(); this.message.success(doneText('updated', 'Deal', d.number ?? d.clientName)); this.list.reload(); },
       error: (e) => { this.moveSaving.set(false); const p = asProblem(e); this.moveErrors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not update the deal'); },
     });

@@ -4,21 +4,22 @@ import { Router } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { doneText } from '@core/format/done-text';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ProblemDetails } from '@core/api/api.models';
+import { MyEmployee, MyHrApi, MyPayslip } from '@core/api/hr-people.api';
+import { LEAVE_STATUS_LABELS, LeaveApi, LeaveBalanceRow, LeaveRequestRow } from '@core/api/hr.api';
+import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { MyEmployee, MyHrApi, MyPayslip } from '@core/api/hr-people.api';
-import { LEAVE_STATUS_LABELS, LeaveApi, LeaveBalanceRow, LeaveRequestRow, MONTHS } from '@core/api/hr.api';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { dayText, monthName } from '../../hr-format';
 
 /** Self-service: the signed-in person's own profile, leave balances and requests, payslips, and (for line managers) the team's leave to decide. */
 @Component({
@@ -30,7 +31,7 @@ import { ErpDatePipe } from '@shared/pipes/display.pipes';
   templateUrl: './my-hr.page.html',
 })
 export class MyHrPage {
-  private readonly api = inject(MyHrApi);
+  private readonly myHrApi = inject(MyHrApi);
   private readonly leaveApi = inject(LeaveApi);
   private readonly message = inject(NzMessageService);
   private readonly router = inject(Router);
@@ -59,7 +60,7 @@ export class MyHrPage {
   /** The API answers 404 on purpose when the sign-in has no employee record. Anything else is a failed load. */
   start(): void {
     this.failed.set(false);
-    this.api.me().subscribe({
+    this.myHrApi.me().subscribe({
       next: (m) => { this.me.set(m); this.loadAll(); },
       error: (e: { status?: number }) => { if (e.status === 404) this.notLinked.set(true); else this.failed.set(true); },
     });
@@ -67,19 +68,20 @@ export class MyHrPage {
 
   openEmployees(): void { void this.router.navigateByUrl('/hr/employees'); }
   statusLabel(s: string): string { return LEAVE_STATUS_LABELS[s] ?? s; }
-  month(m: number): string { return MONTHS[m - 1]; }
+  month(m: number): string { return monthName(m); }
 
   request(v: Record<string, unknown>): void {
+    const fromDate = dayText(v['fromDate']); const toDate = dayText(v['toDate']);
     this.saving.set(true); this.errors.set(null);
-    this.api.requestLeave({ leaveTypeId: v['leaveTypeId'] as string, fromDate: String(v['fromDate']).slice(0, 10), toDate: String(v['toDate']).slice(0, 10), reason: (v['reason'] as string) || null, submit: true }).subscribe({
-      next: () => { this.saving.set(false); this.requesting.set(false); this.message.success(`Leave request sent for ${String(v['fromDate']).slice(0, 10)} to ${String(v['toDate']).slice(0, 10)}`); this.loadAll(); },
+    this.myHrApi.requestLeave({ leaveTypeId: v['leaveTypeId'] as string, fromDate, toDate, reason: (v['reason'] as string) || null, submit: true }).subscribe({
+      next: () => { this.saving.set(false); this.requesting.set(false); this.message.success(`Leave request sent for ${fromDate} to ${toDate}`); this.loadAll(); },
       error: (e) => { this.saving.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not send the request'); },
     });
   }
 
   act(r: LeaveRequestRow, what: 'submit' | 'cancel'): void {
-    (what === 'submit' ? this.api.submitLeave(r.id) : this.api.cancelLeave(r.id)).subscribe({
-      next: () => { this.message.success(doneText(what === 'submit' ? 'submitted' : 'cancelled', 'Leave request', `${r.fromDate.slice(0, 10)} to ${r.toDate.slice(0, 10)}`)); this.loadAll(); },
+    (what === 'submit' ? this.myHrApi.submitLeave(r.id) : this.myHrApi.cancelLeave(r.id)).subscribe({
+      next: () => { this.message.success(doneText(what === 'submit' ? 'submitted' : 'cancelled', 'Leave request', `${dayText(r.fromDate)} to ${dayText(r.toDate)}`)); this.loadAll(); },
       error: (e) => this.message.error(asProblem(e)?.detail ?? 'Action failed'),
     });
   }
@@ -92,9 +94,9 @@ export class MyHrPage {
   }
 
   private loadAll(): void {
-    this.api.balances().subscribe((b) => this.balances.set(b));
-    this.api.leave().subscribe((p) => this.leave.set(p.items));
-    this.api.payslips().subscribe({ next: (p) => this.payslips.set(p), error: () => this.payslips.set([]) });
-    this.api.teamLeave('submitted').subscribe({ next: (p) => { this.team.set(p.items); this.isManager.set(true); }, error: () => this.isManager.set(false) });
+    this.myHrApi.balances().subscribe((b) => this.balances.set(b));
+    this.myHrApi.leave().subscribe((p) => this.leave.set(p.items));
+    this.myHrApi.payslips().subscribe({ next: (p) => this.payslips.set(p), error: () => this.payslips.set([]) });
+    this.myHrApi.teamLeave('submitted').subscribe({ next: (p) => { this.team.set(p.items); this.isManager.set(true); }, error: () => this.isManager.set(false) });
   }
 }

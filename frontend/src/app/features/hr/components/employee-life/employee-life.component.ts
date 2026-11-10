@@ -8,9 +8,10 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
+import { ChecklistRow, ChecklistsApi, EmployeeLifeApi, EmployeeTask, HistoryEntry } from '@core/api/hr-people.api';
+import { toIsoDate } from '@core/format/dates';
 import { asProblem } from '@core/http/problem-details';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { ChecklistRow, ChecklistsApi, EmployeeLifeApi, EmployeeTask, HistoryEntry } from '@core/api/hr-people.api';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 
 const KIND_LABELS: Record<string, string> = {
@@ -26,8 +27,8 @@ const KIND_LABELS: Record<string, string> = {
   templateUrl: './employee-life.component.html',
 })
 export class EmployeeLifeComponent {
-  private readonly api = inject(EmployeeLifeApi);
-  private readonly checklists = inject(ChecklistsApi);
+  private readonly lifeApi = inject(EmployeeLifeApi);
+  private readonly checklistsApi = inject(ChecklistsApi);
   private readonly message = inject(NzMessageService);
   readonly employeeId = input.required<string>();
   readonly employeeName = input('');
@@ -47,36 +48,36 @@ export class EmployeeLifeComponent {
     effect(() => {
       if (!this.open()) return;
       this.loadHistory(); this.loadTasks();
-      this.checklists.list({ page: 1, pageSize: 100, filters: [{ field: 'isActive', op: 'eq', value: true }] }).subscribe({ next: (p) => this.templates.set(p.items), error: () => this.templates.set([]) });
+      this.checklistsApi.list({ page: 1, pageSize: 100, filters: [{ field: 'isActive', op: 'eq', value: true }] }).subscribe({ next: (p) => this.templates.set(p.items), error: () => this.templates.set([]) });
     });
   }
 
   kind(k: string): string { return KIND_LABELS[k] ?? k; }
 
   addNote(): void {
-    this.api.addNote(this.employeeId(), this.note.trim()).subscribe({ next: () => { this.note = ''; this.loadHistory(); }, error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not add the note') });
+    this.lifeApi.addNote(this.employeeId(), this.note.trim()).subscribe({ next: () => { this.note = ''; this.loadHistory(); }, error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not add the note') });
   }
 
+  /** Adds the steps of the chosen checklist as tasks (steps already there are skipped by the server). */
   apply(): void {
-    this.api.applyChecklist(this.employeeId(), this.templateId!).subscribe({
+    this.lifeApi.applyChecklist(this.employeeId(), this.templateId!).subscribe({
       next: (created) => { this.message.success(created.length ? `${created.length} task(s) added` : 'Those tasks were already there'); this.loadTasks(); },
       error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not apply the checklist'),
     });
   }
 
   addTask(): void {
-    const d = this.taskDue;
-    const due = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : null;
-    this.api.addTask(this.employeeId(), { title: this.taskTitle.trim(), dueDate: due, kind: 'onboarding' }).subscribe({
+    const due = this.taskDue ? toIsoDate(this.taskDue) : null;
+    this.lifeApi.addTask(this.employeeId(), { title: this.taskTitle.trim(), dueDate: due, kind: 'onboarding' }).subscribe({
       next: () => { this.taskTitle = ''; this.taskDue = null; this.loadTasks(); },
       error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not add the task'),
     });
   }
 
   toggle(t: EmployeeTask): void {
-    this.api.setDone(t.id, !t.isDone).subscribe({ next: () => this.loadTasks(), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not update the task') });
+    this.lifeApi.setDone(t.id, !t.isDone).subscribe({ next: () => this.loadTasks(), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not update the task') });
   }
 
-  private loadHistory(): void { this.api.history(this.employeeId()).subscribe((h) => this.history.set(h)); }
-  private loadTasks(): void { this.api.tasks(this.employeeId()).subscribe((t) => this.tasks.set(t)); }
+  private loadHistory(): void { this.lifeApi.history(this.employeeId()).subscribe((h) => this.history.set(h)); }
+  private loadTasks(): void { this.lifeApi.tasks(this.employeeId()).subscribe((t) => this.tasks.set(t)); }
 }

@@ -1,18 +1,19 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { catchError, of } from 'rxjs';
-import { AccountDto, AccountsApi, InvoicesApi } from '@core/api/admin.api';
+import { AccountsApi, InvoicesApi } from '@core/api/admin.api';
 import { ProblemDetails } from '@core/api/api.models';
+import { DepositAllocation, DepositDto, LeaseDto, LeasesApi, humanize } from '@core/api/realestate.api';
 import { asProblem } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { DepositDto, LeaseDto, LeasesApi, humanize } from '@core/api/realestate.api';
 import { I18nService } from '@core/i18n/i18n.service';
+import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { itemsSignal } from '@shared/utils/items-signal';
+import { accountOptions, bankOrCashAccounts } from '@shared/utils/payment-accounts';
+import { allocateArrears, depositSettlement } from '../../realestate-deposits';
 
 type Mode = 'record' | 'settle' | null;
 
@@ -28,18 +29,17 @@ export class LeaseDepositComponent {
   private readonly i18n = inject(I18nService);
   readonly lease = input.required<LeaseDto>();
   readonly changed = output<void>();
-  private readonly api = inject(LeasesApi);
-  private readonly invoices = inject(InvoicesApi);
+  private readonly leasesApi = inject(LeasesApi);
+  private readonly invoicesApi = inject(InvoicesApi);
   private readonly message = inject(NzMessageService);
-  private readonly accountPage = toSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(catchError(() => of({ items: [] as AccountDto[] }))), { initialValue: { items: [] as AccountDto[] } });
+  private readonly accountPage = itemsSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }));
   readonly humanize = humanize;
   readonly deposit = signal<DepositDto | null>(null);
   readonly mode = signal<Mode>(null);
   readonly saving = signal(false);
   readonly errors = signal<ProblemDetails | null>(null);
   readonly canSettle = computed(() => ['ended', 'terminated', 'renewed'].includes(this.lease().status));
-  private readonly banks = computed(() => this.accountPage().items.filter((a) => a.type === 'asset' && a.isPostable && a.isActive && (a.isBank || a.systemRole === 'bank' || a.systemRole === 'cash'))
-    .map((a) => ({ value: a.id, label: `${a.code} · ${a.name}` })));
+  private readonly banks = computed(() => accountOptions(bankOrCashAccounts(this.accountPage().items)));
 
   /** A computed (stable identity) so the drawer keeps what the user typed. */
   readonly fields = computed<FieldSpec[]>(() => this.mode() === 'record'
@@ -61,35 +61,35 @@ export class LeaseDepositComponent {
 
   open(m: Mode): void { this.errors.set(null); this.mode.set(m); }
 
-  load(): void { this.api.deposit(this.lease().id).subscribe((d) => this.deposit.set(d)); }
+  load(): void { this.leasesApi.deposit(this.lease().id).subscribe((d) => this.deposit.set(d)); }
 
+  /** The drawer's OK: records the deposit received, or settles it (unpaid rent first goes to the tenant's open invoices). */
   submit(v: Record<string, unknown>): void {
     const lease = this.lease();
     this.saving.set(true); this.errors.set(null);
     if (this.mode() === 'record') {
-      this.api.recordDeposit(lease.id, { bankAccountId: v['bankAccountId'] as string, date: v['date'] as string, amount: v['amount'] as number }).subscribe({ next: () => this.done('Deposit recorded'), error: (e) => this.fail(e) });
+      this.leasesApi.recordDeposit(lease.id, { bankAccountId: v['bankAccountId'] as string, date: v['date'] as string, amount: v['amount'] as number }).subscribe({ next: () => this.done('Deposit recorded'), error: (e) => this.fail(e) });
       return;
     }
     const arrears = Number(v['arrearsAmount'] ?? 0);
-    const build = (open: { id: string; outstanding: number }[]) => {
-      let left = arrears; const allocations: { invoiceId: string; amount: number }[] = [];
-      for (const i of open) { if (left <= 0) break; const take = Math.min(left, i.outstanding); allocations.push({ invoiceId: i.id, amount: take }); left -= take; }
-      if (left > 0) { this.saving.set(false); this.message.error(`${this.i18n.t('ui.msg.only', 'Only')} ${(arrears - left).toFixed(2)} ${this.i18n.t('ui.msg.unpaidRentOpen', 'of unpaid rent is open for this tenant.')}`); return null; }
-      return allocations;
-    };
-    const send = (allocations: { invoiceId: string; amount: number }[]) => this.api.settleDeposit(lease.id, {
-      date: v['date'], damages: v['damages'] ?? 0, damagesDescription: v['damagesDescription'] ?? null, arrears: allocations, refund: v['refund'] ?? 0, refundBankAccountId: v['refundBankAccountId'] ?? null,
-    }).subscribe({ next: () => this.done('Deposit settled'), error: (e) => this.fail(e) });
-    if (arrears <= 0) { send([]); return; }
-    this.invoices.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: lease.lesseePartyId }, { field: 'isCreditNote', op: 'eq', value: false }] }).subscribe({
-      next: (r) => { const a = build(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid')); if (a) send(a); },
+    if (arrears <= 0) { this.settle(lease.id, v, []); return; }
+    this.invoicesApi.list({ page: 1, pageSize: 100, sort: 'dueDate', filters: [{ field: 'partyId', op: 'eq', value: lease.lesseePartyId }, { field: 'isCreditNote', op: 'eq', value: false }] }).subscribe({
+      next: (r) => {
+        const { allocations, shortfall } = allocateArrears(r.items.filter((i) => i.status === 'issued' || i.status === 'partlyPaid'), arrears);
+        if (shortfall > 0) { this.saving.set(false); this.message.error(`${this.i18n.t('ui.msg.only', 'Only')} ${(arrears - shortfall).toFixed(2)} ${this.i18n.t('ui.msg.unpaidRentOpen', 'of unpaid rent is open for this tenant.')}`); return; }
+        this.settle(lease.id, v, allocations);
+      },
       error: (e) => this.fail(e),
     });
   }
 
   rollOver(): void {
     const l = this.lease();
-    if (l.renewedAsLeaseId) this.api.transferDeposit(l.id, l.renewedAsLeaseId).subscribe({ next: () => this.done('Deposit rolled over to the renewal'), error: (e) => this.fail(e) });
+    if (l.renewedAsLeaseId) this.leasesApi.transferDeposit(l.id, l.renewedAsLeaseId).subscribe({ next: () => this.done('Deposit rolled over to the renewal'), error: (e) => this.fail(e) });
+  }
+
+  private settle(leaseId: string, v: Record<string, unknown>, allocations: DepositAllocation[]): void {
+    this.leasesApi.settleDeposit(leaseId, depositSettlement(v, allocations)).subscribe({ next: () => this.done('Deposit settled'), error: (e) => this.fail(e) });
   }
 
   private done(text: string): void { this.saving.set(false); this.mode.set(null); this.message.success(`${text} for lease ${this.lease().number ?? this.lease().unitNumber}`); this.load(); this.changed.emit(); }
