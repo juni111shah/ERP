@@ -28,7 +28,7 @@ import { CaptionPart, browserTimezone, captionParts, formatIsoDate, isolate, lat
 import {
   DEFAULT_PRESET, DashboardRange, RANGE_PRESETS, RangePreset, blockedDay, initialRange, isoDate, parseIso, presetRange, rangeFromParams,
   rangeParams, rememberRange, sameRange, storedRange, validRange,
-} from '../../dashboard-range';
+} from '@shared/utils/date-range';
 
 /** The Overview: one period for every card and chart, the hero KPIs, and domain tabs with their KPIs, charts and alerts. */
 @Component({

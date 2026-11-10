@@ -15,7 +15,7 @@ import { RangeControlComponent } from '@shared/components/range-control/range-co
 import { StatCardComponent, StatFormat } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { isEmptySection, isNumericColumn, ownerCellText, ownerStatFormat, sectionChart } from '../../dashboard-owner';
-import { DashboardRange, initialRange } from '../../dashboard-range';
+import { DashboardRange, initialRange } from '@shared/utils/date-range';
 
 /** The owner's view of the business: profit, cash, what is owed, what is due, branches, budget and the business's own measures. */
 @Component({

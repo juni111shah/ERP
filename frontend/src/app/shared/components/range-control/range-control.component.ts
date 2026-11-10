@@ -6,7 +6,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { DashboardRange, RANGE_PRESETS, RangePreset, isoDate, parseIso, presetRange, validRange } from '@features/dashboard/dashboard-range';
+import { DashboardRange, RANGE_PRESETS, RangePreset, isoDate, parseIso, presetRange, validRange } from '../../utils/date-range';
 
 /**
  * The period control of the overview, for any page that shows figures for a period: a dropdown of presets, a date-range picker for

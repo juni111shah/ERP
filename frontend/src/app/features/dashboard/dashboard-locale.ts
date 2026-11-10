@@ -1,5 +1,5 @@
 import { DashboardChart, KpiCard } from '@core/api/admin.api';
-import { addDays, isRealDate, parseIso } from './dashboard-range';
+import { addDays, isRealDate, parseIso } from '@shared/utils/date-range';
 
 /** The overview's figures in the user's language: dates, the period caption, KPI captions and chart axis labels. */
 

@@ -1,5 +1,5 @@
 import { convertToParamMap } from '@angular/router';
-import { RANGE_KEY, RANGE_PRESETS, isRealDate, minusMonths, parseIso, periodStart, presetRange, rangeFromParams, storedRange, validRange } from './dashboard-range';
+import { RANGE_KEY, RANGE_PRESETS, isRealDate, minusMonths, parseIso, periodStart, presetRange, rangeFromParams, storedRange, validRange } from './date-range';
 
 /** The overview period helpers: preset day math (matches the API's DashboardRange.StartFor), validation, URL and storage restore. */
 describe('Overview date range', () => {

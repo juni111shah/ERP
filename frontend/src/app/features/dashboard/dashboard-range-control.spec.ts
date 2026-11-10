@@ -5,7 +5,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Observable, of, throwError } from 'rxjs';
 import { DashboardApi, DashboardDto, DashboardPeriod } from '@core/api/admin.api';
-import { RANGE_KEY, presetRange } from './dashboard-range';
+import { RANGE_KEY, presetRange } from '@shared/utils/date-range';
 import { DashboardPage } from './pages/dashboard/dashboard.page';
 
 /** The period control: one dropdown (+ Refresh); the picker only for Custom; every change reloads the figures for that period. */
