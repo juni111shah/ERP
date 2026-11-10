@@ -9,14 +9,15 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { IndustryApi, IndustryRecordDto, PackView, RecordTypeView, statusLabel, toneColor } from '@core/api/industry.api';
+import { IndustryApi, IndustryRecordDto, PackView, RecordTypeView, statusLabel, statusTone } from '@core/api/industry.api';
 import { PagedList } from '@core/api/paged-list';
 import { displayDate } from '@core/format/display';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { IndustryRecordFormComponent } from '../../components/industry-record-form/industry-record-form.component';
+import { listCellText } from '../../industry-view';
 
 /** The list of one record type of one module. Every module and type uses this page; the definition decides the columns. */
 @Component({
@@ -56,7 +57,7 @@ export class IndustryListPage {
     for (const f of t.fields.filter((x) => x.inList)) {
       columns.push({
         key: 'data.' + f.key, label: f.label, filter: false,
-        value: (r) => this.dataValue(f.type, r.data?.[f.key]),
+        value: (r) => listCellText(f.type, r.data?.[f.key]),
       });
     }
     columns.push({ key: 'status', label: 'Status', sortField: 'status', filter: false });
@@ -88,7 +89,7 @@ export class IndustryListPage {
     });
   }
 
-  tone(status: string): string { return toneColor(this.type()?.statuses.find((s) => s.key === status)?.tone); }
+  tone(status: string): string { return statusTone(this.type(), status); }
   statusText(status: string): string { return statusLabel(this.type(), status); }
 
   filterStatus(value: string | null): void {
@@ -103,10 +104,4 @@ export class IndustryListPage {
     void this.router.navigate(['/industry', this.module(), this.typeKey(), record.id]);
   }
 
-  private dataValue(type: string, v: unknown): string {
-    if (v === null || v === undefined || v === '') return '';
-    if (type === 'bool') return v ? 'Yes' : 'No';
-    if (type === 'date') return displayDate(v);
-    return String(v);
-  }
 }

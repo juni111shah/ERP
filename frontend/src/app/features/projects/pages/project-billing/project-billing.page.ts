@@ -6,13 +6,14 @@ import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { CsvExportService } from '@core/services/csv-export.service';
 import { ProjectBillingApi, ProjectBillingSummaryDto } from '@core/api/projects.api';
+import { CsvExportService } from '@core/services/csv-export.service';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { BillModalComponent } from '../../components/bill-modal/bill-modal.component';
-import { errorText, PRJ_STYLES, ProjectTagComponent } from '../../projects-ui';
+import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
+import { errorText, PRJ_STYLES } from '../../projects-ui';
 
 /** What is ready to bill across all projects. Billing a project opens the invoice builder, where nothing is created until it is confirmed. */
 @Component({

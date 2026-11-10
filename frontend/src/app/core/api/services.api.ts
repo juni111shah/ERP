@@ -196,7 +196,8 @@ export interface TimeEntrySummaryDto {
 export interface TimeEntryInput {
   legalEntityId: string;
   engagementId: string;
-  consultantUserId: string;
+  /** Sent when the entry is logged; an update keeps the consultant it was logged for. */
+  consultantUserId?: string;
   consultantName: string;
   activityDate: string;
   hours: number;

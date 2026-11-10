@@ -13,6 +13,7 @@ import { SessionStore } from '@core/session/session.store';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 
+/** Services analytics: active engagements, recurring retainer revenue, milestones ready to invoice and hours, for one legal entity. */
 @Component({
   selector: 'erp-services-analytics-page',
   standalone: true,

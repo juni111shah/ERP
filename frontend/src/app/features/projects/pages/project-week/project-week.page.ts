@@ -1,25 +1,21 @@
 import { DecimalPipe } from '@angular/common';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { catchError, of } from 'rxjs';
-import { ProjectTasksApi, ProjectTimesheetsApi, ProjectsApi, TaskDto, TimesheetDto } from '@core/api/projects.api';
-import { ProjectsConfig, ProjectsExtraApi, WeekEntry } from '@core/api/projects-extra.api';
+import { Observable, catchError, of } from 'rxjs';
+import { PagedResult } from '@core/api/api.models';
+import { ProjectsConfig, ProjectsExtraApi } from '@core/api/projects-extra.api';
+import { ProjectTasksApi, ProjectTimesheetsApi, TaskDto, TimesheetDto } from '@core/api/projects.api';
 import { toIsoDate } from '@core/format/dates';
 import { SessionStore } from '@core/session/session.store';
-import { errorText, PRJ_STYLES, statusLabel } from '../../projects-ui';
-
-/** One day of one row. A day with several entries is a sum and is edited in Timesheets; hours on the entry itself are what the grid changes. */
-interface Cell { entries: TimesheetDto[]; hours: number; original: number; }
-interface Row { key: string; projectId: string; taskId: string | null; label: string; cells: Record<string, Cell>; }
-interface Timer { projectId: string; taskId: string | null; label: string; startedAt: number; startedLabel: string; }
-
-const TIMER_KEY = 'erp.projects.timer';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { isoToday } from '../../projects-format';
+import { injectOpenProjects, projectNameIn } from '../../projects-lookups';
+import { errorText, PRJ_STYLES } from '../../projects-ui';
+import { WeekCell, WeekRow, WeekTimer, addDays, approvalSummary, cellLockReason, changedEntries, elapsedText, firstWeekDay, newRows, readTimer, rowKey, startOfWeek, timerHours, weekRows, writeTimer } from '../../projects-week';
 
 /** Your own week: a row per project and task, a column per day, a timer, copying last week's rows and sending the week for approval. */
 @Component({
@@ -40,30 +36,25 @@ const TIMER_KEY = 'erp.projects.timer';
 })
 export class ProjectWeekPage implements OnDestroy {
   private readonly timesheets = inject(ProjectTimesheetsApi);
-  private readonly projectsApi = inject(ProjectsApi);
   private readonly tasksApi = inject(ProjectTasksApi);
   private readonly extra = inject(ProjectsExtraApi);
   private readonly msg = inject(NzMessageService);
   private readonly me = inject(SessionStore).me;
 
-  readonly projects = toSignal(this.projectsApi.open().pipe(catchError(() => of({ items: [] }))), { initialValue: { items: [] } });
+  readonly projects = injectOpenProjects();
   readonly config = signal<ProjectsConfig | null>(null);
-  readonly weekStart = signal(this.startOf(new Date(), 1));
-  readonly rows = signal<Row[]>([]);
+  readonly weekStart = signal(startOfWeek(new Date(), 1));
+  readonly rows = signal<WeekRow[]>([]);
   readonly tasks = signal<TaskDto[]>([]);
   readonly timerTasks = signal<TaskDto[]>([]);
   readonly saving = signal(false);
-  readonly days = computed(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(this.weekStart()); d.setDate(d.getDate() + i); return toIsoDate(d); }));
-  readonly timer = signal<Timer | null>(this.readTimer());
+  readonly days = computed(() => Array.from({ length: 7 }, (_, i) => toIsoDate(addDays(this.weekStart(), i))));
+  readonly timer = signal<WeekTimer | null>(readTimer());
   readonly elapsed = signal('');
-  readonly todayIso = toIsoDate(new Date());
+  readonly todayIso = isoToday();
   readonly entries = computed(() => this.rows().flatMap((r) => Object.values(r.cells).flatMap((c) => c.entries)));
   readonly toSubmit = computed(() => this.entries().filter((e) => e.approvalStatus === 'draft' || e.approvalStatus === 'rejected'));
-  readonly stateSummary = computed(() => {
-    const all = this.entries(); if (!all.length) return 'Nothing logged';
-    const count = (s: string) => all.filter((e) => e.approvalStatus === s).length;
-    return (['draft', 'submitted', 'approved', 'rejected'] as const).filter((s) => count(s)).map((s) => `${count(s)} ${statusLabel('approval', s).toLowerCase()}`).join(' · ');
-  });
+  readonly stateSummary = computed(() => approvalSummary(this.entries()));
   addProject: string | null = null; addTask: string | null = null; timerProject: string | null = null; timerTask: string | null = null;
   private tick?: ReturnType<typeof setInterval>;
 
@@ -71,7 +62,7 @@ export class ProjectWeekPage implements OnDestroy {
     this.extra.config().pipe(catchError(() => of(null))).subscribe((c) => {
       this.config.set(c);
       // the week starts on the first working day of the workspace: Sunday where the week is Sunday to Thursday
-      if (c?.workDays?.length) { this.weekStart.set(this.startOf(new Date(), c.workDays.includes(0) && !c.workDays.includes(6) ? 0 : 1)); }
+      if (c?.workDays?.length) this.weekStart.set(startOfWeek(new Date(), firstWeekDay(c.workDays)));
       this.load();
     });
     this.tick = setInterval(() => this.updateElapsed(), 1000);
@@ -79,88 +70,47 @@ export class ProjectWeekPage implements OnDestroy {
   }
   ngOnDestroy(): void { if (this.tick) clearInterval(this.tick); }
 
-  private startOf(d: Date, firstDay: number): Date { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() - firstDay + 7) % 7)); return x; }
-  private first(): number { const w = this.config()?.workDays; return w?.includes(0) && !w.includes(6) ? 0 : 1; }
   isOff(iso: string): boolean { return !(this.config()?.workDays ?? [1, 2, 3, 4, 5]).includes(new Date(iso + 'T00:00:00').getDay()); }
   dayLabel(iso: string): string { return new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' }); }
-  shift(days: number): void { if (!this.confirmLeave()) return; const d = new Date(this.weekStart()); d.setDate(d.getDate() + days); this.weekStart.set(d); this.load(); }
-  today(): void { if (!this.confirmLeave()) return; this.weekStart.set(this.startOf(new Date(), this.first())); this.load(); }
-  private confirmLeave(): boolean { return !this.dirty() || window.confirm('You have unsaved hours on this week. Leave without saving?'); }
-  rowTotal(r: Row): number { return Object.values(r.cells).reduce((a, c) => a + (c.hours || 0), 0); }
+  shift(days: number): void { if (!this.confirmLeave()) return; this.weekStart.set(addDays(this.weekStart(), days)); this.load(); }
+  today(): void { if (!this.confirmLeave()) return; this.weekStart.set(startOfWeek(new Date(), firstWeekDay(this.config()?.workDays))); this.load(); }
+  rowTotal(r: WeekRow): number { return Object.values(r.cells).reduce((a, c) => a + (c.hours || 0), 0); }
   dayTotal(d: string): number { return this.rows().reduce((a, r) => a + (r.cells[d]?.hours || 0), 0); }
   weekTotal(): number { return this.rows().reduce((a, r) => a + this.rowTotal(r), 0); }
   overLimit(d: string): boolean { return this.dayTotal(d) > (this.config()?.maxHoursPerDay ?? 16); }
   dirty(): boolean { return this.rows().some((r) => Object.values(r.cells).some((c) => c.hours !== c.original)); }
-  stateOf(c?: Cell): string | null { return c?.entries[0]?.approvalStatus ?? null; }
-  rejectReason(c?: Cell): string { return c?.entries.find((e) => e.rejectReason)?.rejectReason ?? ''; }
+  stateOf(c?: WeekCell): string | null { return c?.entries[0]?.approvalStatus ?? null; }
+  rejectReason(c?: WeekCell): string { return c?.entries.find((e) => e.rejectReason)?.rejectReason ?? ''; }
 
   /** Why this day cannot be typed in, or empty when it can. */
-  lockReason(c?: Cell): string {
-    if (!c?.entries.length) return '';
-    if (c.entries.length > 1) return `${c.entries.length} entries on this day. Change them in Timesheets.`;
-    const e = c.entries[0];
-    if (e.isBilled) return 'Already billed';
-    if (e.writtenOff) return 'Written off';
-    if (e.approvalStatus === 'submitted') return 'Waiting for approval';
-    if (e.approvalStatus === 'approved' && this.config()?.timesheetApproval) return 'Approved';
-    return '';
-  }
-
-  private query(from: string, to: string) {
-    const uid = this.me()?.user?.id;
-    return this.timesheets.list({ page: 1, pageSize: 200, sort: 'date', filters: [{ field: 'date', op: 'gte', value: from }, { field: 'date', op: 'lte', value: to }, { field: 'workerUserId', op: 'eq', value: uid ?? '' }] });
-  }
-
-  private labelOf(t: { projectName: string; taskTitle?: string | null }): string { return t.projectName + (t.taskTitle ? ' · ' + t.taskTitle : ''); }
+  lockReason(c?: WeekCell): string { return cellLockReason(c, this.config()?.timesheetApproval); }
 
   load(): void {
     const [from, to] = [this.days()[0], this.days()[6]];
     this.query(from, to).subscribe({
-      next: (r) => {
-        const rows = new Map<string, Row>();
-        for (const t of r.items) {
-          const key = `${t.projectId}|${t.taskId ?? ''}`;
-          const row = rows.get(key) ?? { key, projectId: t.projectId, taskId: t.taskId ?? null, label: this.labelOf(t), cells: {} };
-          const cell = row.cells[t.date] ?? { entries: [], hours: 0, original: 0 };
-          row.cells[t.date] = { entries: [...cell.entries, t], hours: cell.hours + t.hours, original: cell.original + t.hours };
-          rows.set(key, row);
-        }
-        this.rows.set([...rows.values()]);
-      },
+      next: (r) => this.rows.set(weekRows(r.items)),
       error: (e) => this.msg.error(errorText(e, 'Could not load the week.')),
     });
   }
 
-  private loadTaskList(projectId: string | null, target: (t: TaskDto[]) => void): void {
-    if (!projectId) { target([]); return; }
-    this.tasksApi.list({ page: 1, pageSize: 200, sort: 'number', filters: [{ field: 'projectId', op: 'eq', value: projectId }, { field: 'status', op: 'in', value: ['todo', 'inProgress', 'review', 'blocked'] }] }).pipe(catchError(() => of({ items: [] as TaskDto[] }))).subscribe((r) => target(r.items));
-  }
   loadTasks(projectId: string | null): void { this.addTask = null; this.loadTaskList(projectId, (t) => this.tasks.set(t)); }
   loadTimerTasks(projectId: string | null): void { this.timerTask = null; this.loadTaskList(projectId, (t) => this.timerTasks.set(t)); }
 
-  private projectName(id: string): string { const p = this.projects().items.find((x) => x.id === id); return p ? `${p.number} · ${p.name}` : 'Project'; }
-
   addRow(): void {
-    if (!this.addProject) return;
-    const key = `${this.addProject}|${this.addTask ?? ''}`;
+    const projectId = this.addProject;
+    if (!projectId) return;
+    const key = rowKey(projectId, this.addTask);
     if (this.rows().some((r) => r.key === key)) return;
-    const task = this.tasks().find((t) => t.id === this.addTask);
-    this.rows.update((rs) => [...rs, { key, projectId: this.addProject!, taskId: this.addTask, label: this.projectName(this.addProject!) + (task ? ' · ' + task.title : ''), cells: {} }]);
+    this.rows.update((rs) => [...rs, { key, projectId, taskId: this.addTask, label: this.labelFor(projectId, this.tasks(), this.addTask), cells: {} }]);
   }
 
   /** Adds the projects and tasks of last week as empty rows, so regular work is one click away. */
   copyLastWeek(): void {
-    const s = new Date(this.weekStart()); s.setDate(s.getDate() - 7);
-    const e = new Date(s); e.setDate(e.getDate() + 6);
-    this.query(toIsoDate(s), toIsoDate(e)).subscribe((r) => {
-      const known = new Set(this.rows().map((x) => x.key));
-      const fresh = new Map<string, Row>();
-      for (const t of r.items) {
-        const key = `${t.projectId}|${t.taskId ?? ''}`;
-        if (!known.has(key) && !fresh.has(key)) fresh.set(key, { key, projectId: t.projectId, taskId: t.taskId ?? null, label: this.labelOf(t), cells: {} });
-      }
-      if (!fresh.size) { this.msg.info(r.items.length ? 'Those rows are already here.' : 'You logged nothing last week.'); return; }
-      this.rows.update((rs) => [...rs, ...fresh.values()]);
+    const from = addDays(this.weekStart(), -7);
+    this.query(toIsoDate(from), toIsoDate(addDays(from, 6))).subscribe((r) => {
+      const fresh = newRows(r.items, new Set(this.rows().map((x) => x.key)));
+      if (!fresh.length) { this.msg.info(r.items.length ? 'Those rows are already here.' : 'You logged nothing last week.'); return; }
+      this.rows.update((rs) => [...rs, ...fresh]);
     });
   }
 
@@ -170,11 +120,7 @@ export class ProjectWeekPage implements OnDestroy {
   }
 
   save(): void {
-    const uid = this.me()?.user?.id ?? null;
-    const items: WeekEntry[] = [];
-    for (const r of this.rows())
-      for (const [date, c] of Object.entries(r.cells))
-        if (c.hours !== c.original && !this.lockReason(c)) items.push({ id: c.entries[0]?.id, projectId: r.projectId, taskId: r.taskId, date, workerUserId: uid, hours: c.hours, isBillable: true });
+    const items = changedEntries(this.rows(), this.me()?.user?.id ?? null, this.config()?.timesheetApproval);
     if (!items.length) return;
     this.saving.set(true);
     this.extra.saveWeek(items).subscribe({
@@ -191,34 +137,51 @@ export class ProjectWeekPage implements OnDestroy {
     });
   }
 
-  // ---- timer (kept in the browser so it survives a reload) -------------------------------------------------------------------
-  private readTimer(): Timer | null {
-    try { const raw = localStorage.getItem(TIMER_KEY); return raw ? (JSON.parse(raw) as Timer) : null; } catch { return null; }
-  }
-  private writeTimer(t: Timer | null): void {
-    try { if (t) localStorage.setItem(TIMER_KEY, JSON.stringify(t)); else localStorage.removeItem(TIMER_KEY); } catch { /* storage may be blocked; the timer then lasts until the page closes */ }
-  }
   start(): void {
-    if (!this.timerProject) return;
+    const projectId = this.timerProject;
+    if (!projectId) return;
     const now = new Date();
-    const task = this.timerTasks().find((t) => t.id === this.timerTask);
-    const t: Timer = { projectId: this.timerProject, taskId: this.timerTask, label: this.projectName(this.timerProject) + (task ? ' · ' + task.title : ''), startedAt: now.getTime(), startedLabel: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
-    this.timer.set(t); this.writeTimer(t); this.updateElapsed();
+    const t: WeekTimer = {
+      projectId, taskId: this.timerTask, label: this.labelFor(projectId, this.timerTasks(), this.timerTask),
+      startedAt: now.getTime(), startedLabel: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    this.timer.set(t); writeTimer(t); this.updateElapsed();
   }
-  private updateElapsed(): void {
-    const t = this.timer(); if (!t) { this.elapsed.set(''); return; }
-    const s = Math.floor((Date.now() - t.startedAt) / 1000);
-    this.elapsed.set(`${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`);
-  }
-  discard(): void { this.timer.set(null); this.writeTimer(null); }
+  discard(): void { this.timer.set(null); writeTimer(null); }
 
   /** The time is saved straight away, so nothing is lost by leaving the page or looking at another week. */
   stop(): void {
     const t = this.timer(); if (!t) return;
-    const hours = Math.max(0.25, Math.round(((Date.now() - t.startedAt) / 3600000) * 4) / 4);   // to the nearest quarter hour, at least one
+    const hours = timerHours(t.startedAt, Date.now());
     this.timesheets.create({ projectId: t.projectId, taskId: t.taskId, date: toIsoDate(new Date()), workerUserId: this.me()?.user?.id ?? null, hours, isBillable: true }).subscribe({
-      next: () => { this.timer.set(null); this.writeTimer(null); this.msg.success(`${hours} h logged for today`); this.load(); },
+      next: () => { this.timer.set(null); writeTimer(null); this.msg.success(`${hours} h logged for today`); this.load(); },
       error: (e) => this.msg.error(errorText(e, 'Could not log the time. The timer is still running.')),
     });
+  }
+
+  private confirmLeave(): boolean { return !this.dirty() || window.confirm('You have unsaved hours on this week. Leave without saving?'); }
+
+  /** The person's own time between two days. */
+  private query(from: string, to: string): Observable<PagedResult<TimesheetDto>> {
+    const uid = this.me()?.user?.id;
+    return this.timesheets.list({ page: 1, pageSize: 200, sort: 'date', filters: [{ field: 'date', op: 'gte', value: from }, { field: 'date', op: 'lte', value: to }, { field: 'workerUserId', op: 'eq', value: uid ?? '' }] });
+  }
+
+  /** The open tasks of a project, for one of the task pickers; empty when there is no project or they cannot be loaded. */
+  private loadTaskList(projectId: string | null, target: (t: TaskDto[]) => void): void {
+    if (!projectId) { target([]); return; }
+    this.tasksApi.list({ page: 1, pageSize: 200, sort: 'number', filters: [{ field: 'projectId', op: 'eq', value: projectId }, { field: 'status', op: 'in', value: ['todo', 'inProgress', 'review', 'blocked'] }] })
+      .subscribe({ next: (r) => target(r.items), error: () => target([]) });
+  }
+
+  /** The label of a new row or timer: the project, and the picked task when there is one. */
+  private labelFor(projectId: string, tasks: TaskDto[], taskId: string | null): string {
+    const task = tasks.find((t) => t.id === taskId);
+    return projectNameIn(this.projects().items, projectId, 'Project') + (task ? ' · ' + task.title : '');
+  }
+
+  private updateElapsed(): void {
+    const t = this.timer();
+    this.elapsed.set(t ? elapsedText(t.startedAt, Date.now()) : '');
   }
 }

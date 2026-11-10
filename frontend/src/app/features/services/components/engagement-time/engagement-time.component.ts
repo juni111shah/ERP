@@ -6,15 +6,15 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzTableModule } from 'ng-zorro-antd/table';
-import { EngagementDto, ServicesEngagementsApi, ServicesTimeEntriesApi, TimeEntrySummaryDto } from '@core/api/services.api';
+import { EngagementDto, ServicesEngagementsApi, ServicesTimeEntriesApi, TimeEntryInput, TimeEntrySummaryDto } from '@core/api/services.api';
 import { displayDate } from '@core/format/display';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
-import { ActionFormState } from '@shared/utils/action-form-state';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ActionFormState } from '@shared/utils/action-form-state';
 
 /** The hours logged against one engagement: log, change, delete (until approved), approve, and bill the approved time of a time-and-materials engagement. */
 @Component({
@@ -51,11 +51,11 @@ export class EngagementTimeComponent {
     run: (p, row) => {
       const e = this.engagement();
       const user = this.session.me()?.user;
-      const body = {
+      const body: TimeEntryInput = {
         legalEntityId: e.legalEntityId, engagementId: e.id, consultantUserId: row ? undefined : user?.id, consultantName: row ? row.consultantName : user?.fullName ?? '',
-        activityDate: p['activityDate'], hours: Number(p['hours']), hourlyRate: Number(p['hourlyRate'] ?? 0), taskDescription: String(p['taskDescription'] ?? ''), isBillable: !!p['isBillable'],
+        activityDate: p['activityDate'] as string, hours: Number(p['hours']), hourlyRate: Number(p['hourlyRate'] ?? 0), taskDescription: String(p['taskDescription'] ?? ''), isBillable: !!p['isBillable'],
       };
-      return row ? this.api.update(row.id, body as never) : this.api.create(body as never);
+      return row ? this.api.update(row.id, body) : this.api.create(body);
     },
     success: () => doneText('saved', 'Time entry'), done: () => this.reload(true), message: this.message, failure: 'Could not save the time entry',
   });

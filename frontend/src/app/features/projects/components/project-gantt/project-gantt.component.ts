@@ -3,22 +3,13 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
-import { catchError, of } from 'rxjs';
 import { ProjectsConfig, ProjectsExtraApi, ScheduleDto, ScheduleTaskDto } from '@core/api/projects-extra.api';
 import { ProjectTasksApi, taskToInput } from '@core/api/projects.api';
-import { toIsoDate } from '@core/format/dates';
 import { SessionStore } from '@core/session/session.store';
+import { loadOrFallback } from '@shared/utils/load-or-fallback';
+import { isoToday } from '../../projects-format';
+import { Band, Bar, Column, DAY, HEAD, ROW, dayLeft, dependencyArrows, formatDay, ganttBands, ganttBars, ganttColumns, ganttRange, ganttWidth, milestonePoints, parseDay } from '../../projects-gantt';
 import { errorText, PRJ_STYLES } from '../../projects-ui';
-
-const DAY = 864e5;
-const parse = (s: string): number => { const [y, m, d] = s.slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, d); };
-const fmt = (t: number): string => new Date(t).toISOString().slice(0, 10);
-const ROW = 34;
-const HEAD = 46;
-
-interface Bar { task: ScheduleTaskDto; top: number; left: number; width: number; baseLeft: number | null; baseWidth: number; }
-interface Column { left: number; width: number; label: string; off: boolean; }
-interface Band { left: number; width: number; label: string; }
 
 /**
  * The project timeline: bars on a real date axis, today's line, milestones, arrows for what waits for what, the critical path, and an optional baseline.
@@ -71,76 +62,22 @@ export class ProjectGanttComponent {
   readonly drag = signal<{ id: string; mode: 'move' | 'resize'; dx: number } | null>(null);
 
   /** First and last day on the axis, with some space around the plan. */
-  private readonly range = computed(() => {
-    const s = this.schedule(); if (!s) return null;
-    const today = parse(toIsoDate(new Date()));
-    const from = Math.min(parse(s.start), today);
-    const to = Math.max(parse(s.finish), today);
-    return { from: from - 3 * DAY, to: to + 7 * DAY };
-  });
-  readonly totalWidth = computed(() => { const r = this.range(); return r ? Math.round((r.to - r.from) / DAY + 1) * this.zoom() : 0; });
-  readonly bars = computed<Bar[]>(() => {
-    const s = this.schedule(); const r = this.range(); if (!s || !r) return [];
-    const z = this.zoom();
-    return this.ordered(s.tasks).map((task, i) => ({
-      task, top: HEAD + i * ROW,
-      left: ((parse(task.start) - r.from) / DAY) * z, width: Math.max(z * 0.6, ((parse(task.end) - parse(task.start)) / DAY + 1) * z),
-      baseLeft: task.baselineStart ? ((parse(task.baselineStart) - r.from) / DAY) * z : null,
-      baseWidth: task.baselineStart && task.baselineEnd ? ((parse(task.baselineEnd) - parse(task.baselineStart)) / DAY + 1) * z : 0,
-    }));
-  });
+  private readonly range = computed(() => { const s = this.schedule(); return s ? ganttRange(s, parseDay(isoToday())) : null; });
+  readonly totalWidth = computed(() => { const r = this.range(); return r ? ganttWidth(r, this.zoom()) : 0; });
+  readonly bars = computed<Bar[]>(() => { const s = this.schedule(); const r = this.range(); return s && r ? ganttBars(s.tasks, r, this.zoom()) : []; });
   readonly milestoneTop = computed(() => HEAD + this.bars().length * ROW);
   readonly height = computed(() => this.milestoneTop() + (this.schedule()?.milestones.length ? ROW : 0) + 6);
-  readonly milestonePoints = computed(() => {
-    const s = this.schedule(); const r = this.range(); if (!s || !r) return [];
-    return s.milestones.map((m) => ({ ...m, left: ((parse(m.date) - r.from) / DAY) * this.zoom() }));
-  });
-  readonly todayLeft = computed(() => { const r = this.range(); return r ? ((parse(toIsoDate(new Date())) - r.from) / DAY) * this.zoom() : null; });
+  readonly milestonePoints = computed(() => { const s = this.schedule(); const r = this.range(); return s && r ? milestonePoints(s.milestones, r, this.zoom()) : []; });
+  readonly todayLeft = computed(() => { const r = this.range(); return r ? dayLeft(parseDay(isoToday()), r, this.zoom()) : null; });
   /** The lower scale: days when there is room, otherwise the start of each week. */
-  readonly columns = computed<Column[]>(() => {
-    const r = this.range(); if (!r) return [];
-    const z = this.zoom(); const out: Column[] = [];
-    const work = this.config()?.workDays ?? [1, 2, 3, 4, 5];
-    for (let t = r.from, i = 0; t <= r.to; t += DAY, i++) {
-      const d = new Date(t);
-      const off = !work.includes(d.getUTCDay());
-      if (z >= 24) out.push({ left: i * z, width: z, label: String(d.getUTCDate()), off });
-      else if (z >= 10) { if (d.getUTCDay() === 1 || off) out.push({ left: i * z, width: z, label: d.getUTCDay() === 1 ? String(d.getUTCDate()) : '', off }); }
-      else if (d.getUTCDay() === 1) out.push({ left: i * z, width: 7 * z, label: '', off: false });
-    }
-    return out;
-  });
+  readonly columns = computed<Column[]>(() => { const r = this.range(); return r ? ganttColumns(r, this.zoom(), this.config()?.workDays ?? [1, 2, 3, 4, 5]) : []; });
   /** The upper scale: months. */
-  readonly bands = computed<Band[]>(() => {
-    const r = this.range(); if (!r) return [];
-    const z = this.zoom(); const out: Band[] = [];
-    let start = r.from;
-    while (start <= r.to) {
-      const d = new Date(start);
-      const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
-      const end = Math.min(next, r.to + DAY);
-      out.push({ left: ((start - r.from) / DAY) * z, width: ((end - start) / DAY) * z, label: d.toLocaleDateString(undefined, { month: 'short', year: 'numeric', timeZone: 'UTC' }) });
-      start = next;
-    }
-    return out;
-  });
+  readonly bands = computed<Band[]>(() => { const r = this.range(); return r ? ganttBands(r, this.zoom()) : []; });
   /** One path from the end of each task to the start of the task that waits for it. */
-  readonly arrows = computed<string[]>(() => {
-    const byId = new Map(this.bars().map((b) => [b.task.id, b]));
-    const out: string[] = [];
-    for (const b of this.bars()) {
-      for (const dep of b.task.dependsOn) {
-        const from = byId.get(dep); if (!from) continue;
-        const x1 = from.left + from.width; const y1 = from.top + 16; const x2 = b.left; const y2 = b.top + 16;
-        const mid = x2 >= x1 + 12 ? x2 - 8 : x1 + 8;
-        out.push(x2 >= x1 + 12 ? `M${x1},${y1} H${mid} V${y2} H${x2 - 1}` : `M${x1},${y1} H${mid} V${y1 + 14} H${x2 - 10} V${y2} H${x2 - 1}`);
-      }
-    }
-    return out;
-  });
+  readonly arrows = computed<string[]>(() => dependencyArrows(this.bars()));
 
   constructor() {
-    this.api.config().pipe(catchError(() => of(null))).subscribe((c) => this.config.set(c));
+    loadOrFallback(this.config, this.api.config(), null);
     effect(() => { this.projectId(); this.load(); });
   }
 
@@ -156,12 +93,7 @@ export class ProjectGanttComponent {
     return d?.id === b.task.id && d.mode === 'resize' ? Math.max(this.zoom() * 0.6, b.width + d.dx) : b.width;
   }
 
-  /** Parents followed by their subtasks, the rest in plan order. */
-  private ordered(tasks: ScheduleTaskDto[]): ScheduleTaskDto[] {
-    const tops = tasks.filter((t) => !t.parentTaskId).sort((a, b) => parse(a.start) - parse(b.start) || a.number.localeCompare(b.number));
-    return tops.flatMap((t) => [t, ...tasks.filter((k) => k.parentTaskId === t.id).sort((a, b) => parse(a.start) - parse(b.start))]);
-  }
-
+  /** A press on a bar: a drag moves the task (or, on its right edge, its due date); a click opens it. */
   dragStart(e: PointerEvent, b: Bar, mode: 'move' | 'resize'): void {
     e.stopPropagation();
     if (!this.canDrag(b.task)) { if (mode === 'move') this.opened.emit(b.task.id); return; }
@@ -180,11 +112,11 @@ export class ProjectGanttComponent {
   }
 
   private applyDrag(t: ScheduleTaskDto, mode: 'move' | 'resize', days: number): void {
-    const start = mode === 'move' ? parse(t.start) + days * DAY : parse(t.start);
-    const end = Math.max(start, parse(t.end) + days * DAY);
+    const start = mode === 'move' ? parseDay(t.start) + days * DAY : parseDay(t.start);
+    const end = Math.max(start, parseDay(t.end) + days * DAY);
     this.api.task(t.id).subscribe({
-      next: (dto) => this.tasksApi.update(t.id, { ...taskToInput(dto), startDate: fmt(start), dueDate: fmt(end) }).subscribe({
-        next: () => { this.msg.success(`${t.number} now runs ${fmt(start)} to ${fmt(end)}`); this.load(); this.changed.emit(); },
+      next: (dto) => this.tasksApi.update(t.id, { ...taskToInput(dto), startDate: formatDay(start), dueDate: formatDay(end) }).subscribe({
+        next: () => { this.msg.success(`${t.number} now runs ${formatDay(start)} to ${formatDay(end)}`); this.load(); this.changed.emit(); },
         error: (e) => { this.msg.error(errorText(e, 'Could not move the task.')); this.load(); },
       }),
       error: (e) => this.msg.error(errorText(e, 'Could not move the task.')),

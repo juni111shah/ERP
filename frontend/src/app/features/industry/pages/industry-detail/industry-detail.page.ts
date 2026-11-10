@@ -16,21 +16,23 @@ import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzTimelineModule } from 'ng-zorro-antd/timeline';
-import { Observable, catchError, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { TaxCodeDto, TaxCodesApi } from '@core/api/admin.api';
-import { IndustryApi, IndustryRecordDto, PackView, RecordTransitionDef, RecordTypeView, statusLabel, toneColor } from '@core/api/industry.api';
+import { IndustryApi, IndustryRecordDto, PackView, RecordTransitionDef, RecordTypeView, statusLabel, statusTone } from '@core/api/industry.api';
+import { WarehouseRow, WarehousesApi } from '@core/api/inventory.api';
 import { toIsoDate } from '@core/format/dates';
 import { displayDate, displayMoney } from '@core/format/display';
 import { doneText } from '@core/format/done-text';
 import { asProblem, problemMessage } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { SessionStore } from '@core/session/session.store';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { WarehouseRow, WarehousesApi } from '@core/api/inventory.api';
+import { SessionStore } from '@core/session/session.store';
 import { ActionButton, DescriptionItem, DetailPageComponent } from '@shared/components/detail-page/detail-page.component';
-import { askReason } from '@shared/utils/reason-prompt';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { loadOrFallback } from '@shared/utils/load-or-fallback';
+import { askReason } from '@shared/utils/reason-prompt';
 import { IndustryRecordFormComponent } from '../../components/industry-record-form/industry-record-form.component';
+import { detailText } from '../../industry-view';
 
 type Step = 'invoice' | 'bill' | 'consume';
 
@@ -132,7 +134,7 @@ export class IndustryDetailPage {
     if (t.hasDueDate) items.push({ label: 'Due date', value: r.dueDate ?? null });
     if (t.partyRole) items.push({ label: t.partyLabel || 'Party', value: r.partyName ?? null, routerLink: r.partyId ? ['/parties', r.partyId] : undefined });
     if (t.parentType) items.push({ label: t.parentLabel || 'Belongs to', value: r.parentTitle ?? null, routerLink: r.parentId ? ['/industry', this.module(), t.parentType, r.parentId] : undefined });
-    for (const f of t.fields) items.push({ label: f.label, value: this.fieldText(f.type, r.data?.[f.key]) });
+    for (const f of t.fields) items.push({ label: f.label, value: detailText(f.type, r.data?.[f.key]) });
     if (t.hasAmount || t.hasLines) items.push({ label: 'Amount', value: this.money(r.amount) });
     items.push({ label: 'Legal entity', value: this.session.me()?.legalEntities.find((e) => e.id === r.legalEntityId)?.name ?? null });
     if (r.consumedOn) items.push({ label: 'Materials issued on', value: r.consumedOn });
@@ -161,15 +163,11 @@ export class IndustryDetailPage {
     this.progressEdits.set({});
   }
 
-  tone(status: string): string { return toneColor(this.type()?.statuses.find((s) => s.key === status)?.tone); }
+  tone(status: string): string { return statusTone(this.type(), status); }
   label(status: string): string { return statusLabel(this.type(), status); }
   money(v: number): string { return displayMoney(v, this.currency.currency()); }
   dateText(v: string | null | undefined): string { return v ? displayDate(v) : '—'; }
   percent(done: number, total: number): number { return total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0; }
-  private fieldText(type: string, v: unknown): string | null {
-    if (v === null || v === undefined || v === '') return null;
-    return type === 'bool' ? (v ? 'Yes' : 'No') : type === 'date' ? String(v) : String(v);
-  }
 
   saved(r: IndustryRecordDto): void { this.editing.set(false); this.show(r); }
 
@@ -207,10 +205,10 @@ export class IndustryDetailPage {
     this.warehouseId.set(null);
     this.chosenLines.set(new Set(this.unbilledLines().map((l) => l.id)));
     if (step !== 'consume' && this.taxCodes().length === 0 && this.session.hasPermission('finance.tax.read')) {
-      this.taxApi.list({ page: 1, pageSize: 100, sort: 'code' }).pipe(catchError(() => of(null))).subscribe((p) => this.taxCodes.set((p?.items ?? []).filter((c) => c.isActive)));
+      loadOrFallback(this.taxCodes, this.taxApi.list({ page: 1, pageSize: 100, sort: 'code' }), [], (p) => (p.items ?? []).filter((c) => c.isActive));
     }
     if (step === 'consume' && this.warehouses().length === 0 && this.session.hasPermission('inventory.warehouses.read') && this.session.isModuleEnabled('inventory')) {
-      this.warehouseApi.list({ page: 1, pageSize: 100, sort: 'code' }).pipe(catchError(() => of(null))).subscribe((p) => this.warehouses.set((p?.items ?? []).filter((w) => w.isActive)));
+      loadOrFallback(this.warehouses, this.warehouseApi.list({ page: 1, pageSize: 100, sort: 'code' }), [], (p) => (p.items ?? []).filter((w) => w.isActive));
     }
     this.step.set(step);
   }

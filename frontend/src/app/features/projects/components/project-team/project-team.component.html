@@ -1,0 +1,24 @@
+
+    <div class="prj-card">
+      <h3>Team</h3>
+      <div class="prj-table-wrap">
+        <table class="plain" data-testid="team">
+          <thead><tr><th>Person</th><th>Role</th><th class="prj-num">Planned hours / week</th><th></th></tr></thead>
+          <tbody>
+            @for (m of members(); track m.id) {
+              <tr><td class="prj-strong">{{ m.name }}</td><td>{{ m.role }}</td><td class="prj-num">{{ plannedFor(m.userId) | number: '1.0-1' }}</td>
+                <td class="erp-cell-actions prj-num"><erp-row-actions><button *erpHasPermission="'projects.team.manage'" nz-button nzSize="small" nzDanger (click)="remove(m)">Remove</button></erp-row-actions></td></tr>
+            } @empty { <tr><td colspan="4" class="prj-empty">No team members yet.</td></tr> }
+          </tbody>
+        </table>
+      </div>
+      <div class="prj-toolbar add" *erpHasPermission="'projects.team.manage'">
+        <nz-select [(ngModel)]="newMember" nzShowSearch nzPlaceHolder="Add a person" style="width:240px" aria-label="Person to add" data-testid="member-user">
+          @for (u of available(); track u.id) { <nz-option [nzValue]="u.id" [nzLabel]="u.fullName"></nz-option> }
+        </nz-select>
+        <input nz-input [(ngModel)]="newRole" placeholder="Role" maxlength="100" style="width:200px" aria-label="Role" />
+        <button nz-button nzType="primary" [disabled]="!newMember" (click)="add()" data-testid="member-add">Add</button>
+        <a nz-button routerLink="/projects/resources">Plan allocations</a>
+      </div>
+    </div>
+  

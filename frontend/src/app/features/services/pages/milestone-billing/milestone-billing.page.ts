@@ -1,4 +1,3 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -13,21 +12,18 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { createPagedList } from '@core/api/paged-list';
-import {
-  EngagementSummaryDto,
-  MilestoneStatus,
-  MilestoneSummaryDto,
-  ServicesEngagementsApi,
-  ServicesMilestonesApi,
-} from '@core/api/services.api';
+import { EngagementSummaryDto, MilestoneStatus, MilestoneSummaryDto, ServicesEngagementsApi, ServicesMilestonesApi } from '@core/api/services.api';
 import { toIsoDate } from '@core/format/dates';
+import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { MilestoneFormValue, openEngagements } from '../../services-forms';
 
+/** Milestone billing: the paged list, a new-milestone drawer, marking a milestone ready and invoicing it. */
 @Component({
   selector: 'erp-milestone-billing-page',
   standalone: true,
@@ -61,7 +57,7 @@ export class MilestoneBillingPage implements OnInit {
   readonly list = createPagedList<MilestoneSummaryDto>((q) => this.api.list(q));
   private readonly engagements = signal<EngagementSummaryDto[]>([]);
   private readonly engagementsById = computed(() => new Map(this.engagements().map((e) => [e.id, e])));
-  readonly openEngagements = computed(() => this.engagements().filter((e) => e.status === 'draft' || e.status === 'active' || e.status === 'onHold'));
+  readonly openEngagements = computed(() => openEngagements(this.engagements()));
   readonly drawerVisible = signal(false);
   readonly isSubmitting = signal(false);
 
@@ -120,7 +116,7 @@ export class MilestoneBillingPage implements OnInit {
 
   submitMilestone(): void {
     if (this.form.invalid) return;
-    const val = this.form.value;
+    const val = this.form.value as MilestoneFormValue;
     const engagement = this.engagementsById().get(val.engagementId);
     if (!engagement) return;
 

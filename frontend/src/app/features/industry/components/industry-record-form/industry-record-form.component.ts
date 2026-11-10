@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { catchError, of } from 'rxjs';
 import { BusinessUnitsApi, ItemsApi } from '@core/api/admin.api';
 import { ProblemDetails } from '@core/api/api.models';
 import { IndustryApi, IndustryRecordDto, RecordTypeView } from '@core/api/industry.api';
@@ -8,9 +7,10 @@ import { SetupApi } from '@core/api/setup.api';
 import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
 import { tNow } from '@core/i18n/translate-now';
-import { SessionStore } from '@core/session/session.store';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { SessionStore } from '@core/session/session.store';
 import { RecordDrawerComponent, SelectOption } from '@shared/components/record-drawer/record-drawer.component';
+import { loadOrFallback } from '@shared/utils/load-or-fallback';
 import { RecordFormContext, recordFieldSpecs, toFormValue, toRecordInput } from '../../record-form';
 
 /**
@@ -57,13 +57,17 @@ export class IndustryRecordFormComponent {
   readonly fields = computed(() => recordFieldSpecs(this.type(), this.context()));
   readonly formValue = computed(() => { const r = this.record(); return r ? toFormValue(r, this.type()) : null; });
 
+  /** The pick lists the person may read: active business units, active items and the workspace's units; a list that cannot be loaded stays empty. */
   constructor() {
-    const units$ = this.session.hasPermission('core.businessunits.read') ? inject(BusinessUnitsApi).list({ page: 1, pageSize: 100, sort: 'code' }).pipe(catchError(() => of(null))) : of(null);
-    units$.subscribe((r) => this.businessUnits.set((r?.items ?? []).filter((u) => u.isActive).map((u) => ({ value: u.id, label: `${u.code} · ${u.name}` }))));
-    const items$ = this.session.hasPermission('core.items.read') ? inject(ItemsApi).list({ page: 1, pageSize: 200, sort: 'sku' }).pipe(catchError(() => of(null))) : of(null);
-    items$.subscribe((r) => this.items.set((r?.items ?? []).filter((i) => i.isActive).map((i) => ({ value: i.id, label: `${i.sku} · ${i.name}` }))));
-    const profile$ = this.session.hasPermission('core.settings.read') ? inject(SetupApi).profile().pipe(catchError(() => of(null))) : of(null);
-    profile$.subscribe((p) => this.units.set(p?.units ?? []));
+    if (this.session.hasPermission('core.businessunits.read')) {
+      loadOrFallback(this.businessUnits, inject(BusinessUnitsApi).list({ page: 1, pageSize: 100, sort: 'code' }), [],
+        (r) => (r.items ?? []).filter((u) => u.isActive).map((u) => ({ value: u.id, label: `${u.code} · ${u.name}` })));
+    }
+    if (this.session.hasPermission('core.items.read')) {
+      loadOrFallback(this.items, inject(ItemsApi).list({ page: 1, pageSize: 200, sort: 'sku' }), [],
+        (r) => (r.items ?? []).filter((i) => i.isActive).map((i) => ({ value: i.id, label: `${i.sku} · ${i.name}` })));
+    }
+    if (this.session.hasPermission('core.settings.read')) loadOrFallback(this.units, inject(SetupApi).profile(), [], (p) => p.units ?? []);
   }
 
   submit(payload: Record<string, unknown>): void {
