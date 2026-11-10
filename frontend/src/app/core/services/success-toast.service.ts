@@ -1,7 +1,9 @@
-import { ApplicationRef, ChangeDetectionStrategy, Component, EnvironmentInjector, Injectable, TemplateRef, createComponent, inject, viewChild } from '@angular/core';
+import { ApplicationRef, EnvironmentInjector, Injectable, createComponent, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { ToastContentComponent } from './toast-content/toast-content.component';
 
+/** The next step a success toast offers. */
 export interface ToastAction {
   /** The next step, in words: "View invoice", "Record another". */
   label: string;
@@ -10,18 +12,6 @@ export interface ToastAction {
   queryParams?: Record<string, string>;
   /** For a step that stays on the page. */
   run?: () => void;
-}
-
-@Component({
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<ng-template #content>{{ text }} <button type="button" class="erp-toast-action" (click)="act()" data-testid="toast-action">{{ label }}</button></ng-template>`,
-})
-class ToastContentComponent {
-  readonly content = viewChild.required<TemplateRef<void>>('content');
-  text = '';
-  label = '';
-  act: () => void = () => undefined;
 }
 
 /**

@@ -39,6 +39,7 @@ export abstract class CrudApiService<TDto, TInput = Partial<TDto>> {
   }
 }
 
+/** A list query as HTTP params: page and size always, then sort, trimmed search, each filter and the extra params. */
 export function toHttpParams(q: ListQuery): HttpParams {
   let params = new HttpParams().set('page', q.page).set('pageSize', q.pageSize);
   if (q.sort) params = params.set('sort', q.sort);
@@ -48,8 +49,19 @@ export function toHttpParams(q: ListQuery): HttpParams {
   return params;
 }
 
+/** One filter as `field:op:value` (`field:op` for the null checks); list values are pipe-joined. */
 export function serializeFilter(f: FilterCriterion): string {
   if (f.op === 'isNull' || f.op === 'isNotNull') return `${f.field}:${f.op}`;
   const value = Array.isArray(f.value) ? f.value.join('|') : String(f.value ?? '');
   return `${f.field}:${f.op}:${value}`;
+}
+
+/** Only the params that have a value: an empty or missing one is left out of the query string. */
+export function definedParams<P extends object>(params: P): Record<string, string> {
+  return Object.fromEntries(Object.entries(params).filter(([, v]) => !!v)) as Record<string, string>;
+}
+
+/** Saves a record: PUT to `<url>/<id>` when it exists, POST to `<url>` when it is new. */
+export function putOrPost<T>(http: HttpClient, url: string, id: string | null, body: unknown): Observable<T> {
+  return id ? http.put<T>(`${url}/${id}`, body) : http.post<T>(url, body);
 }
