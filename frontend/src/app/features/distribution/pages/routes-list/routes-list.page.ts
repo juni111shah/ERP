@@ -20,7 +20,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { LegalEntitiesApi } from '@core/api/admin.api';
-import { PartiesApi, PartyDto } from '@features/parties/pages/parties/parties.page';
+import { PartiesApi, PartyDto } from '@core/api/parties.api';
 import { createPagedList } from '@core/api/paged-list';
 import {
   CreateRouteInput,

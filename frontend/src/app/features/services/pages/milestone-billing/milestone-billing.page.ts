@@ -20,7 +20,7 @@ import {
   ServicesEngagementsApi,
   ServicesMilestonesApi,
 } from '@core/api/services.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';

@@ -11,7 +11,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { API_BASE_URL } from '@core/api/api-config';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { asProblem } from '@core/http/problem-details';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
 import { matchText, TableToolsComponent } from '../table-tools/table-tools.component';

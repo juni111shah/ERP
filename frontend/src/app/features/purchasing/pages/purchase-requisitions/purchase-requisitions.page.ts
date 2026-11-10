@@ -28,7 +28,7 @@ import { WorkspaceCurrencyService } from '@core/services/workspace-currency.serv
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { ApprovalStateComponent } from '@shared/components/approval-state/approval-state.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { PartiesApi } from '@features/parties/pages/parties/parties.page';
+import { PartiesApi } from '@core/api/parties.api';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 
 @Component({

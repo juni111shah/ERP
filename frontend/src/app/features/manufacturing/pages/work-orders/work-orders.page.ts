@@ -23,7 +23,7 @@ import {
   WorkOrderSummaryDto,
 } from '@core/api/manufacturing.api';
 import { createPagedList } from '@core/api/paged-list';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';

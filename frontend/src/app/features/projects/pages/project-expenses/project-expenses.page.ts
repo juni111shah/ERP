@@ -12,7 +12,7 @@ import { catchError, of } from 'rxjs';
 import { createPagedList } from '@core/api/paged-list';
 import { ProjectsApi } from '@core/api/projects.api';
 import { EXPENSE_CATEGORIES, ExpenseDto, ProjectExpensesApi, ProjectsConfig, ProjectsExtraApi, UserOption } from '@core/api/projects-extra.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { AttachmentsComponent } from '@shared/components/attachments/attachments.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';

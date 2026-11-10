@@ -9,7 +9,7 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { SelectOption } from '../record-drawer/record-drawer.component';
 
 /** One line of the document being returned against: how much of it can still come back. */

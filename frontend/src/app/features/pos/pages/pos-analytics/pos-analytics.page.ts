@@ -10,7 +10,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { DashboardChart } from '@core/api/admin.api';
 import { PosKpiApi, PosOrdersApi, PosRegisterDto, PosRegistersApi, PosSalesGroupDto, PosSalesReportDto, PosSessionSummaryDto, PosSessionsApi } from '@core/api/pos.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { SimpleChartComponent } from '@shared/components/simple-chart/simple-chart.component';

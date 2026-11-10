@@ -23,7 +23,7 @@ import { ItemsApi, ItemDto, LegalEntitiesApi, TaxCodeDto, TaxCodesApi } from '@c
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { createPagedList } from '@core/api/paged-list';
 import { PurchaseOrderInput, PurchaseOrderSummaryDto, PurchaseOrdersApi, PurchasingKpiApi, PurchasingKpiDto } from '@core/api/purchasing.api';
-import { PartiesApi, PartyDto } from '@features/parties/pages/parties/parties.page';
+import { PartiesApi, PartyDto } from '@core/api/parties.api';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 

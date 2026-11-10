@@ -10,7 +10,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { catchError, of } from 'rxjs';
 import { ProjectsApi } from '@core/api/projects.api';
 import { AllocationDto, ProjectsConfig, ProjectsExtraApi, RateDto, UserOption } from '@core/api/projects-extra.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';

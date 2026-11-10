@@ -15,7 +15,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
 import { AccountDto, AccountsApi, BankApi, CashPosition, LegalEntitiesApi, LegalEntityDto, Reconciliation, StatementLine } from '@core/api/admin.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { asProblem, problemMessage } from '@core/http/problem-details';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { TranslatePipe } from '@core/i18n/translate.pipe';

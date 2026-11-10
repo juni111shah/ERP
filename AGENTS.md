@@ -8,13 +8,13 @@ Industries (real estate, retail, inventory, HR, manufacturing...) plug in as **m
 
 ## Stack
 - Backend: ASP.NET Core 8, Clean Architecture: `ERP.Domain` -> `ERP.Application` (MediatR CQRS + FluentValidation) -> `ERP.Infrastructure` (EF Core, SQL Server) -> `ERP.Api`. `ERP.Modularity` holds the `IModule` contract and registry.
-- Frontend: Angular 19 + ng-zorro-antd 19.3.1, theme CSS variables `--erp-*`.
+- Frontend: Angular 20 + ng-zorro-antd 20, standalone components and signals, theme CSS variables `--erp-*`. Layout and rules: `frontend/ARCHITECTURE.md` (reference: `features/sales`).
 - Realtime: SignalR. Logging: Serilog.
 
 ## Code rules
 1. **Clean architecture**: Domain has no dependencies; Application depends on Domain only; Infrastructure implements Application abstractions. No EF types in Domain.
    **Request flow is Controller → Command/Query handler → Repository → Database** (see `docs/ARCHITECTURE.md`, reference: Invoices). A controller (`ERP.Api/Controllers/<Area>/` or `<Module>/Controllers/`, derived from `ApiControllerBase`) only sends one MediatR request per action. Each request is a `<Verb><Thing>Command`/`<Verb><Thing>Query` in its own folder (`<Area>/<Feature>/Commands/<Name>/`) with exactly one `<Verb><Thing>Handler` and, when it has input, a `<Verb><Thing>Validator`. Handlers use repositories: the generic `IRepository<T>` for plain loads/saves, an `I<Entity>Repository` (implementation derived from `RepositoryBase<T>` in `Repositories/`) for anything more. Nothing outside Infrastructure touches `DbContext`. New list = a controller action calling `PagedList(...)` (no handler). Architecture tests and the route snapshot enforce all of this.
-2. **Reuse first**: before writing a helper, search for an existing one. Shared behaviour lives in `ERP.Application/Common` (backend) and `frontend/src/app/core` (frontend).
+2. **Reuse first**: before writing a helper, search for an existing one. Shared behaviour lives in `ERP.Application/Common` (backend) and `frontend/src/app/core` and `frontend/src/app/shared` (frontend).
 3. **Pagination, sorting and search are generic**: use the shared `PagedQuery`/`PagedResult<T>` and `IQueryable` extensions (`ApplyPaging`, `ApplySearch`, `ApplySort`, `ApplyFilters`) with whitelisted fields. Never hand-write paging per table.
 4. **Standard API response**: every endpoint returns `ApiResponse<T>` `{ success, statusCode, message, data, errors, traceId }`. Errors are also RFC 7807 compatible.
 5. **Multi-tenancy**: every business entity is `OrgEntity` / `IOrgScoped`; the global query filter scopes by OrgId. The UI calls an organization a "Workspace".

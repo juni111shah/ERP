@@ -34,7 +34,7 @@ import { HasPermissionDirective } from '@shared/directives/has-permission.direct
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { problemMessage } from '@core/http/problem-details';
 
 /** The end date field must not fall before the start date field of the same form. */

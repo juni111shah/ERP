@@ -17,7 +17,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { catchError, of } from 'rxjs';
 import { AccountDto, AccountsApi, LegalEntitiesApi, LegalEntityDto } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { LookupOption } from '@core/custom-fields/lookup-registry';
 import { asProblem, controlError } from '@core/http/problem-details';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';

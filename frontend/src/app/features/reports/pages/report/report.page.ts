@@ -12,7 +12,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { map } from 'rxjs';
 import { API_BASE_URL } from '@core/api/api-config';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { asProblem, problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
 import { displayDate } from '@core/format/display';

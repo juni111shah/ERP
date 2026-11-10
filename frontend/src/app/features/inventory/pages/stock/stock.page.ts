@@ -5,7 +5,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ProblemDetails } from '@core/api/api.models';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { asProblem } from '@core/http/problem-details';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { matchText, TableToolsComponent } from '@shared/components/table-tools/table-tools.component';

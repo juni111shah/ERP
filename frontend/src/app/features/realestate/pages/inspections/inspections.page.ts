@@ -10,7 +10,7 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { doneText } from '@core/format/done-text';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { createPagedList } from '@core/api/paged-list';
 import { asProblem } from '@core/http/problem-details';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';

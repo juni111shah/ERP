@@ -10,7 +10,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { catchError, of } from 'rxjs';
 import { ProjectTasksApi, ProjectTimesheetsApi, ProjectsApi, TaskDto, TimesheetDto } from '@core/api/projects.api';
 import { ProjectsConfig, ProjectsExtraApi, WeekEntry } from '@core/api/projects-extra.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { SessionStore } from '@core/session/session.store';
 import { errorText, PRJ_STYLES, statusLabel } from '../../projects-ui';
 

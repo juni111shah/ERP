@@ -10,7 +10,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { catchError, of } from 'rxjs';
 import { ProjectTaskStatus, ProjectTasksApi, ProjectsApi, TaskDto } from '@core/api/projects.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { SessionStore } from '@core/session/session.store';
 import { errorText, PRJ_STYLES, ProjectTagComponent, statusLabel, TASK_MOVES, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from '../../projects-ui';
 import { TaskDrawerComponent } from '../../components/task-drawer/task-drawer.component';

@@ -18,7 +18,7 @@ import { FilterCriterion } from '@core/api/api.models';
 import { createPagedList } from '@core/api/paged-list';
 import { ProjectDto, ProjectInput, ProjectKpiDto, ProjectsApi, ProjectSummaryDto } from '@core/api/projects.api';
 import { ProjectsExtraApi, UserOption } from '@core/api/projects-extra.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -26,7 +26,7 @@ import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
-import { PartiesApi } from '@features/parties/pages/parties/parties.page';
+import { PartiesApi } from '@core/api/parties.api';
 import { BILLING_TYPES, errorText, filterOptions, PRJ_STYLES, PROJECT_ACTIONS, PROJECT_STATUSES, ProjectTagComponent } from '../../projects-ui';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 

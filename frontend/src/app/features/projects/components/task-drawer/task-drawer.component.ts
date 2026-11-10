@@ -15,7 +15,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { catchError, of } from 'rxjs';
 import { CommentDto, ProjectsExtraApi, UserOption } from '@core/api/projects-extra.api';
 import { MilestoneDto, ProjectMilestonesApi, ProjectsApi, ProjectSummaryDto, ProjectTaskStatus, ProjectTasksApi, TaskDto, TaskInput, TaskPriority } from '@core/api/projects.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { SessionStore } from '@core/session/session.store';
 import { AttachmentsComponent } from '@shared/components/attachments/attachments.component';
 import { errorText, PRJ_STYLES, ProjectTagComponent, TASK_PRIORITIES, TASK_STATUSES, taskOptions } from '../../projects-ui';

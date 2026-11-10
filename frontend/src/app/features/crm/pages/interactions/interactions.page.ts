@@ -22,7 +22,7 @@ import {
   CustomerInteractionDto,
   InteractionType
 } from '@core/api/crm.api';
-import { PartiesApi } from '@features/parties/pages/parties/parties.page';
+import { PartiesApi } from '@core/api/parties.api';
 import { createPagedList } from '@core/api/paged-list';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';

@@ -11,7 +11,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { catchError, of } from 'rxjs';
 import { ProjectsExtraApi, UserOption } from '@core/api/projects-extra.api';
 import { ProjectsApi, ProjectSummaryDto, ProjectTasksApi, ProjectTimesheetsApi, TaskDto, TimesheetDto } from '@core/api/projects.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
 import { errorText } from '../../projects-ui';

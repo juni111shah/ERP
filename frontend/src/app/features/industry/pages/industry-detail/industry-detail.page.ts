@@ -19,7 +19,7 @@ import { NzTimelineModule } from 'ng-zorro-antd/timeline';
 import { Observable, catchError, of } from 'rxjs';
 import { TaxCodeDto, TaxCodesApi } from '@core/api/admin.api';
 import { IndustryApi, IndustryRecordDto, PackView, RecordTransitionDef, RecordTypeView, statusLabel, toneColor } from '@core/api/industry.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { displayDate, displayMoney } from '@core/format/display';
 import { doneText } from '@core/format/done-text';
 import { asProblem, problemMessage } from '@core/http/problem-details';

@@ -10,7 +10,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { BillableWork, BillInput, BillPreviewDto, ProjectsExtraApi } from '@core/api/projects-extra.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { errorText, PRJ_STYLES } from '../../projects-ui';
 import { ErpLabelPipe, ErpDatePipe } from '@shared/pipes/display.pipes';

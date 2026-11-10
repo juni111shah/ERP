@@ -17,12 +17,12 @@ import {
   AccountDto, AccountsApi, CHEQUE_KINDS, ChequeDto, ChequeRow, ChequeSummary, ChequesApi, InvoiceSummary, InvoicesApi, LegalEntitiesApi, LegalEntityDto,
 } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { LookupOption } from '@core/custom-fields/lookup-registry';
 import { asProblem, problemMessage, controlError } from '@core/http/problem-details';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { PartiesApi } from '@features/parties/pages/parties/parties.page';
+import { PartiesApi } from '@core/api/parties.api';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { RevealDirective } from '@shared/directives/reveal.directive';

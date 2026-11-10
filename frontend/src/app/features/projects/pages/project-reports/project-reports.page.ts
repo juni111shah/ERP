@@ -9,7 +9,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { DashboardChart } from '@core/api/admin.api';
 import { AgeingRow, BudgetRow, HoursRow, ProfitabilityRow, ProjectsExtraApi, UtilisationRow } from '@core/api/projects-extra.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { CsvExportService } from '@core/services/csv-export.service';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { ApexChartComponent } from '@shared/components/apex-chart/apex-chart.component';

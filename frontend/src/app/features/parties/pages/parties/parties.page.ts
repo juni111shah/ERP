@@ -1,5 +1,5 @@
 import { doneText } from '@core/format/done-text';
-import { ChangeDetectionStrategy, Component, DestroyRef, Injectable, computed, inject, signal, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal, OnInit } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -15,7 +15,7 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
-import { CrudApiService } from '@core/api/crud-api.service';
+import { PartiesApi, PartyDto } from '@core/api/parties.api';
 import { PartyGroupsApi } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
 import { buildCustomFieldsGroup, toApiValues } from '@core/custom-fields/custom-field-form';
@@ -31,17 +31,6 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
-
-export interface PartyDto {
-  id: string; code: string; name: string; kind: string; roles: string[]; email?: string; phone?: string; taxNumber?: string;
-  idNumber?: string; iban?: string; currencyCode?: string; paymentTermsDays?: number; address?: string; isActive: boolean;
-  customFields: Record<string, unknown>; partyGroupId?: string | null; creditLimit?: number | null;
-}
-
-@Injectable({ providedIn: 'root' })
-export class PartiesApi extends CrudApiService<PartyDto, unknown> {
-  protected readonly resource = 'parties';
-}
 
 const ROLES = ['Customer', 'Vendor', 'Employee', 'Other'];
 const titleFor = (type: string | null) => (type === 'customer' ? 'Customers' : type === 'vendor' ? 'Vendors' : 'Parties');

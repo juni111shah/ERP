@@ -20,7 +20,7 @@ import { StatusTagComponent } from '@shared/components/status-tag/status-tag.com
 import { countRows } from '../../finance-kpis';
 import { AccountDto, AccountsApi, JournalDto, JournalSummary, JournalsApi, LegalEntitiesApi, LegalEntityDto } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { asProblem, controlError, problemMessage } from '@core/http/problem-details';
 import { askReason } from '@shared/utils/reason-prompt';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';

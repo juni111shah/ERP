@@ -1,3 +1,4 @@
+import { toIsoDate } from '../format/dates';
 import { FormControl, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { CustomFieldValueMap } from '../api/api.models';
 import { CustomFieldDataType, FormFieldMeta, FormSectionMeta } from './custom-field.models';
@@ -79,7 +80,3 @@ export function toApiValues(
   return out;
 }
 
-export function toIsoDate(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}

@@ -17,7 +17,7 @@ import { catchError, of } from 'rxjs';
 import {
   AccountDto, AccountsApi, ArAgeing, CashFlowStatement, BusinessUnitDto, BusinessUnitsApi, BalanceSheet, GeneralLedger, IncomeStatement, LedgerReportsApi, LegalEntitiesApi, PartyGroupDto, PartyGroupsApi, LegalEntityDto, TrialBalance,
 } from '@core/api/admin.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { problemMessage } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';

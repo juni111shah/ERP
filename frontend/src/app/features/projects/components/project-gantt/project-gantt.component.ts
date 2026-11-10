@@ -6,7 +6,7 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { catchError, of } from 'rxjs';
 import { ProjectsConfig, ProjectsExtraApi, ScheduleDto, ScheduleTaskDto } from '@core/api/projects-extra.api';
 import { ProjectTasksApi, taskToInput } from '@core/api/projects.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { SessionStore } from '@core/session/session.store';
 import { errorText, PRJ_STYLES } from '../../projects-ui';
 

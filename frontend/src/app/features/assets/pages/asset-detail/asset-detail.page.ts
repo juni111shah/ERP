@@ -12,7 +12,7 @@ import { ASSET_STATUSES, AssetCategoriesApi, AssetCategoryDto, AssetDto, AssetSc
 import { doneText } from '@core/format/done-text';
 import { displayDate } from '@core/format/display';
 import { problemMessage } from '@core/http/problem-details';
-import { PartiesApi } from '@features/parties/pages/parties/parties.page';
+import { PartiesApi } from '@core/api/parties.api';
 import { SessionStore } from '@core/session/session.store';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { ActionFormState } from '@shared/utils/action-form-state';

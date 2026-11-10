@@ -11,7 +11,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { catchError, of } from 'rxjs';
 import { ProjectsApi } from '@core/api/projects.api';
 import { ProjectsExtraApi, RiskDto, UserOption } from '@core/api/projects-extra.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { MasterDataState } from '@shared/utils/master-data-state';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';

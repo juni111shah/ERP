@@ -7,7 +7,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { FilterCriterion } from '@core/api/api.models';
 import { createPagedList } from '@core/api/paged-list';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';

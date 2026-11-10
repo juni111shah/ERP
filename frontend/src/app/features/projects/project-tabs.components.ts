@@ -12,7 +12,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { catchError, of } from 'rxjs';
 import { MilestoneDto, ProjectDto, ProjectMilestonesApi, ProjectTasksApi, TaskDto } from '@core/api/projects.api';
 import { AcceptanceDto, ActivityDto, AllocationDto, BudgetLineDto, CommentDto, EXPENSE_CATEGORIES, MemberDto, ProjectInvoice, ProjectsExtraApi, RiskDto, UserOption } from '@core/api/projects-extra.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
 import { AttachmentsComponent } from '@shared/components/attachments/attachments.component';

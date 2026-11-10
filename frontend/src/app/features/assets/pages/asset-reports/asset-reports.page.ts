@@ -8,7 +8,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { AssetCategoriesApi, AssetCategoryDto, AssetRegisterReport, AssetReportsApi } from '@core/api/assets.api';
-import { toIsoDate } from '@core/custom-fields/custom-field-form';
+import { toIsoDate } from '@core/format/dates';
 import { displayDate } from '@core/format/display';
 import { problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
