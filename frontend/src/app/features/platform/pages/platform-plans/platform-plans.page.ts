@@ -5,13 +5,16 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { ProblemDetails } from '@core/api/api.models';
-import { PlanInput, PlanView, PlatformApi, PlatformModule } from '@core/api/platform.api';
+import { PlanView, PlatformApi, PlatformModule } from '@core/api/platform.api';
 import { yearlySaving } from '@core/format/subscription';
-import { asProblem, problemMessage } from '@core/http/problem-details';
-import { ErpMoneyPipe } from '@shared/pipes/display.pipes';
+import { problemMessage } from '@core/http/problem-details';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { showDrawerSaveError } from '@shared/forms/save-errors';
+import { ErpMoneyPipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
+import { DrawerValue, planDrawerValue, planFields, planModuleText, toPlanInput } from '../../platform-forms';
 import { PLATFORM_STYLES } from '../../platform-ui';
 
 /** The price list: what is sold, for how much, and with what limits. */
@@ -50,29 +53,15 @@ export class PlatformPlansPage {
   readonly saving = signal(false);
   readonly errors = signal<ProblemDetails | null>(null);
   readonly editing = signal<PlanView | null>(null);
-  readonly value = computed<Record<string, unknown> | null>(() => {
+  readonly value = computed<DrawerValue | null>(() => {
     const p = this.editing();
-    return p ? { ...p, features: p.features.join('\n') } : null;
+    return p ? planDrawerValue(p) : null;
   });
-  readonly fields = computed<FieldSpec[]>(() => [
-    { key: 'code', label: 'Code', type: 'text', required: true, maxLength: 39, hint: 'Lower-case letters, digits or dashes. Used in links such as /register?plan=starter.' },
-    { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 120 },
-    { key: 'description', label: 'Description', type: 'textarea', maxLength: 500 },
-    { key: 'monthlyPrice', label: 'Monthly price', type: 'number', required: true, min: 0, default: 0 },
-    { key: 'annualPrice', label: 'Annual price', type: 'number', required: true, min: 0, default: 0, hint: 'For the whole year, not per month.' },
-    { key: 'trialDays', label: 'Trial days', type: 'number', required: true, min: 0, max: 365, precision: 0, default: 14 },
-    { key: 'sortOrder', label: 'Sort order', type: 'number', required: true, precision: 0, default: 100, hint: 'Lower numbers come first on the price list.' },
-    { key: 'maxUsers', label: 'Maximum users', type: 'number', min: 1, precision: 0, hint: 'Leave empty for no limit.' },
-    { key: 'maxLegalEntities', label: 'Maximum legal entities', type: 'number', min: 1, precision: 0, hint: 'Leave empty for no limit.' },
-    { key: 'modules', label: 'Modules', type: 'multiselect', options: this.modules().map((m) => ({ value: m.key, label: m.name })), hint: 'Leave empty to include every module.' },
-    { key: 'features', label: 'Features', type: 'textarea', maxLength: 2000, hint: 'One per line. These are the selling points on the pricing card.' },
-    { key: 'isPublic', label: 'Public', type: 'switch', default: true, hint: 'Shown on the registration page.' },
-    { key: 'isRecommended', label: 'Recommended', type: 'switch', hint: 'Highlighted on the pricing cards.' },
-  ]);
+  readonly fields = computed<FieldSpec[]>(() => planFields(this.modules()));
 
   constructor() {
     this.load();
-    this.api.modules().subscribe({ next: (m) => this.modules.set(m.filter((x) => !x.isCore)), error: () => undefined });
+    loadInto(this.modules, this.api.modules(), (m) => m.filter((x) => !x.isCore));
   }
 
   load(): void {
@@ -85,11 +74,7 @@ export class PlatformPlansPage {
 
   yearly(p: PlanView): { amount: number; percent: number } | null { return yearlySaving(p.monthlyPrice, p.annualPrice); }
 
-  moduleText(p: PlanView): string {
-    if (!p.modules.length) return 'Every module';
-    const names = new Map(this.modules().map((m) => [m.key, m.name]));
-    return p.modules.map((k) => names.get(k) ?? k).join(', ');
-  }
+  moduleText(p: PlanView): string { return planModuleText(p, this.modules()); }
 
   edit(plan: PlanView | null): void {
     this.errors.set(null);
@@ -97,12 +82,8 @@ export class PlatformPlansPage {
     this.open.set(true);
   }
 
-  save(v: Record<string, unknown>): void {
-    const input: PlanInput = {
-      code: v['code'] as string, name: v['name'] as string, description: v['description'] as string | null, isPublic: !!v['isPublic'], isRecommended: !!v['isRecommended'], sortOrder: (v['sortOrder'] as number) ?? 0,
-      monthlyPrice: (v['monthlyPrice'] as number) ?? 0, annualPrice: (v['annualPrice'] as number) ?? 0, trialDays: (v['trialDays'] as number) ?? 0, maxUsers: (v['maxUsers'] as number | null) ?? null, maxLegalEntities: (v['maxLegalEntities'] as number | null) ?? null,
-      modules: (v['modules'] as string[] | null) ?? [], features: String(v['features'] ?? '').split('\n').map((f) => f.trim()).filter(Boolean),
-    };
+  save(v: DrawerValue): void {
+    const input = toPlanInput(v);
     const editing = this.editing();
     this.saving.set(true);
     this.errors.set(null);
@@ -110,9 +91,7 @@ export class PlatformPlansPage {
       next: (saved) => { this.saving.set(false); this.open.set(false); this.message.success(`${saved.name} saved`); this.load(); },
       error: (e) => {
         this.saving.set(false);
-        const problem = asProblem(e);
-        this.errors.set(problem);
-        if (!problem?.errors) this.message.error(problemMessage(e, 'Could not save the plan'));
+        showDrawerSaveError(e, this.errors, this.message, 'Could not save the plan');
       },
     });
   }

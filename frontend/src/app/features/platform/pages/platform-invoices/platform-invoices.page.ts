@@ -4,9 +4,9 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { createPagedList } from '@core/api/paged-list';
 import { PlatformApi, PlatformInvoiceRow } from '@core/api/platform.api';
-import { ErpDatePipe, ErpMoneyPipe } from '@shared/pipes/display.pipes';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { ErpDatePipe, ErpMoneyPipe } from '@shared/pipes/display.pipes';
 import { InvoiceActionsComponent } from '../../components/invoice-actions/invoice-actions.component';
 import { PLATFORM_STYLES, invoiceTone } from '../../platform-ui';
 

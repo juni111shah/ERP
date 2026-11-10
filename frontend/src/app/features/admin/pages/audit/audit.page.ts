@@ -1,10 +1,9 @@
 import { ChangeDetectionStrategy, Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { EMPTY, catchError, expand, of, reduce } from 'rxjs';
+import { CopyOutline, DownOutline, DownloadOutline, ExportOutline, HistoryOutline, UpOutline } from '@ant-design/icons-angular/icons';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
-import { CopyOutline, DownOutline, DownloadOutline, ExportOutline, HistoryOutline, UpOutline } from '@ant-design/icons-angular/icons';
 import { NzIconModule, provideNzIconsPatch } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -13,6 +12,7 @@ import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { EMPTY, catchError, expand, of, reduce } from 'rxjs';
 import { AuditApi, AuditEvent, AuditEventDetail, AuditFacets, AuditFieldDiff } from '@core/api/admin.api';
 import { FilterCriterion } from '@core/api/api.models';
 import { createPagedList } from '@core/api/paged-list';
@@ -21,18 +21,19 @@ import { displayDate, displayLabel } from '@core/format/display';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { CsvExportService } from '@core/services/csv-export.service';
-import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { recordLink } from '@shared/utils/record-links';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { recordLink } from '@shared/utils/record-links';
+import { AUDIT_CSV_COLUMNS, AuditRange, auditCsvRow, auditRangeStart } from '../../admin-audit';
 
-type RangeKey = 'all' | 'today' | '7' | '30';
 const EXPORT_PAGE = 200;
 const EXPORT_LIMIT = 5000;
 const MANY_FIELDS = 12;
 const SAME_SAVE_SHOWN = 5;
 
+/** The audit log: who changed what and when, filterable by range or record, with a drawer showing one event's field changes. */
 @Component({
   selector: 'erp-audit',
   standalone: true,
@@ -54,7 +55,7 @@ export class AuditPage implements OnInit {
   readonly manyFields = MANY_FIELDS;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-occurredAt' });
   readonly facets = signal<AuditFacets | null>(null);
-  readonly range = signal<RangeKey>('all');
+  readonly range = signal<AuditRange>('all');
   readonly recordScope = signal<{ recordType: string; recordId: string; typeLabel: string; label: string } | null>(null);
   readonly exporting = signal(false);
 
@@ -100,7 +101,7 @@ export class AuditPage implements OnInit {
   }
 
   // ---------- scope ----------
-  setRange(key: RangeKey): void {
+  setRange(key: AuditRange): void {
     this.range.set(key);
     this.applyScope();
   }
@@ -121,20 +122,12 @@ export class AuditPage implements OnInit {
     const out: FilterCriterion[] = [];
     const scope = this.recordScope();
     if (scope) out.push({ field: 'recordType', op: 'eq', value: scope.recordType }, { field: 'recordId', op: 'eq', value: scope.recordId });
-    const from = this.rangeStart(this.range());
+    const from = auditRangeStart(this.range());
     if (from) out.push({ field: 'occurredAt', op: 'gte', value: from });
     return out;
   }
 
   private applyScope(): void { this.list.setFilters(this.scopeFilters()); }
-
-  private rangeStart(key: RangeKey): string | null {
-    if (key === 'all') return null;
-    const start = new Date();
-    start.setDate(start.getDate() - (key === 'today' ? 0 : Number(key) - 1));
-    start.setHours(0, 0, 0, 0);
-    return start.toISOString();
-  }
 
   // ---------- row words ----------
   whoOf(e: AuditEvent): string { return e.userId ? e.userName ?? this.i18n.t('ui.audit.unknownUser', 'Unknown user') : this.i18n.t('history.system', 'System'); }
@@ -239,12 +232,7 @@ export class AuditPage implements OnInit {
     ).subscribe({
       next: (rows) => {
         this.exporting.set(false);
-        this.csv.exportToCsv(rows.map((e) => ({
-          occurredAt: e.occurredAt, by: this.whoOf(e), action: e.action, recordType: e.recordType, record: e.recordLabel ?? '', recordId: e.recordId, changedFields: e.changedFields.join(', '), ipAddress: e.ipAddress ?? '',
-        })), 'audit-log', [
-          { field: 'occurredAt', header: 'When (UTC)' }, { field: 'by', header: 'By' }, { field: 'action', header: 'Action' }, { field: 'recordType', header: 'Record type' },
-          { field: 'record', header: 'Record' }, { field: 'recordId', header: 'Record ID' }, { field: 'changedFields', header: 'Changed fields' }, { field: 'ipAddress', header: 'IP address' },
-        ]);
+        this.csv.exportToCsv(rows.map((e) => auditCsvRow(e, this.whoOf(e))), 'audit-log', AUDIT_CSV_COLUMNS);
         this.message.success(`audit-log.csv: ${rows.length} ${this.i18n.t('table.rowsExported', 'rows exported')}`);
       },
       error: () => { this.exporting.set(false); this.message.error(this.i18n.t('ui.audit.exportFailed', 'Could not export the audit log. Try again.')); },

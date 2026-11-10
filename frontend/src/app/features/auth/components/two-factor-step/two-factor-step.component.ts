@@ -9,8 +9,7 @@ import { AuthService, LoginResponse, TwoFactorChallengeSetup } from '@core/auth/
 import { asProblem } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
-
-export type TwoFactorMode = 'setup' | 'verify';
+import { TwoFactorMode, twoFactorFailureText } from '../../auth-sign-in';
 
 /**
  * The second sign-in step, after a correct password, when two-factor is needed.
@@ -112,18 +111,14 @@ export class TwoFactorStepComponent implements OnInit {
     } catch { /* clipboard blocked: the key stays visible for manual copy */ }
   }
 
+  /** Clears the code and says why it was refused; an expired challenge switches to the "sign in again" view. */
   private fail(e: unknown): void {
-    const p = asProblem(e);
     this.code.set('');
     const el = this.codeInput()?.nativeElement;
     if (el) el.value = '';
-    const t = (k: string, f: string) => this.i18n.t(k, f);
-    if (p?.status === 401 && /expired|sign in again/i.test(p.detail ?? '')) { this.view.set('expired'); return; }
-    if (p?.status === 401) this.error.set(t('twofa.error.wrong', "That code didn't work. Check the time on your phone and enter the newest code."));
-    else if (p?.status === 423) this.error.set(t('twofa.error.locked', 'Too many wrong codes. Your account is locked for a few minutes.'));
-    else if (p?.status === 429) this.error.set(t('twofa.error.tooMany', 'Too many attempts. Please wait a minute and try again.'));
-    else if (p?.status === 0) this.error.set(t('twofa.error.offline', 'Cannot reach the server. Check your connection.'));
-    else this.error.set(p?.detail ?? t('twofa.error.generic', 'Something went wrong. Please try again.'));
+    const text = twoFactorFailureText(asProblem(e), (k, f) => this.i18n.t(k, f));
+    if (text === null) { this.view.set('expired'); return; }
+    this.error.set(text);
     this.focus();
   }
 

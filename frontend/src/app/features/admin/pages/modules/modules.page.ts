@@ -1,18 +1,16 @@
-import { switchMap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { API_BASE_URL } from '@core/api/api-config';
+import { switchMap } from 'rxjs';
+import { ModulesApi, WorkspaceModule } from '@core/api/modules.api';
 import { AuthService } from '@core/auth/auth.service';
 import { asProblem } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
-
-interface ModuleView { key: string; name: string; description: string; category: string; version: string; isCore: boolean; requires: string[]; uiRoute: string; state: 'enabled' | 'disabled' | 'unavailable'; }
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { modulesByCategory, requiredModuleNames } from '../../admin-modules';
 
 /** Workspace modules: core is always on; industry and functional modules can be enabled or disabled (data is kept). */
 @Component({
@@ -24,35 +22,29 @@ interface ModuleView { key: string; name: string; description: string; category:
   templateUrl: './modules.page.html',
 })
 export class ModulesPage {
-  private readonly http = inject(HttpClient);
-  private readonly base = inject(API_BASE_URL);
+  private readonly api = inject(ModulesApi);
   private readonly auth = inject(AuthService);
   private readonly message = inject(NzMessageService);
-  readonly modules = signal<ModuleView[]>([]);
+  readonly modules = signal<WorkspaceModule[]>([]);
   /** The modules under their category, in the order the server lists them. */
-  readonly groups = computed(() => {
-    const byCategory = new Map<string, ModuleView[]>();
-    for (const m of this.modules()) byCategory.set(m.category || 'Other', [...(byCategory.get(m.category || 'Other') ?? []), m]);
-    return [...byCategory].map(([category, modules]) => ({ category, modules }));
-  });
-  /** The names of the modules a module needs switched on first. */
-  requiredNames(m: ModuleView): string {
-    return m.requires.map((key) => this.modules().find((x) => x.key === key)?.name ?? key).join(', ');
-  }
+  readonly groups = computed(() => modulesByCategory(this.modules()));
   readonly busy = signal<string | null>(null);
   readonly failed = signal(false);
 
   constructor() { this.load(); }
 
+  /** The names of the modules a module needs switched on first. */
+  requiredNames(m: WorkspaceModule): string { return requiredModuleNames(m, this.modules()); }
+
   load(): void {
     this.failed.set(false);
-    this.http.get<ModuleView[]>(`${this.base}/modules`).subscribe({ next: (m) => this.modules.set(m), error: () => this.failed.set(true) });
+    this.api.list().subscribe({ next: (m) => this.modules.set(m), error: () => this.failed.set(true) });
   }
 
-  toggle(m: ModuleView): void {
+  toggle(m: WorkspaceModule): void {
     const action = m.state === 'enabled' ? 'disable' : 'enable';
     this.busy.set(m.key);
-    this.http.post(`${this.base}/modules/${m.key}/${action}`, {}).subscribe({
+    this.api.setState(m.key, action).subscribe({
       next: () => {
         this.busy.set(null);
         this.message.success(`${m.name} ${action}d`);

@@ -8,23 +8,26 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
+import { Observable } from 'rxjs';
 import { ProblemDetails } from '@core/api/api.models';
-import { BillingCycle, ClientDetail, ClientStartMode, PlanView, PlatformApi, PlatformModule, WorkspaceMember } from '@core/api/platform.api';
-import { displayDate, displayLabel, displayMoney } from '@core/format/display';
-import { asProblem, problemMessage } from '@core/http/problem-details';
+import { BillingCycle, ClientDetail, InvoiceStatus, PlanView, PlatformApi, PlatformModule, WorkspaceMember } from '@core/api/platform.api';
+import { displayLabel } from '@core/format/display';
+import { problemMessage } from '@core/http/problem-details';
 import { PageTitleService } from '@core/services/page-title.service';
-import { ErpDatePipe, ErpMoneyPipe } from '@shared/pipes/display.pipes';
-import { askReason } from '@shared/utils/reason-prompt';
-import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { RowActionsComponent } from '@shared/components/row-actions/row-actions.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { UsageBarComponent } from '@shared/components/usage-bar/usage-bar.component';
+import { showDrawerSaveError } from '@shared/forms/save-errors';
+import { ErpDatePipe, ErpMoneyPipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
+import { askReason } from '@shared/utils/reason-prompt';
 import { InvoiceActionsComponent } from '../../components/invoice-actions/invoice-actions.component';
-import { ACCESS_WORDS, CYCLE_OPTIONS, OneTimePasswordComponent, OneTimeSecret, PLATFORM_STYLES, START_OPTIONS, cycleWords, invoiceTone, planOptions, statusWords } from '../../platform-ui';
-import { RowActionsComponent } from '@shared/components/row-actions/row-actions.component';
-
-type DialogKind = 'assign' | 'plan' | 'trial' | 'activate' | 'invoice' | 'details';
-const todayIso = (): string => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+import { OneTimePasswordComponent, OneTimeSecret } from '../../components/one-time-password/one-time-password.component';
+import { ClientDialogKind, ClientDialogSpec, canActivateClient, canExtendTrial, clientDialogSpec } from '../../platform-client-dialogs';
+import { DrawerValue, toAssignPlanInput, toChangePlanInput, toClientNotesInput, toIssueInvoiceInput } from '../../platform-forms';
+import { ACCESS_WORDS, PLATFORM_STYLES, cycleWords, invoiceTone, statusWords } from '../../platform-ui';
 
 /** One client: how it stands, what can be done about it, and everything that has happened to it. */
 @Component({
@@ -67,8 +70,8 @@ export class PlatformClientDetailPage {
   readonly countries = signal<{ code: string; name: string }[]>([]);
   readonly industries = signal<{ key: string; label: string }[]>([]);
   readonly busy = signal<string | null>(null);
-  readonly dialog = signal<DialogKind | null>(null);
-  readonly prefill = signal<Record<string, unknown> | null>(null);
+  readonly dialog = signal<ClientDialogKind | null>(null);
+  readonly prefill = signal<DrawerValue | null>(null);
   readonly saving = signal(false);
   readonly errors = signal<ProblemDetails | null>(null);
   readonly secret = signal<OneTimeSecret | null>(null);
@@ -79,84 +82,16 @@ export class PlatformClientDetailPage {
   readonly accessText = computed(() => ACCESS_WORDS[this.data()?.client.access ?? 'full']);
   readonly countryName = computed(() => { const code = this.data()?.client.countryCode; return this.countries().find((c) => c.code === code)?.name ?? code ?? ''; });
   readonly industryText = computed(() => { const key = this.data()?.client.industryCode; return this.industries().find((i) => i.key === key)?.label ?? displayLabel(key); });
-  readonly canExtend = computed(() => {
-    const d = this.data();
-    if (!d) return false;
-    const s = d.client.status;
-    return s === 'trialing' || s === 'expired' || (s === 'suspended' && !d.suspendedByFounder);
-  });
-  readonly canActivate = computed(() => {
-    const d = this.data();
-    if (!d || d.client.isComplimentary) return false;
-    const s = d.client.status;
-    if (s === 'trialing' || s === 'expired') return true;
-    if (s === 'suspended') return !d.suspendedByFounder;
-    return s === 'active' && !!d.client.currentPeriodEnd && d.client.currentPeriodEnd < todayIso();
-  });
-
-  readonly dialogSpec = computed((): { title: string; submit: string; fields: FieldSpec[]; value: Record<string, unknown> | null; warning?: string; intro?: string } => {
-    const kind = this.dialog();
-    const d = this.data();
-    const planField = (keep?: string | null): FieldSpec => ({ key: 'planId', label: 'Plan', type: 'select', required: true, options: planOptions(this.plans(), keep) });
-    const cycleField: FieldSpec = { key: 'cycle', label: 'Billing cycle', type: 'select', required: true, default: 'monthly', options: CYCLE_OPTIONS };
-    const priceField: FieldSpec = { key: 'customPrice', label: 'Custom price per cycle', type: 'number', min: 0, hint: 'Leave empty to use the plan\'s price.' };
-    switch (kind) {
-      case 'assign':
-        return {
-          title: `Assign a plan to ${d?.client.name ?? ''}`, submit: 'Assign plan', value: null, warning: 'Modules outside the plan are switched off. Their data is kept.',
-          fields: [
-            planField(), cycleField,
-            { key: 'startMode', label: 'How it starts', type: 'select', required: true, default: 'trial', options: START_OPTIONS, hint: 'Starting as active does not issue an invoice. Use Issue invoice afterwards.' },
-            { key: 'trialDays', label: 'Trial days', type: 'number', min: 1, max: 365, precision: 0, hint: 'Leave empty to use the plan\'s trial.', hidden: (v) => v['startMode'] !== 'trial' },
-            { ...priceField, hidden: (v) => v['startMode'] === 'complimentary' },
-          ],
-        };
-      case 'plan':
-        return {
-          title: `Change plan for ${d?.client.name ?? ''}`, submit: 'Change plan', warning: 'Modules outside the new plan are switched off straight away. Their data is kept.',
-          value: this.prefill() ?? { planId: d?.client.planId, cycle: d?.client.cycle, customPrice: d?.customPrice, isComplimentary: d?.client.isComplimentary },
-          fields: [planField(d?.client.planId), cycleField, priceField, { key: 'isComplimentary', label: 'Free of charge', type: 'switch', hint: 'No invoices are issued and the subscription never lapses.' }],
-        };
-      case 'trial':
-        return {
-          title: 'Extend trial', submit: 'Extend trial', value: null, intro: d?.client.trialEndsOn ? `The trial ends on ${displayDate(d.client.trialEndsOn)}. A lapsed trial starts running again from today.` : 'The trial starts running from today.',
-          fields: [{ key: 'days', label: 'More days', type: 'number', required: true, min: 1, max: 365, precision: 0, default: 14 }],
-        };
-      case 'activate':
-        return {
-          title: `Activate ${d?.client.name ?? ''}`, submit: 'Activate', value: null, intro: `Starts a paid period from today at ${displayMoney(d?.client.cyclePrice, this.currency())} per cycle.`,
-          fields: [{ key: 'issueInvoice', label: 'Issue the first invoice', type: 'switch', default: true, hint: 'Turn this off when the period has already been paid for.' }],
-        };
-      case 'invoice':
-        return {
-          title: 'Issue invoice', submit: 'Issue invoice', value: null,
-          fields: [
-            { key: 'kind', label: 'What to bill', type: 'select', required: true, default: 'period', options: [{ value: 'period', label: 'The next billing period' }, { value: 'oneoff', label: 'A one-off amount' }] },
-            { key: 'description', label: 'Description', type: 'text', required: true, maxLength: 300, hidden: (v) => v['kind'] !== 'oneoff' },
-            { key: 'amount', label: 'Amount before tax', type: 'number', required: true, min: 0.01, hidden: (v) => v['kind'] !== 'oneoff' },
-            { key: 'dueOn', label: 'Due date', type: 'date', hint: 'Leave empty to use the usual payment terms.' },
-          ],
-        };
-      case 'details':
-        return {
-          title: 'Contact and notes', submit: 'Save', value: { billingEmail: d?.billingEmail, contactPhone: d?.contactPhone, notes: d?.notes },
-          fields: [
-            { key: 'billingEmail', label: 'Billing email', type: 'text', maxLength: 256 },
-            { key: 'contactPhone', label: 'Phone', type: 'text', maxLength: 40 },
-            { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 2000, hint: 'For your team only.' },
-          ],
-        };
-      default:
-        return { title: '', submit: 'Save', fields: [], value: null };
-    }
-  });
+  readonly canExtend = computed(() => canExtendTrial(this.data()));
+  readonly canActivate = computed(() => canActivateClient(this.data()));
+  readonly dialogSpec = computed((): ClientDialogSpec => clientDialogSpec(this.dialog(), this.data(), { plans: this.plans, prefill: this.prefill, currency: this.currency }));
 
   constructor() {
     this.load();
-    this.api.plans().subscribe({ next: (p) => this.plans.set(p), error: () => undefined });
+    loadInto(this.plans, this.api.plans());
     this.api.modules().subscribe({ next: (m) => this.modules.set(m.filter((x) => !x.isCore)), error: () => this.modulesFailed.set(true) });
-    this.api.countries().subscribe({ next: (c) => this.countries.set(c), error: () => undefined });
-    this.api.industries().subscribe({ next: (i) => this.industries.set(i), error: () => undefined });
+    loadInto(this.countries, this.api.countries());
+    loadInto(this.industries, this.api.industries());
   }
 
   private show(d: ClientDetail): void {
@@ -170,16 +105,17 @@ export class PlatformClientDetailPage {
   }
 
   cycleText(cycle: BillingCycle | null): string { return cycleWords(cycle) || '—'; }
-  tone(i: { status: 'open' | 'paid' | 'void'; isOverdue: boolean }): string { return invoiceTone(i); }
+  tone(i: { status: InvoiceStatus; isOverdue: boolean }): string { return invoiceTone(i); }
   isEnabled(key: string): boolean { return this.data()?.enabledModules.includes(key) ?? false; }
   notInPlan(key: string): boolean { const allowed = this.data()?.planModules; return !!allowed?.length && !allowed.includes(key); }
 
-  openDialog(kind: DialogKind): void {
+  openDialog(kind: ClientDialogKind): void {
     this.errors.set(null);
     this.prefill.set(null);
     this.dialog.set(kind);
   }
 
+  /** Opens the plan dialog filled in with what the client asked for. */
   applyRequest(): void {
     const d = this.data();
     if (!d?.requested) return;
@@ -188,46 +124,32 @@ export class PlatformClientDetailPage {
     this.dialog.set('plan');
   }
 
-  submitDialog(v: Record<string, unknown>): void {
+  submitDialog(v: DrawerValue): void {
     const kind = this.dialog();
-    const done = (text: (client: string) => string) => (d: ClientDetail) => { this.show(d); this.finish(text(d.client.name)); };
-    const fail = (e: unknown) => {
-      this.saving.set(false);
-      const problem = asProblem(e);
-      this.errors.set(problem);
-      if (!problem?.errors) this.message.error(problemMessage(e, 'That did not work'));
-    };
     this.saving.set(true);
     this.errors.set(null);
     switch (kind) {
-      case 'assign': {
-        const startMode = v['startMode'] as ClientStartMode;
-        this.api.setClientPlan(this.orgId, {
-          planId: v['planId'] as string, cycle: v['cycle'] as BillingCycle, customPrice: startMode === 'complimentary' ? null : (v['customPrice'] as number | null) ?? null,
-          isComplimentary: startMode === 'complimentary', startMode, trialDays: startMode === 'trial' ? (v['trialDays'] as number | null) ?? null : null,
-        }).subscribe({ next: done((n) => `Plan assigned to ${n}`), error: fail });
-        break;
-      }
-      case 'plan':
-        this.api.setClientPlan(this.orgId, { planId: v['planId'] as string, cycle: v['cycle'] as BillingCycle, customPrice: (v['customPrice'] as number | null) ?? null, isComplimentary: !!v['isComplimentary'] }).subscribe({ next: done((n) => `Plan changed for ${n}`), error: fail });
-        break;
-      case 'trial':
-        this.api.extendTrial(this.orgId, v['days'] as number).subscribe({ next: done((n) => `Trial extended for ${n}`), error: fail });
-        break;
-      case 'activate':
-        this.api.activateClient(this.orgId, !!v['issueInvoice']).subscribe({ next: done((n) => `Client ${n} activated`), error: fail });
-        break;
+      case 'assign': return this.saveClient(this.api.setClientPlan(this.orgId, toAssignPlanInput(v)), (n) => `Plan assigned to ${n}`);
+      case 'plan': return this.saveClient(this.api.setClientPlan(this.orgId, toChangePlanInput(v)), (n) => `Plan changed for ${n}`);
+      case 'trial': return this.saveClient(this.api.extendTrial(this.orgId, v['days'] as number), (n) => `Trial extended for ${n}`);
+      case 'activate': return this.saveClient(this.api.activateClient(this.orgId, !!v['issueInvoice']), (n) => `Client ${n} activated`);
       case 'invoice':
-        this.api.issueInvoice(this.orgId, {
-          description: v['kind'] === 'oneoff' ? (v['description'] as string) : null, amount: v['kind'] === 'oneoff' ? (v['amount'] as number) : null, dueOn: (v['dueOn'] as string | null) ?? null,
-        }).subscribe({ next: (i) => { this.finish(`Invoice ${i.number} issued`); this.load(); }, error: fail });
-        break;
-      case 'details':
-        this.api.updateClientDetails(this.orgId, { billingEmail: v['billingEmail'] as string | null, contactPhone: v['contactPhone'] as string | null, notes: v['notes'] as string | null }).subscribe({ next: done((n) => `Billing details saved for ${n}`), error: fail });
-        break;
+        this.api.issueInvoice(this.orgId, toIssueInvoiceInput(v)).subscribe({ next: (i) => { this.finish(`Invoice ${i.number} issued`); this.load(); }, error: (e) => this.dialogFailed(e) });
+        return;
+      case 'details': return this.saveClient(this.api.updateClientDetails(this.orgId, toClientNotesInput(v)), (n) => `Billing details saved for ${n}`);
       default:
         this.saving.set(false);
     }
+  }
+
+  /** Runs a dialog's call that answers with the updated client, then shows it and says what was done. */
+  private saveClient(call: Observable<ClientDetail>, text: (client: string) => string): void {
+    call.subscribe({ next: (d) => { this.show(d); this.finish(text(d.client.name)); }, error: (e) => this.dialogFailed(e) });
+  }
+
+  private dialogFailed(e: unknown): void {
+    this.saving.set(false);
+    showDrawerSaveError(e, this.errors, this.message, 'That did not work');
   }
 
   private finish(text: string): void {

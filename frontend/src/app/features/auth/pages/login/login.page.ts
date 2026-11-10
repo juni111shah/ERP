@@ -1,4 +1,3 @@
-import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -6,15 +5,18 @@ import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { NzFormModule } from 'ng-zorro-antd/form';
-import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { NzInputModule } from 'ng-zorro-antd/input';
 import { AuthService, LoginResponse } from '@core/auth/auth.service';
 import { safeReturnUrl } from '@core/guards/access.guards';
 import { asProblem } from '@core/http/problem-details';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { Workspace } from '@core/session/session.store';
 import { BrandLogoComponent } from '@shared/components/brand-logo/brand-logo.component';
-import { TwoFactorMode, TwoFactorStepComponent } from '../../components/two-factor-step/two-factor-step.component';
+import { TwoFactorChallenge, retryAfterSeconds, signInFailureText, startCountdown, twoFactorChallengeOf } from '../../auth-sign-in';
+import { TwoFactorStepComponent } from '../../components/two-factor-step/two-factor-step.component';
 
+/** Sign-in: email and password, then two-factor when needed, then a workspace choice when the person has several. */
 @Component({
   selector: 'erp-login',
   standalone: true,
@@ -30,7 +32,7 @@ import { TwoFactorMode, TwoFactorStepComponent } from '../../components/two-fact
     NzAlertModule,
     NzIconModule,
     BrandLogoComponent,
-    TwoFactorStepComponent
+    TwoFactorStepComponent,
   ],
   styleUrl: './login.page.scss',
   templateUrl: './login.page.html',
@@ -52,7 +54,7 @@ export class LoginPage {
   readonly retryIn = signal(0);
   readonly workspaces = signal<Workspace[] | null>(null);
   /** Two-factor step after a correct password: first-sign-in setup, or a code for a returning user. */
-  readonly challenge = signal<{ mode: TwoFactorMode; token: string } | null>(null);
+  readonly challenge = signal<TwoFactorChallenge | null>(null);
   private selectionToken = '';
 
   submit(): void {
@@ -61,13 +63,7 @@ export class LoginPage {
     this.busy.set(true);
     this.error.set(null);
     this.auth.login(email, password, rememberMe, code || undefined).subscribe({
-      next: (r) => {
-        this.busy.set(false);
-        if (r.twoFactorSetupRequired && r.challengeToken) { this.challenge.set({ mode: 'setup', token: r.challengeToken }); return; }
-        if ((r.twoFactorRequired || r.requiresTwoFactor) && r.challengeToken) { this.challenge.set({ mode: 'verify', token: r.challengeToken }); return; }
-        if (r.requiresTwoFactor) { this.needsCode.set(true); return; } // older API: code typed into the login form
-        this.afterSignIn(r);
-      },
+      next: (r) => { this.busy.set(false); this.afterPassword(r); },
       error: (e) => { this.busy.set(false); this.fail(e); },
     });
   }
@@ -85,11 +81,6 @@ export class LoginPage {
     this.form.controls.password.reset('');
   }
 
-  private afterSignIn(r: LoginResponse): void {
-    if (r.requiresWorkspaceSelection) { this.selectionToken = r.selectionToken!; this.workspaces.set(r.workspaces); }
-    else this.done();
-  }
-
   pick(w: Workspace): void {
     this.busy.set(true);
     this.auth.selectWorkspace(this.selectionToken, w.id).subscribe({
@@ -98,25 +89,33 @@ export class LoginPage {
     });
   }
 
+  /** A correct password: on to two-factor when the answer asks for it, else into the session. */
+  private afterPassword(r: LoginResponse): void {
+    const challenge = twoFactorChallengeOf(r);
+    if (challenge) { this.challenge.set(challenge); return; }
+    if (r.requiresTwoFactor) { this.needsCode.set(true); return; } // older API: code typed into the login form
+    this.afterSignIn(r);
+  }
+
+  private afterSignIn(r: LoginResponse): void {
+    if (r.requiresWorkspaceSelection) { this.selectionToken = r.selectionToken!; this.workspaces.set(r.workspaces); }
+    else this.done();
+  }
+
   private done(): void {
     void this.router.navigateByUrl(safeReturnUrl(this.returnUrl()));
   }
 
+  /** Clears the secret just typed and says what went wrong; a rate limit also counts down until the next try. */
   private fail(e: unknown): void {
     const p = asProblem(e);
     if (!this.needsCode()) this.form.controls.password.reset('');
     else this.form.controls.code.reset('');
     if (p?.status === 429) {
-      const retry = Number((p as { retryAfterSeconds?: number }).retryAfterSeconds ?? 60);
       this.error.set('Too many attempts. Please wait before trying again.');
-      this.countdown(retry);
+      startCountdown(this.retryIn, retryAfterSeconds(p));
     } else {
-      this.error.set(p?.status === 0 ? 'Cannot reach the server. Check your connection.' : (p?.detail ?? 'Incorrect email or password.'));
+      this.error.set(signInFailureText(p));
     }
-  }
-
-  private countdown(seconds: number): void {
-    this.retryIn.set(seconds);
-    const t = setInterval(() => { this.retryIn.update((s) => s - 1); if (this.retryIn() <= 0) clearInterval(t); }, 1000);
   }
 }

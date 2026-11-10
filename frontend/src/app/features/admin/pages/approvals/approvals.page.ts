@@ -1,7 +1,6 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -10,27 +9,29 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule } from 'ng-zorro-antd/modal';
+import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { AdminApi, ApprovalDto } from '@core/api/admin.api';
-import { applyProblemDetailsToForm, asProblem, problemMessage, controlError } from '@core/http/problem-details';
-import { RevealDirective } from '@shared/directives/reveal.directive';
-import { matchText, TableToolsComponent } from '@shared/components/table-tools/table-tools.component';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { AdminApi, ApprovalDto } from '@core/api/admin.api';
+import { doneText } from '@core/format/done-text';
+import { controlError, problemMessage } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
-import { NzSelectModule } from 'ng-zorro-antd/select';
-import { FormsModule } from '@angular/forms';
-import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { TableToolsComponent, matchText } from '@shared/components/table-tools/table-tools.component';
+import { revealErrors } from '@shared/forms/form-validation';
+import { showFormSaveError } from '@shared/forms/save-errors';
+import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
 
 /** Approval inbox: requests waiting for me (approvers) and the ones I raised, with approve / reject / withdraw. */
 @Component({
   selector: 'erp-approvals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzModalModule, ErpLabelPipe, ErpDatePipe, StatusTagComponent, StatePanelComponent, FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, RevealDirective, ReactiveFormsModule, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
+  imports: [NzModalModule, ErpLabelPipe, ErpDatePipe, StatusTagComponent, StatePanelComponent, FormsModule, NzSelectModule, TableToolsComponent, TranslatePipe, DecimalPipe, NzToolTipModule, ReactiveFormsModule, NzTableModule, NzTabsModule, NzTagModule, NzButtonModule, NzDrawerModule, NzFormModule, NzInputModule, NzInputNumberModule, NzIconModule],
   styleUrl: './approvals.page.scss',
   templateUrl: './approvals.page.html',
 })
@@ -57,9 +58,10 @@ export class ApprovalsPage {
   /** How many levels the request has (steps that were cancelled or never reached still count). */
   levels(a: ApprovalDto): number { return a.steps?.length ?? 0; }
 
+  /** Shows the request at once, then its full step history when that arrives. */
   showSteps(a: ApprovalDto): void {
     this.detail.set(a);
-    this.api.approval(a.id).subscribe({ next: (full) => this.detail.set(full), error: () => undefined });
+    loadInto(this.detail, this.api.approval(a.id));
   }
 
   err(name: string): string { return controlError(this.form.get(name)); }
@@ -73,16 +75,14 @@ export class ApprovalsPage {
   open(): void { this.form.reset({ subject: '', justification: '', amount: null }); this.drawerOpen.set(true); }
 
   submit(): void {
-    if (this.form.invalid) { Object.values(this.form.controls).forEach((c) => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) { revealErrors(this.form); return; }
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.api.submitApproval({ subject: v.subject, justification: v.justification || null, amount: v.amount, legalEntityId: null }).subscribe({
       next: () => { this.saving.set(false); this.drawerOpen.set(false); this.message.success(doneText('submitted', 'Approval request', v.subject)); this.load(); },
       error: (e) => {
         this.saving.set(false);
-        const p = asProblem(e);
-        const rest = p ? applyProblemDetailsToForm(this.form, p) : [];
-        this.message.error(rest[0] ?? p?.detail ?? p?.title ?? 'Could not submit the request');
+        showFormSaveError(this.form, e, this.message, 'Could not submit the request');
       },
     });
   }

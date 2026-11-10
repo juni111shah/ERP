@@ -10,14 +10,16 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { ProblemDetails } from '@core/api/api.models';
 import { BillingCycle, BillingOverview, PlatformApi, PublicPlan } from '@core/api/platform.api';
 import { statusWords } from '@core/format/subscription';
-import { asProblem, problemMessage } from '@core/http/problem-details';
+import { problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
-import { ErpDatePipe, ErpMoneyPipe } from '@shared/pipes/display.pipes';
 import { PlanCardComponent } from '@shared/components/plan-card/plan-card.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { UsageBarComponent } from '@shared/components/usage-bar/usage-bar.component';
+import { showDrawerSaveError } from '@shared/forms/save-errors';
+import { ErpDatePipe, ErpMoneyPipe } from '@shared/pipes/display.pipes';
+import { PLAN_REQUEST_FIELDS, trialLeftText } from '../../admin-billing';
 
 /** A workspace's own plan: where it stands, what is owed, and a way to ask for a different plan. */
 @Component({
@@ -42,15 +44,9 @@ export class BillingPage {
   readonly errors = signal<ProblemDetails | null>(null);
   readonly canManage = computed(() => this.session.hasPermission('core.billing.manage'));
   readonly statusText = computed(() => statusWords(this.data()?.summary.status));
-  readonly trialLeft = computed(() => {
-    const days = this.data()?.summary.trialDaysLeft ?? 0;
-    return days <= 0 ? 'today' : days === 1 ? '1 day left' : `${days} days left`;
-  });
+  readonly trialLeft = computed(() => trialLeftText(this.data()?.summary.trialDaysLeft ?? 0));
   readonly askValue = computed<Record<string, unknown>>(() => ({ cycle: this.cycle(), note: null }));
-  readonly fields: FieldSpec[] = [
-    { key: 'cycle', label: 'Billing cycle', type: 'select', required: true, options: [{ value: 'monthly', label: 'Monthly' }, { value: 'annual', label: 'Annual' }] },
-    { key: 'note', label: 'Note for our team (optional)', type: 'textarea', maxLength: 400 },
-  ];
+  readonly fields: FieldSpec[] = PLAN_REQUEST_FIELDS;
 
   constructor() { this.load(); }
 
@@ -70,6 +66,7 @@ export class BillingPage {
     this.asking.set(plan);
   }
 
+  /** Sends the request to move to the plan being asked about. */
   send(v: Record<string, unknown>): void {
     const plan = this.asking();
     if (!plan) return;
@@ -79,9 +76,7 @@ export class BillingPage {
       next: (d) => { this.saving.set(false); this.asking.set(null); this.show(d); this.message.success(`Plan change request for ${plan.name} sent. Our team will be in touch.`); },
       error: (e) => {
         this.saving.set(false);
-        const problem = asProblem(e);
-        this.errors.set(problem);
-        if (!problem?.errors) this.message.error(problemMessage(e, 'Could not send the request'));
+        showDrawerSaveError(e, this.errors, this.message, 'Could not send the request');
       },
     });
   }

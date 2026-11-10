@@ -1,4 +1,3 @@
-import { doneText } from '@core/format/done-text';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -12,42 +11,19 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { Observable } from 'rxjs';
 import { ProblemDetails } from '@core/api/api.models';
-import { AiProviderInput, AiProviderView, AssistantBot, AssistantConsoleView, PlatformApi } from '@core/api/platform.api';
-import { asProblem, problemMessage } from '@core/http/problem-details';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
-import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { AiProviderView, AssistantBot, AssistantConsoleView, PlatformApi } from '@core/api/platform.api';
+import { doneText } from '@core/format/done-text';
+import { problemMessage } from '@core/http/problem-details';
+import { RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { AI_PROVIDER_PRESETS, coverageWarnings, moved, presetValues } from '../../ai-providers';
+import { showDrawerSaveError } from '@shared/forms/save-errors';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
+import { AI_PROVIDER_ADD_FIELDS, AI_PROVIDER_EDIT_FIELDS, coverageWarnings, moved, providerDrawerValue, toAiProviderInput, tokensUsedToday } from '../../ai-providers';
 import { AssistantTryComponent } from '../../components/assistant-try/assistant-try.component';
+import { DrawerValue } from '../../platform-forms';
 import { PLATFORM_STYLES } from '../../platform-ui';
-
-const COMMON_FIELDS: FieldSpec[] = [
-  { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 80, hint: 'Only you see this.' },
-  { key: 'baseUrl', label: 'Address', type: 'text', required: true, maxLength: 300, hint: 'The part before /chat/completions. It must start with https://.' },
-  { key: 'model', label: 'Model', type: 'text', required: true, maxLength: 150, hint: "Copy the exact name from the service's model list." },
-];
-const USE_FIELDS: FieldSpec[] = [
-  { key: 'useForBrand', label: 'Use for the public assistant', type: 'switch', default: true, hint: 'Visitor questions are sent to this service.' },
-  { key: 'useForWorkspace', label: 'Clear for client data', type: 'switch', default: false, hint: "The workspace assistant sends client data to this service. Read its data terms first, and leave this off for free plans that may keep or review what you send." },
-];
-const ADD_FIELDS: FieldSpec[] = [
-  {
-    key: 'preset', label: 'Service', type: 'select', default: 'groq', options: AI_PROVIDER_PRESETS.map((p) => ({ value: p.value, label: p.label })),
-    hint: 'Fills in the details below. Any service that uses the same chat format works.',
-    onChange: (value) => presetValues(value),
-  },
-  { ...COMMON_FIELDS[0], default: presetValues('groq')!.name },
-  { ...COMMON_FIELDS[1], default: presetValues('groq')!.baseUrl },
-  { ...COMMON_FIELDS[2], default: presetValues('groq')!.model },
-  { key: 'apiKey', label: 'API key', type: 'password', required: true, hint: 'It is stored encrypted and is never shown again.' },
-  ...USE_FIELDS,
-];
-const EDIT_FIELDS: FieldSpec[] = [
-  ...COMMON_FIELDS,
-  { key: 'apiKey', label: 'New API key', type: 'password', hint: 'Leave empty to keep the current key. If you change the address, you must paste the key again.' },
-  ...USE_FIELDS,
-];
 
 /** The founder's control of the AI assistants: where they appear, which services answer, and the keys to those services. */
 @Component({
@@ -80,8 +56,8 @@ export class PlatformAssistantPage {
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
 
-  readonly addFields = ADD_FIELDS;
-  readonly editFields = EDIT_FIELDS;
+  readonly addFields = AI_PROVIDER_ADD_FIELDS;
+  readonly editFields = AI_PROVIDER_EDIT_FIELDS;
   readonly view = signal<AssistantConsoleView | null>(null);
   readonly failed = signal(false);
   readonly busy = signal(false);
@@ -90,9 +66,9 @@ export class PlatformAssistantPage {
   readonly saving = signal(false);
   readonly errors = signal<ProblemDetails | null>(null);
   readonly editing = signal<AiProviderView | null>(null);
-  readonly editValue = computed<Record<string, unknown> | null>(() => {
+  readonly editValue = computed<DrawerValue | null>(() => {
     const p = this.editing();
-    return p ? { name: p.name, baseUrl: p.baseUrl, model: p.model, useForBrand: p.useForBrand, useForWorkspace: p.useForWorkspace } : null;
+    return p ? providerDrawerValue(p) : null;
   });
   readonly warnings = computed(() => { const v = this.view(); return v ? coverageWarnings(v) : []; });
   readonly brandLimit = signal<number | null>(null);
@@ -107,7 +83,7 @@ export class PlatformAssistantPage {
 
   /** Fresh usage after a try-out. A failure here is not worth interrupting anyone for. */
   reload(): void {
-    this.api.assistant().subscribe({ next: (v) => this.view.set(v), error: () => undefined });
+    loadInto(this.view, this.api.assistant());
   }
 
   private show(v: AssistantConsoleView): void {
@@ -118,7 +94,7 @@ export class PlatformAssistantPage {
 
   /** Tokens one assistant has used today, across all its services. */
   used(bot: AssistantBot): number {
-    return (this.view()?.usageToday ?? []).filter((u) => u.bot === bot).reduce((sum, u) => sum + u.inputTokens + u.outputTokens, 0);
+    return tokensUsedToday(this.view(), bot);
   }
 
   saveLimits(): void {
@@ -160,11 +136,8 @@ export class PlatformAssistantPage {
   openAdd(): void { this.editing.set(null); this.errors.set(null); this.open.set(true); }
   openEdit(p: AiProviderView): void { this.editing.set(p); this.errors.set(null); this.open.set(true); }
 
-  save(v: Record<string, unknown>): void {
-    const input: AiProviderInput = {
-      name: v['name'] as string, baseUrl: v['baseUrl'] as string, model: v['model'] as string, apiKey: (v['apiKey'] as string | null) || null,
-      useForBrand: !!v['useForBrand'], useForWorkspace: !!v['useForWorkspace'],
-    };
+  save(v: DrawerValue): void {
+    const input = toAiProviderInput(v);
     const editing = this.editing();
     this.saving.set(true);
     this.errors.set(null);
@@ -172,13 +145,12 @@ export class PlatformAssistantPage {
       next: (view) => { this.saving.set(false); this.open.set(false); this.view.set(view); this.message.success(editing ? doneText('saved', 'AI service', input.name) : `${doneText('added', 'AI service', input.name)}. Press Test to check that it works.`); },
       error: (e) => {
         this.saving.set(false);
-        const problem = asProblem(e);
-        this.errors.set(problem);
-        if (!problem?.errors) this.message.error(problemMessage(e, 'Could not save this service'));
+        showDrawerSaveError(e, this.errors, this.message, 'Could not save this service');
       },
     });
   }
 
+  /** Runs a call that answers with the whole console view, keeping `busy` up while it runs. */
   private run(call: Observable<AssistantConsoleView>, failure: string, done?: () => void): void {
     this.busy.set(true);
     call.subscribe({
