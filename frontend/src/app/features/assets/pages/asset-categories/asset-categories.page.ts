@@ -8,11 +8,13 @@ import { AssetCategoriesApi, AssetCategoryDto, DEPRECIATION_METHODS } from '@cor
 import { createPagedList } from '@core/api/paged-list';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { loadInto } from '@shared/utils/load-into';
+import { MasterDataState } from '@shared/utils/master-data-state';
+import { depreciationMethodLabel } from '../../asset-labels';
 
 /** Asset categories: how long assets of a kind last, how they lose value and which accounts they post to. */
 @Component({
@@ -23,26 +25,27 @@ import { StatusTagComponent } from '@shared/components/status-tag/status-tag.com
   templateUrl: './asset-categories.page.html',
 })
 export class AssetCategoriesPage {
-  private readonly api = inject(AssetCategoriesApi);
-  private readonly accounts = inject(AccountsApi);
+  private readonly categoriesApi = inject(AssetCategoriesApi);
+  private readonly accountsApi = inject(AccountsApi);
   private readonly message = inject(NzMessageService);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
+  readonly list = createPagedList((q) => this.categoriesApi.list(q), { sort: 'code' });
+  /** "code · name" by account id, so an account already on a category shows its name in the drawer. */
   private readonly accountLabels = signal<Record<string, string>>({});
   readonly state = new MasterDataState<AssetCategoryDto>({
-    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)),
+    save: (id, body) => (id ? this.categoriesApi.update(id, body) : this.categoriesApi.create(body)),
     reload: () => this.list.reload(), message: this.message, entityName: 'Asset category',
   });
   readonly columns: TableColumn<AssetCategoryDto>[] = [
     { key: 'code', label: 'Code', sortField: 'code', width: '140px' },
     { key: 'name', label: 'Name', sortField: 'name' },
-    { key: 'method', label: 'Method', value: (c) => DEPRECIATION_METHODS.find((m) => m.value === c.method)?.label ?? c.method },
+    { key: 'method', label: 'Method', value: (c) => depreciationMethodLabel(c.method) },
     { key: 'lifeMonths', label: 'Life (months)', align: 'right', width: '130px' },
     { key: 'isActive', label: 'Active', value: (c) => yesNo(c.isActive) },
     { key: 'actions', label: 'Actions', align: 'right', filter: false, value: () => '' },
   ];
   private label = (key: string) => (r: Record<string, unknown>) => this.accountLabels()[String(r[key])] ?? String(r[key]);
   readonly fields = computed<FieldSpec[]>(() => {
-    const account = (key: string, label: string, required: boolean): FieldSpec => ({ key, label, type: 'lookup', required, lookup: this.accounts.lookup, currentLabel: this.label(key) });
+    const account = (key: string, label: string, required: boolean): FieldSpec => ({ key, label, type: 'lookup', required, lookup: this.accountsApi.lookup, currentLabel: this.label(key) });
     return [
       { key: 'code', label: 'Code', type: 'text', required: true, maxLength: 30 },
       { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 150 },
@@ -58,16 +61,13 @@ export class AssetCategoriesPage {
   });
 
   constructor() {
-    this.accounts.list({ page: 1, pageSize: 200, sort: 'code' }).subscribe({
-      next: (r) => this.accountLabels.set(Object.fromEntries(r.items.map((a) => [a.id, `${a.code} · ${a.name}`]))),
-      error: () => undefined,
-    });
+    loadInto(this.accountLabels, this.accountsApi.list({ page: 1, pageSize: 200, sort: 'code' }), (r) => Object.fromEntries(r.items.map((a) => [a.id, `${a.code} · ${a.name}`])));
   }
 
   edit(row: AssetCategoryDto): void { this.state.edit(row); }
 
   remove(row: AssetCategoryDto): void {
-    this.api.delete(row.id).subscribe({
+    this.categoriesApi.delete(row.id).subscribe({
       next: () => { this.message.success(doneText('deleted', 'Asset category', row.name)); this.list.reload(); },
       error: (e) => this.message.error(problemMessage(e, 'Could not delete this category')),
     });

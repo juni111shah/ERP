@@ -1,22 +1,24 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { catchError, map, of } from 'rxjs';
-import { NzInputModule } from 'ng-zorro-antd/input';
 import { RouterModule } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { catchError, map, of } from 'rxjs';
 import { ItemsApi } from '@core/api/admin.api';
+import { MovementRow, MovementsApi } from '@core/api/inventory.api';
 import { createPagedList } from '@core/api/paged-list';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
-import { MovementRow, MovementsApi, WarehousesApi } from '@core/api/inventory.api';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { injectWarehouseList, warehouseNameMap } from '../../inventory-warehouses';
 
 const MOVEMENT_KINDS = [{ value: 'receipt', label: 'Receipt' }, { value: 'issue', label: 'Issue' }, { value: 'adjustment', label: 'Adjustment' }, { value: 'transferIn', label: 'Transfer in' }, { value: 'transferOut', label: 'Transfer out' }];
 
+/** The stock ledger: every receipt, issue, transfer and adjustment, newest first, filterable by item, warehouse, type and reference. */
 @Component({
   selector: 'erp-movements',
   standalone: true,
@@ -26,19 +28,14 @@ const MOVEMENT_KINDS = [{ value: 'receipt', label: 'Receipt' }, { value: 'issue'
   templateUrl: './movements.page.html',
 })
 export class MovementsPage {
-  reference = '';
-  filterReference(value: string): void {
-    this.reference = value;
-    this.list.setFilters(value.trim() ? [{ field: 'reference', op: 'eq', value: value.trim() }] : []);
-  }
-
-  private readonly api = inject(MovementsApi);
+  private readonly movementsApi = inject(MovementsApi);
   readonly currency = inject(WorkspaceCurrencyService).currency;
-  readonly list = createPagedList((q) => this.api.list(q), { sort: '-date' });
+  readonly list = createPagedList((q) => this.movementsApi.list(q), { sort: '-date' });
+  reference = '';
   /** The API sends only ids on a movement, so the names come from these two lists (200 rows each at most). */
-  private readonly warehouses = toSignal(inject(WarehousesApi).list({ page: 1, pageSize: 200, sort: 'code' }).pipe(map((r) => r.items), catchError(() => of([]))), { initialValue: [] });
+  private readonly warehouses = injectWarehouseList();
   private readonly itemNames = toSignal(inject(ItemsApi).list({ page: 1, pageSize: 200 }).pipe(map((r) => new Map(r.items.map((i) => [i.id, `${i.sku} · ${i.name}`]))), catchError(() => of(new Map<string, string>()))), { initialValue: new Map<string, string>() });
-  private readonly warehouseNames = computed(() => new Map(this.warehouses().map((w) => [w.id, w.name])));
+  private readonly warehouseNames = computed(() => warehouseNameMap(this.warehouses()));
 
   /** Only the date can be sorted on the server; kind and warehouse are server filters. */
   readonly columns = computed<TableColumn<MovementRow>[]>(() => [
@@ -52,4 +49,10 @@ export class MovementsPage {
     { key: 'memo', label: 'Notes', hidden: true },
     { key: 'journal', label: 'Ledger entry', width: '100px', filter: false },
   ]);
+
+  /** Shows only the movements of one reference (a document number); empty shows all. */
+  filterReference(value: string): void {
+    this.reference = value;
+    this.list.setFilters(value.trim() ? [{ field: 'reference', op: 'eq', value: value.trim() }] : []);
+  }
 }

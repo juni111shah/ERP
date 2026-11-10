@@ -8,6 +8,7 @@ import { RetailKpiApi, RetailKpiSummaryDto } from '@core/api/retail.api';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 
+/** Retail at a glance: store, price list and promotion counts, with a link to the stores. */
 @Component({
   selector: 'erp-retail-analytics-page',
   standalone: true,

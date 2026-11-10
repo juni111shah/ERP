@@ -11,7 +11,8 @@ import { meWith } from '@features/industry/industry.fixtures.spec';
 import { AssetDetailPage } from './pages/asset-detail/asset-detail.page';
 import { AssetRegisterPage } from './pages/asset-register/asset-register.page';
 import { AssetReportsPage } from './pages/asset-reports/asset-reports.page';
-import { DepreciationPage, previousMonth } from './pages/depreciation/depreciation.page';
+import { previousMonth } from './asset-periods';
+import { DepreciationPage } from './pages/depreciation/depreciation.page';
 
 const page = (items: unknown[]) => ({ items, total: items.length, page: 1, pageSize: 25, totalPages: 1, hasNext: false, hasPrevious: false });
 const CATEGORY = { id: 'c1', code: 'VEH', name: 'Vehicles', lifeMonths: 60, method: 'straightLine', decliningRatePercent: null, assetAccountId: 'a1', accumulatedDepreciationAccountId: 'a2', depreciationExpenseAccountId: 'a3', disposalGainLossAccountId: null, isActive: true };

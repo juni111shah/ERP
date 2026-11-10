@@ -1,7 +1,6 @@
-import { doneText } from '@core/format/done-text';
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { AbstractControl, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { Component, inject, OnInit, signal } from '@angular/core';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
@@ -18,35 +17,59 @@ import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { LegalEntitiesApi } from '@core/api/admin.api';
-import { displayLabel } from '@core/format/display';
-import {
-  CreatePromotionInput,
-  PromotionType,
-  PromoValidationResultDto,
-  RetailPromotionDto,
-  RetailPromotionsApi
-} from '@core/api/retail.api';
 import { createPagedList } from '@core/api/paged-list';
-import { SessionStore } from '@core/session/session.store';
-import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { CreatePromotionInput, PromotionType, PromoValidationResultDto, RetailPromotionDto, RetailPromotionsApi } from '@core/api/retail.api';
 import { toIsoDate } from '@core/format/dates';
+import { displayLabel } from '@core/format/display';
+import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
+import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { SessionStore } from '@core/session/session.store';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
+import { defaultEntityId, localDay, notBeforeStart, PromotionFormValue, revealInvalid } from '../../retail-forms';
+import { RetailLookups } from '../../retail-lookups';
 
-/** The end date field must not fall before the start date field of the same form. */
-const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErrors | null => {
-  const start = c.parent?.get(startKey)?.value;
-  return start && c.value && toIsoDate(new Date(c.value)) < toIsoDate(new Date(start)) ? { beforeStart: true } : null;
-};
+const DAY_MS = 86400000;
 
+/** The types this form can create; any other is kept only when editing a promotion that already has it. */
+const FORM_TYPES: PromotionType[] = ['percentageDiscount', 'fixedAmountDiscount'];
+
+/** What the promotion is doing today: the switch alone does not say whether it has ended or used up its limit. */
+function promoStatus(row: RetailPromotionDto): string {
+  if (!row.isActive) return 'inactive';
+  const today = toIsoDate(new Date());
+  if (row.startDate > today) return 'scheduled';
+  if (row.endDate < today) return 'expired';
+  if (row.usageLimit && row.timesUsed >= row.usageLimit) return 'limitReached';
+  return 'active';
+}
+
+/** The API body from the form: the code in capitals, dates as the local calendar days picked. */
+function toPromotionInput(val: PromotionFormValue, customFields: string | null): CreatePromotionInput {
+  return {
+    legalEntityId: val.legalEntityId,
+    code: val.code.toUpperCase(),
+    name: val.name,
+    type: val.type,
+    discountValue: val.discountValue,
+    minimumOrderAmount: val.minimumOrderAmount,
+    startDate: toIsoDate(new Date(val.startDate)),
+    endDate: toIsoDate(new Date(val.endDate)),
+    usageLimit: val.usageLimit,
+    isActive: val.isActive,
+    description: val.description,
+    customFields,
+  };
+}
+
+/** Retail promotions: the paged list, the create/edit modal and a simulator that tries a code on an order total. */
 @Component({
   selector: 'erp-promotions-page',
   standalone: true,
-  imports: [ErpDatePipe, ErpLabelPipe, NzPopconfirmModule, StatusTagComponent, 
+  imports: [ErpDatePipe, ErpLabelPipe, NzPopconfirmModule, StatusTagComponent,
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -67,19 +90,20 @@ const notBeforeStart = (startKey: string) => (c: AbstractControl): ValidationErr
     PagedTableComponent,
     HasPermissionDirective,
   ],
+  providers: [RetailLookups],
   templateUrl: './promotions.page.html',
   styleUrl: './promotions.page.scss'
 })
 export class PromotionsPageComponent implements OnInit {
   private readonly promotionsApi = inject(RetailPromotionsApi);
-  private readonly legalEntitiesApi = inject(LegalEntitiesApi);
+  private readonly lookups = inject(RetailLookups);
   private readonly sessionStore = inject(SessionStore);
   private readonly fb = inject(FormBuilder);
   private readonly msg = inject(NzMessageService);
   private readonly currencyService = inject(WorkspaceCurrencyService);
 
   readonly currency = this.currencyService.currency;
-  readonly entities = signal<{ id: string; name: string }[]>([]);
+  readonly entities = this.lookups.entities;
   readonly isSaving = signal(false);
   readonly editingId = signal<string | null>(null);
   /** A type this form cannot create, kept selectable when editing a promotion that has it. */
@@ -101,7 +125,7 @@ export class PromotionsPageComponent implements OnInit {
     discountValue: [10, [Validators.required, Validators.min(0.01)]],
     minimumOrderAmount: [null],
     startDate: [new Date(), [Validators.required]],
-    endDate: [new Date(Date.now() + 30 * 86400000), [Validators.required, notBeforeStart('startDate')]],
+    endDate: [new Date(Date.now() + 30 * DAY_MS), [Validators.required, notBeforeStart('startDate')]],
     usageLimit: [null],
     isActive: [true],
     description: ['']
@@ -122,19 +146,12 @@ export class PromotionsPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.form.get('startDate')!.valueChanges.subscribe(() => this.form.get('endDate')!.updateValueAndValidity());
-    this.legalEntitiesApi.list({ page: 1, pageSize: 50 }).subscribe({
-      next: res => this.entities.set(res.items)
-    });
+    this.lookups.loadEntities();
   }
 
   /** What the promotion is doing today: the switch alone does not say whether it has ended or used up its limit. */
   promoStatus(row: RetailPromotionDto): string {
-    if (!row.isActive) return 'inactive';
-    const today = toIsoDate(new Date());
-    if (row.startDate > today) return 'scheduled';
-    if (row.endDate < today) return 'expired';
-    if (row.usageLimit && row.timesUsed >= row.usageLimit) return 'limitReached';
-    return 'active';
+    return promoStatus(row);
   }
 
   getUsagePercent(used: number, limit: number): number {
@@ -145,7 +162,7 @@ export class PromotionsPageComponent implements OnInit {
   openEditModal(row: RetailPromotionDto): void {
     this.editingId.set(row.id);
     this.editingCustomFields = row.customFields ?? null;
-    this.otherType.set(row.type === 'percentageDiscount' || row.type === 'fixedAmountDiscount' ? null : row.type);
+    this.otherType.set(FORM_TYPES.includes(row.type) ? null : row.type);
     this.form.reset({
       legalEntityId: row.legalEntityId,
       code: row.code,
@@ -153,8 +170,8 @@ export class PromotionsPageComponent implements OnInit {
       type: row.type,
       discountValue: row.discountValue,
       minimumOrderAmount: row.minimumOrderAmount ?? null,
-      startDate: new Date(`${row.startDate}T00:00:00`),
-      endDate: new Date(`${row.endDate}T00:00:00`),
+      startDate: localDay(row.startDate),
+      endDate: localDay(row.endDate),
       usageLimit: row.usageLimit ?? null,
       isActive: row.isActive,
       description: row.description ?? ''
@@ -179,14 +196,14 @@ export class PromotionsPageComponent implements OnInit {
     this.otherType.set(null);
     this.form.get('legalEntityId')!.enable({ emitEvent: false });
     this.form.reset({
-      legalEntityId: this.entities().find(e => e.id === this.sessionStore.currentEntityId())?.id || this.entities()[0]?.id || '',
+      legalEntityId: defaultEntityId(this.entities(), this.sessionStore.currentEntityId()),
       code: '',
       name: '',
       type: 'percentageDiscount',
       discountValue: 10,
       minimumOrderAmount: null,
       startDate: new Date(),
-      endDate: new Date(Date.now() + 30 * 86400000),
+      endDate: new Date(Date.now() + 30 * DAY_MS),
       usageLimit: null,
       isActive: true,
       description: ''
@@ -219,7 +236,7 @@ export class PromotionsPageComponent implements OnInit {
 
     this.isSimulating.set(true);
     this.promotionsApi.validateCode(entityId, this.simCode, this.simTotal).subscribe({
-      next: res => {
+      next: (res) => {
         this.simResult.set(res);
         this.isSimulating.set(false);
       },
@@ -232,31 +249,13 @@ export class PromotionsPageComponent implements OnInit {
 
   savePromotion(): void {
     if (this.form.invalid) {
-      Object.values(this.form.controls).forEach(c => {
-        if (c.invalid) {
-          c.markAsDirty();
-          c.updateValueAndValidity({ onlySelf: true });
-        }
-      });
+      revealInvalid(this.form);
       return;
     }
 
     this.isSaving.set(true);
-    const val = this.form.getRawValue();
-    const input: CreatePromotionInput = {
-      legalEntityId: val.legalEntityId,
-      code: val.code.toUpperCase(),
-      name: val.name,
-      type: val.type,
-      discountValue: val.discountValue,
-      minimumOrderAmount: val.minimumOrderAmount,
-      startDate: toIsoDate(new Date(val.startDate)),
-      endDate: toIsoDate(new Date(val.endDate)),
-      usageLimit: val.usageLimit,
-      isActive: val.isActive,
-      description: val.description,
-      customFields: this.editingCustomFields
-    };
+    const val = this.form.getRawValue() as PromotionFormValue;
+    const input = toPromotionInput(val, this.editingCustomFields);
 
     const id = this.editingId();
     (id ? this.promotionsApi.update(id, input) : this.promotionsApi.create(input)).subscribe({

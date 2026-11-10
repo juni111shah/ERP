@@ -12,6 +12,7 @@ export const round2 = (n: number): number => {
 /** Quantities keep the four decimals the database holds. */
 export const roundQty = (n: number): number => Math.round((n + Number.EPSILON) * 10000) / 10000;
 
+/** One line on the till's ticket. */
 export interface CartLine {
   /** Stable key on the ticket: the item id, or a generated one for a typed-in item. */
   key: string;
@@ -29,6 +30,7 @@ export interface CartLine {
   promoDiscount?: number;
 }
 
+/** What one line charges, step by step. */
 export interface LineAmounts {
   /** the line's share of a promo code discount */
   promo: number;
@@ -49,6 +51,7 @@ export function lineAmounts(l: Pick<CartLine, 'quantity' | 'unitPrice' | 'discou
   return { gross, discount, promo, net, tax, total: round2(net + tax) };
 }
 
+/** The ticket's totals, with the number of units on it. */
 export interface CartTotals {
   promo: number;
   gross: number;
@@ -59,6 +62,7 @@ export interface CartTotals {
   units: number;
 }
 
+/** The sum of the lines' rounded amounts, so the total equals what the server charges. */
 export function cartTotals(lines: readonly CartLine[]): CartTotals {
   const t: CartTotals = { gross: 0, discount: 0, promo: 0, net: 0, tax: 0, total: 0, units: 0 };
   for (const l of lines) {
@@ -172,10 +176,12 @@ export interface Tender {
   reference?: string;
 }
 
+/** What the tenders add up to. */
 export function tenderedTotal(tenders: readonly Tender[]): number {
   return round2(tenders.reduce((sum, t) => sum + t.amount, 0));
 }
 
+/** What is still to pay after these tenders, never below zero. */
 export function remainingDue(total: number, tenders: readonly Tender[]): number {
   return Math.max(0, round2(total - tenderedTotal(tenders)));
 }
@@ -221,6 +227,7 @@ export function cartSignature(lines: readonly CartLine[]): string {
   return lines.map((l) => `${l.key}|${l.quantity}|${l.unitPrice}|${l.discountPercent}`).join(';');
 }
 
+/** How each way of paying is named on screen. */
 export const TENDER_LABELS: Record<PosPaymentMethod, string> = {
   cash: 'Cash',
   card: 'Card',
@@ -228,3 +235,8 @@ export const TENDER_LABELS: Record<PosPaymentMethod, string> = {
   account: 'On account',
   giftCard: 'Gift card',
 };
+
+/** The name of a way of paying, or the method as the server sent it when it is not one the till knows. */
+export function tenderName(method: string): string {
+  return TENDER_LABELS[method as PosPaymentMethod] ?? method;
+}

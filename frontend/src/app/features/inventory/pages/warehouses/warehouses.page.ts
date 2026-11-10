@@ -2,16 +2,17 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { InventoryLookups, WarehouseRow, WarehousesApi } from '@core/api/inventory.api';
 import { createPagedList } from '@core/api/paged-list';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { MasterDataState } from '@shared/utils/master-data-state';
+import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
-import { InventoryLookups, WarehouseRow, WarehousesApi } from '@core/api/inventory.api';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { RevealDirective } from '@shared/directives/reveal.directive';
-import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { MasterDataState } from '@shared/utils/master-data-state';
 
+/** Warehouses: the paged list and the create/edit drawer. */
 @Component({
   selector: 'erp-warehouses',
   standalone: true,
@@ -26,11 +27,14 @@ import { TranslatePipe } from '@core/i18n/translate.pipe';
                        (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class WarehousesPage {
-  private readonly api = inject(WarehousesApi);
+  private readonly warehousesApi = inject(WarehousesApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(InventoryLookups);
-  readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
-  readonly state = new MasterDataState<WarehouseRow>({ save: (id, body) => (id ? this.api.update(id, body as never) : this.api.create(body as never)), reload: () => this.list.reload(), message: this.message, entityName: 'Warehouse' });
+  readonly list = createPagedList((q) => this.warehousesApi.list(q), { sort: 'code' });
+  readonly state = new MasterDataState<WarehouseRow>({
+    save: (id, body) => (id ? this.warehousesApi.update(id, body) : this.warehousesApi.create(body)),
+    reload: () => this.list.reload(), message: this.message, entityName: 'Warehouse',
+  });
   readonly columns: TableColumn<WarehouseRow>[] = [
     { key: 'code', label: 'Code', sortField: 'code', width: '140px' }, { key: 'name', label: 'Name', sortField: 'name' }, { key: 'address', label: 'Address' },
     { key: 'isActive', label: 'Active', value: (w) => (w.isActive ? 'Yes' : 'No'), width: '90px' },

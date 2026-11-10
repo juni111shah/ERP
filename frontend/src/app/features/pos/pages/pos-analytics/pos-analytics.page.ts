@@ -8,27 +8,15 @@ import { NzGridModule } from 'ng-zorro-antd/grid';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
-import { DashboardChart } from '@core/api/admin.api';
 import { PosKpiApi, PosOrdersApi, PosRegisterDto, PosRegistersApi, PosSalesGroupDto, PosSalesReportDto, PosSessionSummaryDto, PosSessionsApi } from '@core/api/pos.api';
-import { toIsoDate } from '@core/format/dates';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { SimpleChartComponent } from '@shared/components/simple-chart/simple-chart.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { countByStatus, StatusCount, StatusCountsComponent } from '@features/sales/components/status-counts/status-counts.component';
-import { TENDER_LABELS } from '../../pos-cart';
-
-const ORDER_STATUSES = ['completed', 'parked', 'voided'];
-
-type RangeKey = 'today' | 'yesterday' | '7d' | '30d' | 'month';
-
-/** Days counted on the shop's calendar date, whatever the browser's own clock says. */
-const dayOffset = (isoDate: string, days: number): string => {
-  const d = new Date(`${isoDate}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-};
+import { dayChart, hourChart, ORDER_STATUSES, RANGES, RangeKey, reportPeriod } from '../../pos-analytics';
+import { tenderName } from '../../pos-cart';
 
 /** End-of-day and period figures: what was sold, how it was paid, who sold it and what sold best. */
 @Component({
@@ -47,13 +35,7 @@ export class PosAnalyticsPage {
   private readonly currencyService = inject(WorkspaceCurrencyService);
 
   readonly currency = this.currencyService.currency;
-  readonly ranges: { key: RangeKey; label: string }[] = [
-    { key: 'today', label: 'Today' },
-    { key: 'yesterday', label: 'Yesterday' },
-    { key: '7d', label: '7 days' },
-    { key: '30d', label: '30 days' },
-    { key: 'month', label: 'This month' },
-  ];
+  readonly ranges = RANGES;
   private readonly shopToday = signal<string | null>(null);
   readonly range = signal<RangeKey | null>('today');
   readonly picked = signal<Date[] | null>(null);
@@ -68,23 +50,8 @@ export class PosAnalyticsPage {
   readonly shifts = signal<PosSessionSummaryDto[] | null>(null);
   readonly shiftsFailed = signal(false);
 
-  readonly dayChart = computed<DashboardChart>(() => {
-    const days = this.report()?.days ?? [];
-    return {
-      key: 'pos-days', title: 'Sales by day', kind: 'bar', order: 1,
-      categories: days.map((d) => d.date),
-      series: [{ name: 'Sales', values: days.map((d) => d.sales) }, { name: 'Returns', values: days.map((d) => d.returns) }],
-    } as DashboardChart;
-  });
-
-  readonly hourChart = computed<DashboardChart>(() => {
-    const hours = this.report()?.hours ?? [];
-    return {
-      key: 'pos-hours', title: 'Busiest hours', kind: 'bar', order: 2, singleColor: true,
-      categories: hours.map((h) => `${String(h.hour).padStart(2, '0')}:00`),
-      series: [{ name: 'Sales', values: hours.map((h) => h.sales) }],
-    } as DashboardChart;
-  });
+  readonly dayChart = computed(() => dayChart(this.report()));
+  readonly hourChart = computed(() => hourChart(this.report()));
 
   constructor() {
     this.registersApi.list({ page: 1, pageSize: 100 }).subscribe({ next: (r) => this.registers.set(r.items), error: () => this.registers.set([]) });
@@ -92,7 +59,7 @@ export class PosAnalyticsPage {
   }
 
   tender(method: string): string {
-    return TENDER_LABELS[method as keyof typeof TENDER_LABELS] ?? method;
+    return tenderName(method);
   }
 
   asGroups(rows: unknown): PosSalesGroupDto[] {
@@ -118,21 +85,6 @@ export class PosAnalyticsPage {
     this.loadReport();
   }
 
-  /** No dates for today: the server knows the shop's day, and the first answer tells this page what day that is. */
-  private period(): { from?: string; to?: string } {
-    const picked = this.picked();
-    if (picked?.length === 2) return { from: toIsoDate(picked[0]), to: toIsoDate(picked[1]) };
-    const today = this.shopToday();
-    if (!today) return {};
-    switch (this.range()) {
-      case 'yesterday': return { from: dayOffset(today, -1), to: dayOffset(today, -1) };
-      case '7d': return { from: dayOffset(today, -6), to: today };
-      case '30d': return { from: dayOffset(today, -29), to: today };
-      case 'month': return { from: `${today.slice(0, 8)}01`, to: today };
-      default: return { from: today, to: today };
-    }
-  }
-
   loadMetrics(): void {
     this.loadReport();
     this.loadCounts();
@@ -140,7 +92,8 @@ export class PosAnalyticsPage {
   }
 
   private loadReport(): void {
-    const { from, to } = this.period();
+    // No dates for today: the server knows the shop's day, and the first answer tells this page what day that is.
+    const { from, to } = reportPeriod(this.range(), this.picked(), this.shopToday());
     this.loading.set(true);
     this.failed.set(false);
     this.kpiApi.salesReport(from, to, this.registerId()).subscribe({

@@ -126,7 +126,20 @@ export interface PosPaymentInput {
 /** What a ticket would cost with a promo code and quantity breaks, worked out by the server. Nothing is saved or used up. */
 export interface PosQuoteDto {
   subTotal: number; taxTotal: number; discountTotal: number; totalAmount: number; promoCode: string | null; promoName: string | null; promoDiscount: number;
-  lines: { itemId?: string | null; itemCode: string; description: string; quantity: number; unitPrice: number; discountPercent: number; promoDiscount: number; taxRate: number; lineTotal: number }[];
+  lines: PosQuoteLineDto[];
+}
+
+/** One line of a {@link PosQuoteDto}: the price, discount and promo share the server would charge. */
+export interface PosQuoteLineDto {
+  itemId?: string | null; itemCode: string; description: string; quantity: number; unitPrice: number; discountPercent: number; promoDiscount: number; taxRate: number; lineTotal: number;
+}
+
+/** The ticket the till asks a quote for. */
+export interface PosQuoteCommand {
+  legalEntityId: string;
+  customerPartyId?: string | null;
+  lines: PosOrderLineInput[];
+  promoCode?: string | null;
 }
 
 export interface CreatePosOrderCommand {
@@ -327,6 +340,20 @@ export interface PosCatalogItemDto {
   onHand: number | null;
 }
 
+/** What the till looks up in the catalogue: a search text, or an exact barcode / SKU. Empty values are left out of the request. */
+export interface PosCatalogQuery {
+  registerId?: string;
+  search?: string;
+  code?: string;
+  pageSize?: number;
+}
+
+/** One page of the till's catalogue and how many items match in all. */
+export interface PosCatalogPage {
+  items: PosCatalogItemDto[];
+  total: number;
+}
+
 export interface PosCustomerDto {
   id: string;
   code: string;
@@ -464,7 +491,7 @@ export class PosOrdersApi extends CrudApiService<PosOrderSummaryDto, CreatePosOr
     return this.http.delete<void>(`${this.url}/${id}/park`);
   }
 
-  quote(cmd: { legalEntityId: string; customerPartyId?: string | null; lines: PosOrderLineInput[]; promoCode?: string | null }): Observable<PosQuoteDto> {
+  quote(cmd: PosQuoteCommand): Observable<PosQuoteDto> {
     return this.http.post<PosQuoteDto>(`${this.url}/quote`, cmd);
   }
 
@@ -504,9 +531,9 @@ export class PosTerminalApi {
     return this.http.get<PosSessionDto | null>(`${this.url}/session`, { params: { registerId } });
   }
 
-  catalog(query: { registerId?: string; search?: string; code?: string; pageSize?: number }): Observable<{ items: PosCatalogItemDto[]; total: number }> {
+  catalog(query: PosCatalogQuery): Observable<PosCatalogPage> {
     const params = Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined && v !== '')) as Record<string, string | number>;
-    return this.http.get<{ items: PosCatalogItemDto[]; total: number }>(`${this.url}/catalog`, { params });
+    return this.http.get<PosCatalogPage>(`${this.url}/catalog`, { params });
   }
 
   customers(search: string): Observable<PosCustomerDto[]> {

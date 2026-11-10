@@ -11,7 +11,7 @@ import { WorkspaceCurrencyService } from '@core/services/workspace-currency.serv
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
-import { TENDER_LABELS } from '../../pos-cart';
+import { tenderName } from '../../pos-cart';
 
 /** Money given back at the counter, and why. Returns are taken on the terminal, against a receipt. */
 @Component({
@@ -23,12 +23,12 @@ import { TENDER_LABELS } from '../../pos-cart';
   styleUrl: './pos-returns.page.scss',
 })
 export class PosReturnsPage {
-  private readonly api = inject(PosReturnsApi);
+  private readonly returnsApi = inject(PosReturnsApi);
   private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
 
   readonly currency = this.currencyService.currency;
-  readonly list = createPagedList<PosReturnSummaryDto>((q: any) => this.api.list(q), { sort: '-returnDate' });
+  readonly list = createPagedList<PosReturnSummaryDto>((q) => this.returnsApi.list(q), { sort: '-returnDate' });
   readonly columns: TableColumn<PosReturnSummaryDto>[] = [
     { key: 'number', label: 'Return', sortField: 'number' },
     { key: 'originalNumber', label: 'Receipt' },
@@ -43,13 +43,13 @@ export class PosReturnsPage {
   readonly detail = signal<PosReturnDto | null>(null);
 
   tender(method: string): string {
-    return TENDER_LABELS[method as keyof typeof TENDER_LABELS] ?? method;
+    return tenderName(method);
   }
 
   open(r: PosReturnSummaryDto): void {
     this.detail.set(null);
     this.drawerOpen.set(true);
-    this.api.get(r.id).subscribe({
+    this.returnsApi.get(r.id).subscribe({
       next: (d) => this.detail.set(d),
       error: () => {
         this.drawerOpen.set(false);

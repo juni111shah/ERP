@@ -1,7 +1,9 @@
-import { displayLabel } from '@core/format/display';
+import { formatNumber } from '@angular/common';
 import { PosOrderDto, PosReturnDto } from '@core/api/pos.api';
+import { displayLabel } from '@core/format/display';
 import { ThermalReceiptData } from '@shared/components/thermal-receipt/thermal-receipt.component';
 
+/** Who and where a receipt is from: the business, the register's wording and the currency. */
 export interface ReceiptContext {
   business?: string;
   /** The register's own wording; the name is left out when it cannot be read. */
@@ -52,6 +54,7 @@ export function saleReceipt(o: PosOrderDto, c: ReceiptContext): ThermalReceiptDa
   };
 }
 
+/** The refund receipt, against the sale it returns. */
 export function returnReceipt(r: PosReturnDto, c: ReceiptContext): ThermalReceiptData {
   return {
     organizationName: c.business,
@@ -87,5 +90,38 @@ export function returnReceipt(r: PosReturnDto, c: ReceiptContext): ThermalReceip
     })),
     referenceNo: r.creditNoteNumber ? `${r.number} / ${r.creditNoteNumber}` : undefined,
     notes: r.reason,
+  };
+}
+
+/** Everything the till's receipt dialog shows after a sale or a refund. */
+export interface ReceiptView {
+  title: string;
+  /** The order behind the receipt, so the cashier can find it again; none for a refund. */
+  orderId: string | null;
+  /** Change to hand back; 0 hides the banner. */
+  change: number;
+  printUrl: string;
+  receipt: ThermalReceiptData;
+}
+
+/** The receipt dialog after a sale: its total in the title and the change given. */
+export function saleReceiptView(o: PosOrderDto, c: ReceiptContext): ReceiptView {
+  return {
+    title: `Sale ${o.number} complete: ${c.currency} ${formatNumber(o.totalAmount, 'en-US', '1.2-2')}`,
+    orderId: o.id,
+    change: o.payments.reduce((sum, p) => sum + p.changeAmount, 0),
+    printUrl: `/print/pos-receipt/${o.id}`,
+    receipt: saleReceipt(o, c),
+  };
+}
+
+/** The receipt dialog after a refund. */
+export function returnReceiptView(r: PosReturnDto, c: ReceiptContext): ReceiptView {
+  return {
+    title: `Refund ${r.number} complete`,
+    orderId: null,
+    change: 0,
+    printUrl: `/print/pos-return/${r.id}`,
+    receipt: returnReceipt(r, c),
   };
 }

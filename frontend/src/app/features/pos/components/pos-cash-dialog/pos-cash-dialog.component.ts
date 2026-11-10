@@ -1,4 +1,3 @@
-import { doneText } from '@core/format/done-text';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
@@ -10,8 +9,10 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzRadioModule } from 'ng-zorro-antd/radio';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { CashMovementType, PosSessionsApi } from '@core/api/pos.api';
+import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 
+/** A shift the cash can be moved in or out of, as the dialog lists it. */
 export interface CashDialogShift {
   id: string;
   label: string;
@@ -35,7 +36,7 @@ const KINDS: { value: CashMovementType; label: string; hint: string }[] = [
   styleUrl: './pos-cash-dialog.component.scss',
 })
 export class PosCashDialogComponent {
-  private readonly api = inject(PosSessionsApi);
+  private readonly sessionsApi = inject(PosSessionsApi);
   private readonly message = inject(NzMessageService);
 
   readonly open = input(false);
@@ -71,7 +72,7 @@ export class PosCashDialogComponent {
   submit(): void {
     if (!this.valid() || this.busy()) return;
     this.busy.set(true);
-    this.api.recordDrawerTransaction(this.shiftId(), { type: this.type(), amount: this.amount()!, reason: this.reason().trim() }, this.idempotencyKey).subscribe({
+    this.sessionsApi.recordDrawerTransaction(this.shiftId(), { type: this.type(), amount: this.amount()!, reason: this.reason().trim() }, this.idempotencyKey).subscribe({
       next: () => {
         this.busy.set(false);
         this.message.success(doneText('recorded', 'Cash movement', `${this.amount()}, ${this.reason().trim()}`));

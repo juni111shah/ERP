@@ -1,8 +1,7 @@
-import { DecimalPipe, formatNumber } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { afterNextRender, ChangeDetectionStrategy, Component, computed, effect, ElementRef, HostListener, inject, OnDestroy, signal, untracked, viewChild } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, effect, ElementRef, HostListener, inject, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -13,7 +12,6 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { Subject, debounceTime, forkJoin, of, switchMap, catchError, map, tap } from 'rxjs';
 import {
   PosCatalogItemDto,
   PosCustomerDto,
@@ -30,21 +28,36 @@ import {
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { SessionStore } from '@core/session/session.store';
-import { ErpDatePipe } from '@shared/pipes/display.pipes';
-import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
-import { KeyboardClickDirective } from '@shared/directives/keyboard-click.directive';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '@shared/components/thermal-receipt/thermal-receipt.component';
-import { AppliedPromo, cartSignature, CartLine, cartTotals, fromHeldOrder, lineAmounts, parseScan, repriceHeld, round2, roundQty, Tender, toOrderLine, toPayments } from '../../pos-cart';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { KeyboardClickDirective } from '@shared/directives/keyboard-click.directive';
+import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { CashDialogShift, PosCashDialogComponent } from '../../components/pos-cash-dialog/pos-cash-dialog.component';
 import { PosPaymentDialogComponent } from '../../components/pos-payment-dialog/pos-payment-dialog.component';
-import { returnReceipt, saleReceipt } from '../../pos-receipt';
 import { PosReturnDialogComponent } from '../../components/pos-return-dialog/pos-return-dialog.component';
 import { PosShiftReportComponent } from '../../components/pos-shift-report/pos-shift-report.component';
+import { AppliedPromo, cartSignature, CartLine, cartTotals, fromHeldOrder, lineAmounts, parseScan, repriceHeld, round2, Tender, toOrderLine, toPayments } from '../../pos-cart';
+import { PosCatalog, ScanMatch } from '../../pos-catalog';
+import { PosCustomerSearch } from '../../pos-customer-search';
+import { ReceiptContext, ReceiptView, returnReceiptView, saleReceiptView } from '../../pos-receipt';
+import {
+  addToTicket,
+  commonDiscount,
+  discountLimit,
+  hasPrice,
+  heldSummary,
+  openItemLine,
+  outOfStockBlocked,
+  pricedLines,
+  promoFromQuote,
+  WALK_IN,
+  withDiscount,
+  withLineEdit,
+  withQuantity,
+} from '../../pos-ticket';
 
 const REGISTER_KEY = 'erp.pos.register';
-const WALK_IN = 'Walk-in Customer';
-const CATALOG_PAGE = 60;
 
 const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent === null;
 
@@ -76,13 +89,16 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
     PosReturnDialogComponent,
     PosShiftReportComponent,
   ],
+  providers: [PosCatalog, PosCustomerSearch],
   templateUrl: './pos-terminal.page.html',
   styleUrl: './pos-terminal.page.scss',
 })
-export class PosTerminalPage implements OnDestroy {
-  private readonly terminal = inject(PosTerminalApi);
-  private readonly sessions = inject(PosSessionsApi);
-  private readonly orders = inject(PosOrdersApi);
+export class PosTerminalPage {
+  private readonly terminalApi = inject(PosTerminalApi);
+  private readonly sessionsApi = inject(PosSessionsApi);
+  private readonly ordersApi = inject(PosOrdersApi);
+  private readonly products = inject(PosCatalog);
+  private readonly customerLookup = inject(PosCustomerSearch);
   private readonly store = inject(SessionStore);
   private readonly currencyService = inject(WorkspaceCurrencyService);
   private readonly message = inject(NzMessageService);
@@ -95,11 +111,9 @@ export class PosTerminalPage implements OnDestroy {
   private readonly linesBox = viewChild<ElementRef<HTMLElement>>('linesBox');
   private readonly newSale = viewChild('newSale', { read: ElementRef<HTMLElement> });
 
-  private readonly searchChanges = new Subject<string>();
-  private readonly customerChanges = new Subject<string>();
-  /** Every item the till has seen, by barcode and SKU, so a repeat scan goes on the ticket without a round trip. */
-  private readonly known = new Map<string, PosCatalogItemDto>();
+  /** A different ticket is a different sale; the same ticket keeps its key, so a retried payment cannot charge twice. */
   private idempotencyKey = crypto.randomUUID();
+  /** The held sale this ticket was resumed from: selling or holding it again replaces that copy. */
   private parkedOrderId: string | null = null;
 
   readonly currency = this.currencyService.currency;
@@ -115,10 +129,10 @@ export class PosTerminalPage implements OnDestroy {
   readonly shiftLoading = signal(false);
   readonly shiftFailed = signal(false);
 
-  readonly catalog = signal<PosCatalogItemDto[]>([]);
-  readonly catalogTotal = signal(0);
-  readonly catalogLoading = signal(false);
-  readonly catalogFailed = signal(false);
+  readonly catalog = this.products.items;
+  readonly catalogTotal = this.products.total;
+  readonly catalogLoading = this.products.loading;
+  readonly catalogFailed = this.products.failed;
   readonly searchQuery = signal('');
 
   readonly cart = signal<CartLine[]>([]);
@@ -126,12 +140,7 @@ export class PosTerminalPage implements OnDestroy {
   readonly customerId = signal<string | null>(null);
   readonly customerName = signal(WALK_IN);
   /** The ticket as the server prices it once a promo code is applied: its share of the discount on each line, so the total matches. */
-  readonly priced = computed(() => {
-    const p = this.promo();
-    const lines = this.cart();
-    if (!p || p.sig !== cartSignature(lines)) return lines;
-    return lines.map((l, i) => ({ ...l, ...(p.lines[i] ?? {}) }));
-  });
+  readonly priced = computed(() => pricedLines(this.cart(), this.promo()));
   readonly totals = computed(() => cartTotals(this.priced()));
   readonly promoInput = signal('');
   readonly promo = signal<AppliedPromo | null>(null);
@@ -178,19 +187,14 @@ export class PosTerminalPage implements OnDestroy {
   });
 
   readonly customerOpen = signal(false);
-  readonly customers = signal<PosCustomerDto[]>([]);
-  readonly customersLoading = signal(false);
+  readonly customers = this.customerLookup.results;
+  readonly customersLoading = this.customerLookup.loading;
   readonly customerSearch = signal('');
   readonly customerTyped = signal('');
 
   readonly discountOpen = signal(false);
   readonly discountValue = signal(0);
-  readonly discountLimit = computed(() => {
-    const s = this.settings();
-    if (!s) return 100;
-    const cashier = s.cashierDiscountPercent;
-    return cashier !== null && cashier !== undefined && !this.store.hasPermission('pos.orders.discount-override') ? Math.min(cashier, s.maxDiscountPercent) : s.maxDiscountPercent;
-  });
+  readonly discountLimit = computed(() => discountLimit(this.settings(), this.store.hasPermission('pos.orders.discount-override')));
   readonly discountInvalid = computed(() => this.discountValue() > this.discountLimit());
   readonly discountChips = computed(() => [5, 10, 15, 20, 25].filter((d) => d <= this.discountLimit()));
 
@@ -217,34 +221,15 @@ export class PosTerminalPage implements OnDestroy {
   readonly returnNumber = signal<string | null>(null);
 
   constructor() {
-    this.searchChanges.pipe(
-      debounceTime(180),
-      switchMap((term) => this.fetchCatalog(term)),
-    ).subscribe();
-    this.customerChanges.pipe(
-      debounceTime(220),
-      switchMap((term) => {
-        this.customersLoading.set(true);
-        return this.terminal.customers(term).pipe(catchError(() => of([] as PosCustomerDto[])));
-      }),
-    ).subscribe((rows) => {
-      this.customers.set(rows);
-      this.customersLoading.set(false);
-    });
     this.boot();
     afterNextRender(() => this.focusScan());
-  }
-
-  ngOnDestroy(): void {
-    this.searchChanges.complete();
-    this.customerChanges.complete();
   }
 
   // ---- start up ----
 
   boot(): void {
     this.bootFailed.set(false);
-    this.terminal.bootstrap().subscribe({
+    this.terminalApi.bootstrap().subscribe({
       next: (t) => {
         this.booted.set(true);
         this.settings.set(t.settings);
@@ -269,7 +254,7 @@ export class PosTerminalPage implements OnDestroy {
   private loadSession(registerId: string, then?: () => void): void {
     this.shiftLoading.set(true);
     this.shiftFailed.set(false);
-    this.terminal.session(registerId).subscribe({
+    this.terminalApi.session(registerId).subscribe({
       next: (s) => {
         this.session.set(s);
         this.shiftLoading.set(false);
@@ -286,34 +271,11 @@ export class PosTerminalPage implements OnDestroy {
   private loadHeld(): void {
     const id = this.registerId();
     if (!id) return;
-    this.terminal.held(id).subscribe({ next: (rows) => this.held.set(rows), error: () => this.held.set([]) });
+    this.terminalApi.held(id).subscribe({ next: (rows) => this.held.set(rows), error: () => this.held.set([]) });
   }
 
   loadCatalog(term: string): void {
-    this.searchChanges.next(term);
-  }
-
-  private fetchCatalog(term: string) {
-    this.catalogLoading.set(true);
-    this.catalogFailed.set(false);
-    return this.terminal.catalog({ registerId: this.registerId() || undefined, search: term.trim() || undefined, pageSize: CATALOG_PAGE }).pipe(
-      tap((res) => {
-        res.items.forEach((i) => this.remember(i));
-        this.catalog.set(res.items);
-        this.catalogTotal.set(res.total);
-        this.catalogLoading.set(false);
-      }),
-      catchError(() => {
-        this.catalogLoading.set(false);
-        this.catalogFailed.set(true);
-        return of(null);
-      }),
-    );
-  }
-
-  private remember(i: PosCatalogItemDto): void {
-    this.known.set(i.sku.toLowerCase(), i);
-    if (i.barcode) this.known.set(i.barcode.toLowerCase(), i);
+    this.products.search(this.registerId(), term);
   }
 
   // ---- keyboard ----
@@ -334,7 +296,7 @@ export class PosTerminalPage implements OnDestroy {
       F7: () => this.startHeld(),
       F8: () => this.startReturn(),
       F9: () => this.startPayment(),
-      F10: () => { if (this.session() && this.store.hasPermission('pos.sessions.manage')) this.cashOpen.set(true); },
+      F10: () => this.startCash(),
     };
     const action = fn[e.key];
     if (!action) return;
@@ -356,6 +318,7 @@ export class PosTerminalPage implements OnDestroy {
     if (this.searchQuery()) return;
     const count = this.cart().length;
     const i = this.selected();
+    const line = this.cart()[i];
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
@@ -367,15 +330,15 @@ export class PosTerminalPage implements OnDestroy {
         break;
       case '+':
         e.preventDefault();
-        if (this.cart()[i]) this.changeQty(i, this.cart()[i].quantity + 1);
+        if (line) this.changeQty(i, line.quantity + 1);
         break;
       case '-':
         e.preventDefault();
-        if (this.cart()[i]) this.changeQty(i, this.cart()[i].quantity - 1);
+        if (line) this.changeQty(i, line.quantity - 1);
         break;
       case 'Delete':
         e.preventDefault();
-        if (this.cart()[i]) this.removeLine(i);
+        if (line) this.removeLine(i);
         break;
     }
   }
@@ -416,38 +379,27 @@ export class PosTerminalPage implements OnDestroy {
     const { quantity, code } = parseScan(this.searchQuery());
     if (!code) return;
     this.emptyScanBox();
-    const key = code.toLowerCase();
-    const hit = this.known.get(key);
+    const hit = this.products.remembered(code);
     if (hit) {
       this.addItem(hit, quantity, false);
       return;
     }
-    this.terminal.catalog({ registerId: this.registerId() || undefined, code, pageSize: 2 }).subscribe({
-      next: (exact) => {
-        if (exact.items.length) {
-          this.remember(exact.items[0]);
-          this.addItem(exact.items[0], quantity, false);
-          return;
-        }
-        // Not a code: the one product whose name matches is what was meant.
-        this.terminal.catalog({ registerId: this.registerId() || undefined, search: code, pageSize: 2 }).subscribe({
-          next: (found) => {
-            if (found.items.length === 1) {
-              this.remember(found.items[0]);
-              this.addItem(found.items[0], quantity, false);
-            } else if (found.items.length === 0) {
-              this.notFound(code);
-            } else {
-              // Show the matches, unless the next code is already being typed.
-              if (!this.searchQuery()) this.onSearch(code);
-              this.message.info(`More than one product matches "${code}". Tap the one you want.`);
-            }
-          },
-          error: () => this.message.error('The search failed. Try again.'),
-        });
-      },
+    this.products.resolveScan(this.registerId(), code).subscribe({
+      next: (match) => this.onScanMatch(match, code, quantity),
       error: () => this.message.error('The search failed. Try again.'),
     });
+  }
+
+  private onScanMatch(match: ScanMatch, code: string, quantity: number): void {
+    if (match.kind === 'item') {
+      this.addItem(match.item, quantity, false);
+    } else if (match.kind === 'none') {
+      this.notFound(code);
+    } else {
+      // Show the matches, unless the next code is already being typed.
+      if (!this.searchQuery()) this.onSearch(code);
+      this.message.info(`More than one product matches "${code}". Tap the one you want.`);
+    }
   }
 
   /** Not a product: a receipt scanned here starts its return, for whoever may take one. */
@@ -457,14 +409,14 @@ export class PosTerminalPage implements OnDestroy {
       warn();
       return;
     }
-    this.orders.byNumber(code).subscribe({
+    this.ordersApi.byNumber(code).subscribe({
       next: (order) => this.startReturn(order.number),
       error: warn,
     });
   }
 
   outOfStockBlocked(item: PosCatalogItemDto): boolean {
-    return this.settings()?.allowNegativeStock === false && item.onHand !== null && item.onHand <= 0;
+    return outOfStockBlocked(this.settings(), item);
   }
 
   /** A scan has already emptied the box, and by the time its answer comes back the next code may be in it. */
@@ -476,18 +428,11 @@ export class PosTerminalPage implements OnDestroy {
   }
 
   addItem(item: PosCatalogItemDto, quantity = 1, clearBox = true): void {
-    if (item.price === null) {
+    if (!hasPrice(item)) {
       this.message.warning(`${item.name} has no sales price.`);
       return;
     }
-    const lines = [...this.cart()];
-    let at = lines.findIndex((l) => l.itemId === item.id);
-    if (at >= 0) {
-      lines[at] = { ...lines[at], quantity: roundQty(lines[at].quantity + quantity), onHand: item.onHand };
-    } else {
-      lines.push({ key: item.id, itemId: item.id, itemCode: item.sku, description: item.name, quantity, unitPrice: item.price, listPrice: item.price, discountPercent: 0, taxRate: item.taxRate, onHand: item.onHand });
-      at = lines.length - 1;
-    }
+    const { lines, at } = addToTicket(this.cart(), item, quantity);
     this.setCart(lines);
     this.selectLine(at);
     if (clearBox && this.searchQuery()) this.emptyScanBox();
@@ -523,19 +468,17 @@ export class PosTerminalPage implements OnDestroy {
     const sig = cartSignature(lines);
     this.promoBusy.set(true);
     this.promoError.set(null);
-    this.orders.quote({ legalEntityId: s.legalEntityId, customerPartyId: this.customerId(), lines: lines.map(toOrderLine), promoCode: code }).subscribe({
+    this.ordersApi.quote({ legalEntityId: s.legalEntityId, customerPartyId: this.customerId(), lines: lines.map(toOrderLine), promoCode: code }).subscribe({
       next: (q) => {
         this.promoBusy.set(false);
-        if (!q.promoCode || !(q.promoDiscount > 0)) {
+        const applied = promoFromQuote(q, sig);
+        if (!applied) {
           this.promo.set(null);
           this.promoError.set(explicit ? 'That code does not give a discount on this ticket.' : 'The code no longer gives a discount on this ticket, so it was removed.');
           return;
         }
         this.promoInput.set('');
-        this.promo.set({
-          code: q.promoCode, name: q.promoName, discount: q.promoDiscount, sig,
-          lines: q.lines.map((l) => ({ unitPrice: l.unitPrice, discountPercent: l.discountPercent, taxRate: l.taxRate, promoDiscount: l.promoDiscount })),
-        });
+        this.promo.set(applied);
       },
       error: (err) => {
         this.promoBusy.set(false);
@@ -550,13 +493,11 @@ export class PosTerminalPage implements OnDestroy {
   }
 
   changeQty(index: number, quantity: number): void {
-    const lines = [...this.cart()];
     if (quantity <= 0) {
       this.removeLine(index);
       return;
     }
-    lines[index] = { ...lines[index], quantity: roundQty(quantity) };
-    this.setCart(lines);
+    this.setCart(withQuantity(this.cart(), index, quantity));
   }
 
   removeLine(index: number): void {
@@ -597,9 +538,8 @@ export class PosTerminalPage implements OnDestroy {
       this.removeLine(i);
       return;
     }
-    const lines = [...this.cart()];
-    lines[i] = { ...lines[i], quantity: roundQty(this.editQty()), discountPercent: this.editDiscount(), unitPrice: this.canOverridePrice() ? this.editPrice() : lines[i].unitPrice };
-    this.setCart(lines);
+    const edit = { quantity: this.editQty(), discountPercent: this.editDiscount(), unitPrice: this.editPrice() };
+    this.setCart(withLineEdit(this.cart(), i, edit, this.canOverridePrice()));
     this.editIndex.set(null);
     this.focusScan();
   }
@@ -614,8 +554,7 @@ export class PosTerminalPage implements OnDestroy {
   addOpenItem(): void {
     const name = this.openItemName().trim();
     if (!name || this.openItemPrice() <= 0) return;
-    const key = `open-${crypto.randomUUID()}`;
-    const lines = [...this.cart(), { key, itemId: null, itemCode: 'OTHER', description: name, quantity: 1, unitPrice: this.openItemPrice(), listPrice: null, discountPercent: 0, taxRate: this.openItemTax(), onHand: null }];
+    const lines = [...this.cart(), openItemLine(name, this.openItemPrice(), this.openItemTax())];
     this.setCart(lines);
     this.selectLine(lines.length - 1);
     this.openItemOpen.set(false);
@@ -624,8 +563,7 @@ export class PosTerminalPage implements OnDestroy {
 
   startDiscount(): void {
     if (!this.cart().length) return;
-    const percents = new Set(this.cart().map((l) => l.discountPercent));
-    this.discountValue.set(percents.size === 1 ? [...percents][0] : 0);
+    this.discountValue.set(commonDiscount(this.cart()));
     this.discountOpen.set(true);
   }
 
@@ -639,7 +577,7 @@ export class PosTerminalPage implements OnDestroy {
 
   applyDiscount(): void {
     if (this.discountInvalid()) return;
-    this.setCart(this.cart().map((l) => ({ ...l, discountPercent: this.discountValue() })));
+    this.setCart(withDiscount(this.cart(), this.discountValue()));
     this.closeDiscount();
   }
 
@@ -654,7 +592,7 @@ export class PosTerminalPage implements OnDestroy {
     this.customerSearch.set('');
     this.customerTyped.set(this.customerId() || this.customerName() === WALK_IN ? '' : this.customerName());
     this.customerOpen.set(true);
-    this.customerChanges.next('');
+    this.customerLookup.search('');
   }
 
   focusCustomer(): void {
@@ -663,7 +601,7 @@ export class PosTerminalPage implements OnDestroy {
 
   onCustomerSearch(value: string): void {
     this.customerSearch.set(value);
-    this.customerChanges.next(value);
+    this.customerLookup.search(value);
   }
 
   pickFirstCustomer(e: Event): void {
@@ -703,7 +641,7 @@ export class PosTerminalPage implements OnDestroy {
     const session = this.session();
     if (!session || !this.cart().length || this.holding()) return;
     this.holding.set(true);
-    this.orders.park({
+    this.ordersApi.park({
       sessionId: session.id,
       customerPartyId: this.customerId(),
       customerName: this.customerId() ? null : this.customerName(),
@@ -711,10 +649,7 @@ export class PosTerminalPage implements OnDestroy {
     }).subscribe({
       next: () => {
         this.holding.set(false);
-        // A resumed ticket held again replaces its old copy.
-        const previous = this.parkedOrderId;
-        if (previous) this.orders.discardParked(previous).subscribe({ next: () => this.loadHeld(), error: () => this.loadHeld() });
-        else this.loadHeld();
+        this.replaceHeldCopy();
         this.clearCart();
         this.message.success('Sale held. Open Held to bring it back.');
       },
@@ -725,13 +660,20 @@ export class PosTerminalPage implements OnDestroy {
     });
   }
 
+  /** A resumed ticket held again replaces its old copy. */
+  private replaceHeldCopy(): void {
+    const previous = this.parkedOrderId;
+    if (previous) this.ordersApi.discardParked(previous).subscribe({ next: () => this.loadHeld(), error: () => this.loadHeld() });
+    else this.loadHeld();
+  }
+
   startHeld(): void {
     this.loadHeld();
     this.heldOpen.set(true);
   }
 
   heldSummary(o: PosOrderDto): string {
-    return o.lines.map((l) => `${l.quantity} × ${l.description}`).join(', ');
+    return heldSummary(o);
   }
 
   resumeHeld(o: PosOrderDto): void {
@@ -741,10 +683,7 @@ export class PosTerminalPage implements OnDestroy {
     }
     const lines = fromHeldOrder(o);
     // Today's prices, tax and stock, because the server charges today's prices at payment.
-    const lookups = lines.map((l) => (l.itemId
-      ? this.terminal.catalog({ registerId: this.registerId() || undefined, code: l.itemCode, pageSize: 2 }).pipe(map((r) => r.items.find((i) => i.id === l.itemId) ?? null), catchError(() => of(null)))
-      : of(null)));
-    forkJoin(lookups).subscribe((items) => {
+    this.products.current(this.registerId(), lines).subscribe((items) => {
       const canOverride = this.canOverridePrice();
       const fresh = lines.map((l, i) => repriceHeld(l, items[i], canOverride));
       if (fresh.some((l, i) => l.unitPrice !== lines[i].unitPrice)) this.message.info('Prices changed since this sale was held. The ticket shows the current prices.');
@@ -759,7 +698,7 @@ export class PosTerminalPage implements OnDestroy {
   }
 
   discardHeld(o: PosOrderDto): void {
-    this.orders.discardParked(o.id).subscribe({
+    this.ordersApi.discardParked(o.id).subscribe({
       next: () => {
         if (this.parkedOrderId === o.id) this.parkedOrderId = null;
         this.loadHeld();
@@ -789,22 +728,21 @@ export class PosTerminalPage implements OnDestroy {
     const s = this.session();
     if (!s || this.paying()) return;
     this.paying.set(true);
-    const total = this.totals().total;
-    this.orders.sell({
+    this.ordersApi.sell({
       legalEntityId: s.legalEntityId,
       registerId: s.registerId,
       sessionId: s.id,
       customerPartyId: this.customerId(),
       customerName: this.customerId() ? null : this.customerName(),
       lines: this.cart().map(toOrderLine),
-      payments: toPayments(total, tenders),
+      payments: toPayments(this.totals().total, tenders),
       parkedOrderId: this.parkedOrderId,
       promoCode: this.promoStale() ? null : this.promo()?.code ?? null,
     }, this.idempotencyKey).subscribe({
       next: (order) => {
         this.paying.set(false);
         this.paymentOpen.set(false);
-        this.showSaleReceipt(order);
+        this.showReceipt(saleReceiptView(order, this.receiptContext()));
         this.parkedOrderId = null;
         this.setCart([]);
         this.selected.set(-1);
@@ -820,17 +758,17 @@ export class PosTerminalPage implements OnDestroy {
     });
   }
 
-  private context() {
+  private receiptContext(): ReceiptContext {
     const register = this.registers().find((r) => r.id === this.registerId());
     return { business: this.store.me()?.workspace?.name, register, currency: this.currency() };
   }
 
-  private showSaleReceipt(order: PosOrderDto): void {
-    this.receiptTitle.set(`Sale ${order.number} complete: ${this.currency()} ${formatNumber(order.totalAmount, 'en-US', '1.2-2')}`);
-    this.receiptOrderId.set(order.id);
-    this.receiptChange.set(order.payments.reduce((sum, p) => sum + p.changeAmount, 0));
-    this.receiptPrintUrl.set(`/print/pos-receipt/${order.id}`);
-    this.receipt.set(saleReceipt(order, this.context()));
+  private showReceipt(view: ReceiptView): void {
+    this.receiptTitle.set(view.title);
+    this.receiptOrderId.set(view.orderId);
+    this.receiptChange.set(view.change);
+    this.receiptPrintUrl.set(view.printUrl);
+    this.receipt.set(view.receipt);
   }
 
   focusNewSale(): void {
@@ -864,16 +802,16 @@ export class PosTerminalPage implements OnDestroy {
   returnDone(ret: PosReturnDto): void {
     this.returnOpen.set(false);
     this.returnNumber.set(null);
-    this.receiptTitle.set(`Refund ${ret.number} complete`);
-    this.receiptOrderId.set(null);
-    this.receiptChange.set(0);
-    this.receiptPrintUrl.set(`/print/pos-return/${ret.id}`);
-    this.receipt.set(returnReceipt(ret, this.context()));
+    this.showReceipt(returnReceiptView(ret, this.receiptContext()));
     this.loadSession(this.registerId());
     this.loadCatalog('');
   }
 
   // ---- cash and shifts ----
+
+  private startCash(): void {
+    if (this.session() && this.store.hasPermission('pos.sessions.manage')) this.cashOpen.set(true);
+  }
 
   closeCash(): void {
     this.cashOpen.set(false);
@@ -896,7 +834,7 @@ export class PosTerminalPage implements OnDestroy {
     const float = this.openFloat();
     if (!reg || float === null) return;
     this.shiftBusy.set(true);
-    this.sessions.openSession({ legalEntityId: reg.legalEntityId, registerId: reg.id, openingCash: float, notes: this.shiftNotes() || null }).subscribe({
+    this.sessionsApi.openSession({ legalEntityId: reg.legalEntityId, registerId: reg.id, openingCash: float, notes: this.shiftNotes() || null }).subscribe({
       next: (s) => {
         this.shiftBusy.set(false);
         this.session.set(s);
@@ -925,13 +863,13 @@ export class PosTerminalPage implements OnDestroy {
     const counted = this.closeCash_();
     if (!s || counted === null) return;
     this.shiftBusy.set(true);
-    this.sessions.closeSession(s.id, { actualCash: counted, notes: this.closeNotes() || null }).subscribe({
+    this.sessionsApi.closeSession(s.id, { actualCash: counted, notes: this.closeNotes() || null }).subscribe({
       next: () => {
         this.shiftBusy.set(false);
         this.closeShiftOpen.set(false);
         this.session.set(null);
         this.message.success(`Shift closed on ${s.registerName}.`);
-        this.sessions.report(s.id).subscribe({
+        this.sessionsApi.report(s.id).subscribe({
           next: (r) => this.shiftReport.set(r),
           error: () => this.focusScan(), // no read permission: the close itself succeeded
         });
@@ -946,7 +884,7 @@ export class PosTerminalPage implements OnDestroy {
   showShiftReport(): void {
     const s = this.session();
     if (!s) return;
-    this.sessions.report(s.id).subscribe({
+    this.sessionsApi.report(s.id).subscribe({
       next: (r) => this.shiftReport.set(r),
       error: (err) => this.message.error(problemMessage(err, 'The shift report could not be loaded.')),
     });
