@@ -1,7 +1,7 @@
 import { BillSummary, InvoiceSummary } from '@core/api/admin.api';
 import { PartyDocumentList, PartyDocumentRow } from '@core/api/party-activity.api';
 import { KpiCard } from '@shared/components/detail-page/detail-page.component';
-import { AllRows, moneyByCurrency } from '@features/finance/finance-kpis';
+import { AllRows, moneyByCurrency } from '@shared/utils/kpi-stats';
 import { isOpenStatus } from '@features/finance/finance-format';
 
 /** The party detail page's activity: its latest documents in one table and the sales / purchases cards. */

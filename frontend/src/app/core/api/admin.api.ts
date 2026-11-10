@@ -230,12 +230,7 @@ export interface GeneralLedger { accountId: string; code: string; name: string; 
 export interface FinancialStatementLine { group: string; code: string; name: string; amount: number; }
 /** An imported bank statement line, matched or booked against the ledger in reconciliation. */
 export interface BankStatementLine { id: string; accountId: string; date: string; description: string; reference?: string; amount: number; status: string; matchedJournalLineId?: string; }
-/**
- * Both lines above were once declared under this one name, which TypeScript merges into a single type with every field of both. It is
- * kept as that merged type so existing code compiles unchanged; prefer the specific interface in new code.
- */
-export interface StatementLine extends FinancialStatementLine, BankStatementLine {}
-export interface IncomeStatement { from: string; to: string; income: StatementLine[]; expenses: StatementLine[]; totalIncome: number; totalExpenses: number; netProfit: number; }
+export interface IncomeStatement { from: string; to: string; income: FinancialStatementLine[]; expenses: FinancialStatementLine[]; totalIncome: number; totalExpenses: number; netProfit: number; }
 export interface CashFlowLine { group: string; code: string; name: string; inflows: number; outflows: number; net: number; }
 export interface CashFlowSection { category: 'operating' | 'investing' | 'financing'; inflows: number; outflows: number; net: number; lines: CashFlowLine[]; }
 export interface CashFlowStatement {
@@ -243,7 +238,7 @@ export interface CashFlowStatement {
   ledgerClosingBalance: number; tiesOut: boolean; internalTransfers: number;
 }
 export interface BalanceSheet {
-  asOf: string; assets: StatementLine[]; liabilities: StatementLine[]; equity: StatementLine[]; totalAssets: number; totalLiabilities: number; totalEquity: number;
+  asOf: string; assets: FinancialStatementLine[]; liabilities: FinancialStatementLine[]; equity: FinancialStatementLine[]; totalAssets: number; totalLiabilities: number; totalEquity: number;
   currentEarnings: number;
   /** Unclosed years after the last year-end close (0 when the entity never closed a year). */
   priorOpenEarnings?: number; balanced: boolean;
@@ -349,7 +344,7 @@ export interface CashPositionRow { accountId: string; code: string; name: string
 export interface CashPosition { asOf: string; accounts: CashPositionRow[]; total: number; }
 export interface LedgerItem { journalLineId: string; journalId: string; number: string; date: string; description?: string; amount: number; }
 export interface Reconciliation {
-  accountId: string; code: string; name: string; asOf: string; ledgerBalance: number; matched: number; unmatchedStatement: StatementLine[]; unmatchedLedger: LedgerItem[];
+  accountId: string; code: string; name: string; asOf: string; ledgerBalance: number; matched: number; unmatchedStatement: BankStatementLine[]; unmatchedLedger: LedgerItem[];
   unmatchedStatementTotal: number; unmatchedLedgerTotal: number; reconciled: boolean;
 }
 
@@ -366,9 +361,9 @@ export class BankApi {
     return this.http.post<{ imported: number; duplicates: number }>(`${this.base}/accounts/${accountId}/import`, { legalEntityId, lines });
   }
   autoMatch(accountId: string, legalEntityId: string): Observable<{ matched: number }> { return this.http.post<{ matched: number }>(`${this.base}/accounts/${accountId}/auto-match`, { legalEntityId }); }
-  match(lineId: string, journalLineId: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/match`, { journalLineId }); }
-  unmatch(lineId: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/unmatch`, {}); }
-  book(lineId: string, counterAccountId: string, memo?: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/book`, { counterAccountId, memo: memo ?? null }); }
+  match(lineId: string, journalLineId: string): Observable<BankStatementLine> { return this.http.post<BankStatementLine>(`${this.base}/statement-lines/${lineId}/match`, { journalLineId }); }
+  unmatch(lineId: string): Observable<BankStatementLine> { return this.http.post<BankStatementLine>(`${this.base}/statement-lines/${lineId}/unmatch`, {}); }
+  book(lineId: string, counterAccountId: string, memo?: string): Observable<BankStatementLine> { return this.http.post<BankStatementLine>(`${this.base}/statement-lines/${lineId}/book`, { counterAccountId, memo: memo ?? null }); }
   transfer(body: unknown): Observable<unknown> { return this.http.post(`${this.base}/transfers`, body); }
 }
 

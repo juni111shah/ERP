@@ -32,8 +32,14 @@ Imports between areas use the aliases `@core/...`, `@shared/...`, `@layout/...`,
 2. **Components stay thin.** A page wires signals, forms and user actions together; calculations, mapping and lookups live in plain
    functions or small `@Injectable()` helpers in the area (`sales-lines.ts`, `sales-lookups.ts`), shared code in `shared/` or `core/`.
 3. **HTTP only through `core/api`.** A page never injects `HttpClient`; an API client never lives in a page file.
-4. **Reuse before writing**: `revealErrors(form)` (show validation errors), `loadInto(signal, source$)` (fill a side list),
-   `toIsoDate` / `toUtcIsoDate` (dates for the API), `createPagedList`, `<erp-paged-table>`, `<erp-stat-card>`, `<erp-status>`...
+4. **Reuse before writing.** Common helpers:
+   - forms: `revealErrors(form)` (show validation errors), `showFormSaveError` / `showDrawerSaveError` (`shared/forms/save-errors.ts`),
+     `setControlsEnabled`, `lineTotal` / `documentTotals` (priced lines, `shared/forms/line-totals.ts`);
+   - loading: `loadInto(signal, source$)` (fill a side list, ignore failure), `loadOrFallback`, `itemsSignal`, `loadRecord` (detail pages);
+   - dates and money: `toIsoDate` / `toUtcIsoDate` (`core/format/dates.ts`), `fromIsoDate`, `formatMoney` (`shared/utils/money.ts`),
+     `shared/utils/date-range.ts` (period presets);
+   - KPIs: `KpiStats`, `countRows`, `fetchAllRows` (`shared/utils/kpi-stats.ts`), `<erp-status-counts>`;
+   - UI: `createPagedList` + `<erp-paged-table>`, `<erp-stat-card>`, `<erp-status>`, `saveBlob`, `deleteWithConfirm`.
 5. **Typed code**: no `any`; give form values an interface (`QuoteFormValue`) and cast `form.value` to it.
 6. **Members a template uses keep stable names**; move their implementation, not the template.
 7. Lookups that a page needs only while it is open are provided by the page (`providers: [SalesLookups]`), so every visit loads fresh lists.

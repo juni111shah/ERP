@@ -14,7 +14,7 @@ import { SimpleChartComponent } from '@shared/components/simple-chart/simple-cha
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
-import { countByStatus, StatusCount, StatusCountsComponent } from '@features/sales/components/status-counts/status-counts.component';
+import { countByStatus, StatusCount, StatusCountsComponent } from '@shared/components/status-counts/status-counts.component';
 import { dayChart, hourChart, ORDER_STATUSES, RANGES, RangeKey, reportPeriod } from '../../pos-analytics';
 import { tenderName } from '../../pos-cart';
 

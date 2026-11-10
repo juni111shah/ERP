@@ -4,7 +4,7 @@ import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { ListQuery, PagedResult } from '@core/api/api.models';
-import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { StatusTagComponent } from '../status-tag/status-tag.component';
 
 /** How many records are in one status. */
 export interface StatusCount { value: string; count: number; }

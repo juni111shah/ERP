@@ -13,7 +13,7 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
-import { BankApi, CashPosition, Reconciliation, StatementLine } from '@core/api/admin.api';
+import { BankApi, CashPosition, Reconciliation, BankStatementLine } from '@core/api/admin.api';
 import { toIsoDate } from '@core/format/dates';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
@@ -28,7 +28,7 @@ import { KeyboardClickDirective } from '@shared/directives/keyboard-click.direct
 import { RevealDirective } from '@shared/directives/reveal.directive';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { parseStatementLines } from '../../finance-bank';
-import { countOf } from '../../finance-kpis';
+import { countOf } from '@shared/utils/kpi-stats';
 import { FinanceLookups, isPostableAccount } from '../../finance-lookups';
 
 /** Newest first. */
@@ -93,7 +93,7 @@ export class BankPage {
   readonly busy = signal(false);
   readonly importOpen = signal(false);
   importText = '';
-  readonly bookLine = signal<StatementLine | null>(null);
+  readonly bookLine = signal<BankStatementLine | null>(null);
   bookAccount: string | null = null;
   bookMemo = '';
   readonly transferOpen = signal(false);
@@ -147,7 +147,7 @@ export class BankPage {
     this.api.autoMatch(account, entity).subscribe({ next: (r) => { this.message.success(r.matched ? `${countOf(r.matched, 'line')} matched` : 'Nothing new to match'); this.select(account); }, error: (e) => this.fail(e) });
   }
 
-  startBook(l: StatementLine): void { this.bookLine.set(l); this.bookAccount = null; this.bookMemo = ''; }
+  startBook(l: BankStatementLine): void { this.bookLine.set(l); this.bookAccount = null; this.bookMemo = ''; }
 
   runBook(): void {
     const l = this.bookLine();

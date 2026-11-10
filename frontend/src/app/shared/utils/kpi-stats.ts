@@ -2,7 +2,7 @@ import { computed, signal } from '@angular/core';
 import { EMPTY, Observable, expand, map, reduce } from 'rxjs';
 import { FilterCriterion, ListQuery, PagedResult } from '@core/api/api.models';
 import { toIsoDate } from '@core/format/dates';
-import { formatMoney } from './finance-format';
+import { formatMoney } from './money';
 
 /** Helpers for the KPI cards above the finance lists: read every matching row, count rows, sum per currency. */
 

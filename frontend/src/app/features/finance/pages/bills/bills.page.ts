@@ -33,7 +33,7 @@ import { revealErrors } from '@shared/forms/form-validation';
 import { askReason } from '@shared/utils/reason-prompt';
 import { TermsDueDate } from '../../finance-due-date';
 import { formatMoney } from '../../finance-format';
-import { KpiStats } from '../../finance-kpis';
+import { KpiStats } from '@shared/utils/kpi-stats';
 import { billLineGroup, lineFieldStatus, taxedLineTotals, withTaxCodes } from '../../finance-lines';
 import { FinanceLookups, documentPartyOption, partyOption } from '../../finance-lookups';
 import { DocumentStatsData, billStats, loadDocumentStats } from '../../finance-stats';

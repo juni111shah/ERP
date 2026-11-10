@@ -38,7 +38,7 @@ import { askReason } from '@shared/utils/reason-prompt';
 import { InvoiceSheetComponent } from '../../components/invoice-sheet/invoice-sheet.component';
 import { TermsDueDate } from '../../finance-due-date';
 import { daysOverdue, formatMoney, humanizeSource, invoiceStatusLabel, taxNameFor } from '../../finance-format';
-import { KpiStats } from '../../finance-kpis';
+import { KpiStats } from '@shared/utils/kpi-stats';
 import { InvoiceLineSeed, invoiceLineGroup, lineFieldStatus, taxedLineTotals, withTaxCodes } from '../../finance-lines';
 import { FinanceLookups, documentPartyOption, partyOption } from '../../finance-lookups';
 import { DocumentStatsData, invoiceStats, loadDocumentStats } from '../../finance-stats';

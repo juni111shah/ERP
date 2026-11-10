@@ -10,7 +10,7 @@ import { ImportDef, ImportResult, ImportsApi } from '@core/api/imports.api';
 import { problemMessage } from '@core/http/problem-details';
 import { ClientPager, PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
-import { countOf } from '@features/finance/finance-kpis';
+import { countOf } from '@shared/utils/kpi-stats';
 import { importSummary, saveCsv } from '../../admin-import';
 
 /** Bulk-load data from CSV: pick what to import, download the template, check the file (dry run), then import. */

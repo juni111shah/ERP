@@ -28,7 +28,7 @@ import { HasPermissionDirective } from '@shared/directives/has-permission.direct
 import { revealErrors } from '@shared/forms/form-validation';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { formatMoney, isOpenStatus } from '../../finance-format';
-import { countOf } from '../../finance-kpis';
+import { countOf } from '@shared/utils/kpi-stats';
 import { FinanceLookups, isBankAccount, mainBankAccount, partyOption } from '../../finance-lookups';
 import { allocatedAmounts, openDocumentsQuery } from '../../finance-settlements';
 

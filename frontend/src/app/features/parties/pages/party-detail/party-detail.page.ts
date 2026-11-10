@@ -25,7 +25,7 @@ import { KeyboardClickDirective } from '@shared/directives/keyboard-click.direct
 import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
 import { loadRecord } from '@shared/utils/load-record';
 import { formatMoney } from '@features/finance/finance-format';
-import { AllRows, fetchAllRows } from '@features/finance/finance-kpis';
+import { AllRows, fetchAllRows } from '@shared/utils/kpi-stats';
 import { Transaction, activityLists, customerCards, latestTransactions, transactionLink, vendorCards } from '../../parties-activity';
 
 /** A customer or vendor: details, sales / purchase cards, recent documents, statement, attachments and the actions for its roles. */

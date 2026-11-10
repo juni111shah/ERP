@@ -31,7 +31,7 @@ import { revealErrors } from '@shared/forms/form-validation';
 import { ErpLabelPipe } from '@shared/pipes/display.pipes';
 import { askReason } from '@shared/utils/reason-prompt';
 import { formatMoney } from '../../finance-format';
-import { KpiStats, countRows } from '../../finance-kpis';
+import { KpiStats, countRows } from '@shared/utils/kpi-stats';
 import { journalLineGroup, journalLinesBody, journalTotals, lineFieldStatus } from '../../finance-lines';
 import { FinanceLookups, isPostableAccount } from '../../finance-lookups';
 

@@ -6,7 +6,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { SalesKpiApi, SalesKpiDto, SalesOrdersApi, SalesQuotesApi } from '@core/api/sales.api';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
-import { StatusCount, StatusCountsComponent, countByStatus } from '../../components/status-counts/status-counts.component';
+import { StatusCount, StatusCountsComponent, countByStatus } from '@shared/components/status-counts/status-counts.component';
 import { ORDER_STATUSES, QUOTE_STATUSES } from '../../sales-status';
 
 /** Sales at a glance: the KPI cards and how many quotes and orders are in each status. */

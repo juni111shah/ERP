@@ -29,7 +29,7 @@ import { StatCardComponent } from '@shared/components/stat-card/stat-card.compon
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { revealErrors } from '@shared/forms/form-validation';
 import { ErpLabelPipe } from '@shared/pipes/display.pipes';
-import { KpiStats, countRows } from '@features/finance/finance-kpis';
+import { KpiStats, countRows } from '@shared/utils/kpi-stats';
 import { PARTY_ROLES, PartyFormValue, groupFilter, partiesTitle, partyBody, partyForm, roleFilter, roleTagColor } from '../../parties-form';
 
 /** The party counts on the cards. */

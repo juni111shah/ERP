@@ -1,7 +1,7 @@
 import { Observable, forkJoin } from 'rxjs';
 import { BillSummary, InvoiceSummary, PaymentSummary, ReceiptSummary } from '@core/api/admin.api';
 import { daysOverdue } from './finance-format';
-import { AllRows, Source, countOf, countRows, fetchAllRows, moneyByCurrency, startOfMonth, startOfYear } from './finance-kpis';
+import { AllRows, Source, countOf, countRows, fetchAllRows, moneyByCurrency, startOfMonth, startOfYear } from '@shared/utils/kpi-stats';
 
 /** The KPI cards of the invoice, bill, receipt and payment lists: what is read for them and how the figures are worded. */
 

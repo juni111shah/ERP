@@ -10,7 +10,7 @@ import { displayDate } from '@core/format/display';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { ErpLabelPipe } from '@shared/pipes/display.pipes';
-import { countOf } from '@features/finance/finance-kpis';
+import { countOf } from '@shared/utils/kpi-stats';
 
 /** The server's own explanation of a failed call, when it sent one. */
 const detailOf = (e: { error?: { detail?: unknown } } | null | undefined): string | undefined => e?.error?.detail as string | undefined;

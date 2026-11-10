@@ -31,7 +31,7 @@ import { revealErrors } from '@shared/forms/form-validation';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { askReason } from '@shared/utils/reason-prompt';
 import { formatMoney, isOpenStatus } from '../../finance-format';
-import { AllRows, KpiStats } from '../../finance-kpis';
+import { AllRows, KpiStats } from '@shared/utils/kpi-stats';
 import { FinanceLookups, documentPartyOption, mainBankAccount, partyOption } from '../../finance-lookups';
 import { allocatedAmounts, fillLateDefaults, openDocumentsQuery } from '../../finance-settlements';
 import { loadSettlementStats, settlementStats } from '../../finance-stats';

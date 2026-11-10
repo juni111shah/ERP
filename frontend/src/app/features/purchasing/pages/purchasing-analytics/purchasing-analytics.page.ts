@@ -5,7 +5,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { PurchaseOrdersApi, PurchaseRequisitionsApi, PurchasingKpiApi, PurchasingKpiDto } from '@core/api/purchasing.api';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
-import { StatusCount, StatusCountsComponent, countByStatus } from '@features/sales/components/status-counts/status-counts.component';
+import { StatusCount, StatusCountsComponent, countByStatus } from '@shared/components/status-counts/status-counts.component';
 
 const ORDER_STATUSES = ['draft', 'submitted', 'approved', 'partiallyReceived', 'received', 'billed', 'cancelled'];
 const REQUISITION_STATUSES = ['draft', 'pendingApproval', 'approved', 'rejected', 'ordered'];

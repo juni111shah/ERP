@@ -27,11 +27,7 @@ export function humanizeSource(v?: string | null): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-/** "1,234.50", or "QAR 1,234.50" with a currency. */
-export function formatMoney(v: number | null | undefined, currency?: string | null): string {
-  const n = (v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return currency ? `${currency} ${n}` : n;
-}
+export { formatMoney } from '@shared/utils/money';
 
 /** Whole days past the due date for an open invoice or bill; 0 when not overdue. A credit note is never overdue: it is money owed to the customer. */
 export function daysOverdue(inv: { dueDate: string; status: string; total: number; paid: number; isCreditNote?: boolean }): number {

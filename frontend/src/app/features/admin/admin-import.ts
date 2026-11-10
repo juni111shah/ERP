@@ -1,5 +1,5 @@
 import { ImportResult } from '@core/api/imports.api';
-import { countOf } from '@features/finance/finance-kpis';
+import { countOf } from '@shared/utils/kpi-stats';
 
 /** What a check or an import did, in one line: "3 of 4 rows are ready to import, 1 has a problem". */
 export function importSummary(r: ImportResult): string {
