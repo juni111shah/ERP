@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { KeyboardClickDirective } from '@shared/directives/keyboard-click.directive';
 import { InViewDirective, TiltDirective, prefersReducedMotion } from '../../pricing-fx';
 import { PhoneScreen, carouselOffset } from '../../pricing-mockups';
 import { PhoneComponent } from '../phone/phone.component';
@@ -21,7 +22,7 @@ const AUTOPLAY_MS = 3800;
   selector: 'erp-pricing-mobile',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzIconModule, PhoneComponent, InViewDirective, TiltDirective],
+  imports: [NzIconModule, KeyboardClickDirective, PhoneComponent, InViewDirective, TiltDirective],
   styleUrl: './pricing-mobile.component.scss',
   templateUrl: './pricing-mobile.component.html',
 })

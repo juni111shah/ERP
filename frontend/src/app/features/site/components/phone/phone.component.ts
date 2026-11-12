@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { KeyboardClickDirective } from '@shared/directives/keyboard-click.directive';
 import { PhoneScreen, lastMonths } from '../../pricing-mockups';
 
 /** One phone showing a screen of the mobile app: its real header, chips, cards and floating menu, with sample figures. A drawing rather than a screenshot, so it stays sharp at any size. */
@@ -8,7 +7,7 @@ import { PhoneScreen, lastMonths } from '../../pricing-mockups';
   selector: 'erp-phone',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KeyboardClickDirective, NzIconModule],
+  imports: [NzIconModule],
   styleUrl: './phone.component.scss',
   templateUrl: './phone.component.html',
 })
