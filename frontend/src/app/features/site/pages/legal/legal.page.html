@@ -1,0 +1,29 @@
+
+    <header class="top">
+      <a class="logo" routerLink="/" aria-label="Home"><erp-brand-logo size="lg"></erp-brand-logo></a>
+      <a class="back" routerLink="/pricing">Pricing</a>
+    </header>
+    <main>
+      @if (loading()) {
+        <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+      } @else if (failed()) {
+        <erp-state-panel kind="error" title="This page could not load" hint="Please try again in a moment." actionLabel="Try again" (action)="load()" />
+      } @else if (docs(); as d) {
+        <article [attr.data-testid]="'legal-' + kind">
+          <h1>{{ title }}</h1>
+          @if (d.updatedAt) { <p class="updated">Last updated {{ d.updatedAt | erpDate }}</p> }
+          @if (kind === 'terms' && d.termsUrl) {
+            <p>Our terms of service are published at <a [href]="d.termsUrl" rel="noopener" data-testid="legal-external">{{ d.termsUrl }}</a>.</p>
+          } @else {
+            @for (b of blocks(); track $index) {
+              @if (b.heading) { <h2>{{ b.text }}</h2> } @else { <p>{{ b.text }}</p> }
+            }
+          }
+          <nav>
+            @if (kind === 'terms') { <a routerLink="/privacy">Privacy Policy</a> } @else { <a routerLink="/terms">Terms of Service</a> }
+            <a routerLink="/register">Create a workspace</a>
+          </nav>
+        </article>
+      }
+    </main>
+    @defer (on idle) { <erp-brand-assistant /> }

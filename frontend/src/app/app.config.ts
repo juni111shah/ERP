@@ -1,30 +1,31 @@
 import { registerLocaleData } from '@angular/common';
-import localeAr from '@angular/common/locales/ar';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import localeAr from '@angular/common/locales/ar';
 import { ApplicationConfig, LOCALE_ID, inject, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
-import { en_US, provideNzI18n } from 'ng-zorro-antd/i18n';
 import { provideNzConfig } from 'ng-zorro-antd/core/config';
+import { en_US, provideNzI18n } from 'ng-zorro-antd/i18n';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
-import { firstValueFrom } from 'rxjs';
-import { routes } from './app.routes';
-import { AuthService } from './core/auth/auth.service';
-import { authInterceptor } from './core/http/auth.interceptor';
-import { entityScopeInterceptor } from './core/http/entity-scope.interceptor';
-import { envelopeInterceptor } from './core/http/envelope.interceptor';
-import { moduleDisabledInterceptor } from './core/http/module-disabled.interceptor';
-import { OneToastMessageService } from './core/http/one-toast-message.service';
-import { subscriptionGateInterceptor } from './core/http/subscription-gate.interceptor';
 import { NzMessageService } from 'ng-zorro-antd/message';
-import { APP_ICONS } from './icons';
-import { I18nService } from './core/i18n/i18n.service';
+import { firstValueFrom } from 'rxjs';
+import { AuthService } from '@core/auth/auth.service';
+import { authInterceptor } from '@core/http/auth.interceptor';
+import { entityScopeInterceptor } from '@core/http/entity-scope.interceptor';
+import { envelopeInterceptor } from '@core/http/envelope.interceptor';
+import { moduleDisabledInterceptor } from '@core/http/module-disabled.interceptor';
+import { OneToastMessageService } from '@core/http/one-toast-message.service';
+import { subscriptionGateInterceptor } from '@core/http/subscription-gate.interceptor';
+import { I18nService } from '@core/i18n/i18n.service';
 import { TenantThemeService } from '../theme/tenant-theme.service';
+import { routes } from './app.routes';
+import { APP_ICONS } from './icons';
 
 // ng-zorro's date helper formats with Angular's formatDate under the ng-zorro locale id ('ar' for ar_EG); without this Arabic locale data
 // date pickers and calendars throw "Missing locale data for the locale 'ar'" once Arabic is selected.
 registerLocaleData(localeAr);
 
+/** App-wide providers: routing, HTTP with the interceptor chain, animations, locale, ng-zorro setup and the session restore. */
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),

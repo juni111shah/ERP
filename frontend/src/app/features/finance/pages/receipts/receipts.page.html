@@ -1,0 +1,80 @@
+
+    <h1 class="erp-page-title">Receipts</h1>
+
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="receipt-stats">
+      <erp-stat-card label="Collected this month" [value]="stats()?.month" [loading]="statsLoading()" [caption]="stats()?.monthCaption ?? statsError()" [tone]="0" />
+      <erp-stat-card label="Collected this year" [value]="stats()?.year" [loading]="statsLoading()" [caption]="stats()?.yearCaption ?? statsError()" [tone]="1" />
+      <erp-stat-card label="Not yet allocated" [value]="stats()?.unallocated" [loading]="statsLoading()" [caption]="stats()?.unallocatedCaption ?? statsError()" [tone]="stats()?.unallocatedCount ? 2 : 'neutral'" />
+      <erp-stat-card label="Receipts" [value]="stats()?.count" format="number" [loading]="statsLoading()" [caption]="stats() ? 'Posted, all time' : statsError()" [tone]="3" />
+    </div>
+
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, customer or reference" emptyText="No receipts yet" (rowClick)="open($event)">
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('number') {
+            <span class="code-pill">{{ row.number }}</span>
+          }
+          @case ('partyName') {
+            <span class="name-cell">{{ row.partyName }}</span>
+          }
+          @case ('amount') {
+            <span style="font-weight:600;font-variant-numeric:tabular-nums">{{ value }}</span>
+          }
+          @case ('unallocated') {
+            @if (row.unallocated > 0) {
+              <span class="unallocated-badge">{{ value }}</span>
+            } @else {
+              <span class="muted-text">{{ value }}</span>
+            }
+          }
+          @case ('status') {
+            <erp-status [value]="row.status === 'issued' ? 'posted' : row.status" />
+          }
+          @default {
+            {{ value }}
+          }
+        }
+      </ng-template>
+      <button toolbar *erpHasPermission="'finance.receipts.write'" nz-button nzType="primary" (click)="open(null)" data-testid="receipt-new"><span nz-icon nzType="plus"></span>New receipt</button>
+    </erp-paged-table>
+
+    <nz-drawer [nzVisible]="drawerOpen()" [nzWidth]="640" [nzTitle]="receipt() ? receipt()!.number : 'New receipt'" (nzOnClose)="drawerOpen.set(false)" [nzFooter]="footer">
+      <ng-container *nzDrawerContent>
+        <form nz-form nzLayout="vertical" [formGroup]="form" data-testid="receipt-form">
+          <nz-form-item><nz-form-label nzRequired>Legal entity</nz-form-label><nz-form-control [nzErrorTip]="err('legalEntityId')">
+            <nz-select formControlName="legalEntityId" data-testid="rc-entity">@for (e of entities(); track e.id) { <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Customer</nz-form-label><nz-form-control [nzErrorTip]="err('partyId')">
+            <nz-select formControlName="partyId" nzShowSearch nzServerSearch nzPlaceHolder="Search customers" (nzOnSearch)="searchParties($event)" (ngModelChange)="partyChanged($event)" data-testid="rc-party">@for (o of partyOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Date</nz-form-label><nz-form-control [nzErrorTip]="err('date')"><nz-date-picker nzFormat="dd MMM yyyy" formControlName="date" style="width:100%" data-testid="rc-date"></nz-date-picker></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Method</nz-form-label><nz-form-control><nz-select formControlName="method">@for (m of methods; track m.value) { <nz-option [nzValue]="m.value" [nzLabel]="m.label"></nz-option> }</nz-select></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Deposit to</nz-form-label><nz-form-control [nzErrorTip]="err('bankAccountId')">
+            <nz-select formControlName="bankAccountId" data-testid="rc-bank">@for (a of banks(); track a.id) { <nz-option [nzValue]="a.id" [nzLabel]="a.code + ' · ' + a.name"></nz-option> }</nz-select></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Amount</nz-form-label><nz-form-control [nzErrorTip]="err('amount')"><nz-input-number formControlName="amount" [nzMin]="0.01" [nzPrecision]="2" style="width:100%" data-testid="rc-amount"></nz-input-number></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Allocation</nz-form-label><nz-form-control><label><input type="checkbox" formControlName="autoAllocate" data-testid="rc-auto" /> Settle the oldest invoices first (the rest stays on account)</label></nz-form-control></nz-form-item>
+          <nz-form-item><nz-form-label>Reference</nz-form-label><nz-form-control><input nz-input formControlName="reference" /></nz-form-control></nz-form-item>
+        </form>
+        @if (receipt(); as r) {
+          <h4>Settled invoices</h4>
+          @for (a of r.allocations; track a.id) { <div>{{ a.invoiceNumber }}: {{ money(a.amount, r.currencyCode) }}</div> } @empty { <div>None yet.</div> }
+          <div style="margin-top:8px">Unallocated: <b>{{ money(r.unallocated, r.currencyCode) }}</b></div>
+        }
+        @if (editableAllocation()) {
+          <h4 style="margin-top:16px">Settle invoices</h4>
+          @for (o of openInvoices(); track o.id) {
+            <div class="alloc">
+              <span>{{ o.number }} · {{ 'ui.re.dueLc' | translate: 'due' }} {{ o.dueDate | erpDate }} · {{ 'ui.common.outstandingLc' | translate: 'outstanding' }} {{ money(o.outstanding, o.currencyCode) }}</span>
+              <nz-input-number [ngModel]="amounts()[o.id] ?? 0" (ngModelChange)="setAmount(o.id, $event)" [nzMin]="0" [nzMax]="o.outstanding" [nzPrecision]="2" [ngModelOptions]="{standalone: true}" [attr.data-testid]="'alloc-' + o.number"></nz-input-number>
+            </div>
+          } @empty { <div>No open invoices for this customer.</div> }
+        }
+      </ng-container>
+    </nz-drawer>
+    <ng-template #footer>
+      <button nz-button (click)="drawerOpen.set(false)">Close</button>
+      @if (receipt()?.id) { <button nz-button (click)="openDetails(receipt()!.id)" style="margin-inline-start:8px" data-testid="receipt-details"><span nz-icon nzType="file-text"></span>Details</button><button nz-button (click)="printDoc(receipt()!.id)" style="margin-inline-start:8px" data-testid="receipt-print"><span nz-icon nzType="printer"></span>Print / PDF</button> }
+      @if (receipt()?.status === 'issued') {
+        <button *erpHasPermission="'finance.receipts.write'" nz-button nzDanger (click)="voidDocument()" style="margin-inline-start:8px" data-testid="rc-void">Void</button>
+        @if (receipt()!.unallocated > 0) { <button *erpHasPermission="'finance.receipts.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="allocate()" style="margin-inline-start:8px" data-testid="rc-allocate">Allocate</button> }
+      }
+      @if (!receipt()) { <button *erpHasPermission="'finance.receipts.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="create()" style="margin-inline-start:8px" data-testid="rc-save">Record receipt</button> }
+    </ng-template>

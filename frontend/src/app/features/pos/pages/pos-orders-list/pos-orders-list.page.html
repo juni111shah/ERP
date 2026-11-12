@@ -1,0 +1,75 @@
+
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search receipt number, customer, cashier" emptyText="No counter sales yet. Open the terminal to make one." exportFilename="pos-orders" (rowClick)="open($event.id)">
+      <a toolbar *erpHasPermission="'pos.orders.create'" routerLink="/pos/terminal" nz-button nzType="primary" data-testid="pos-open-terminal"><span nz-icon nzType="shop"></span>Open Terminal</a>
+      <ng-template #cell let-ord let-column="column" let-value="value">
+        @if (column.key === 'number') {
+          <strong class="nowrap">{{ ord.number }}</strong>
+        } @else if (column.key === 'orderDate') {
+          <span class="nowrap">{{ ord.orderDate | erpDate }}</span>
+        } @else if (column.key === 'lineCount') {
+          {{ ord.lineCount }} {{ ord.lineCount === 1 ? 'item' : 'items' }}
+        } @else if (column.key === 'totalAmount') {
+          <strong class="amount">{{ currency() }} {{ ord.totalAmount | number:'1.2-2' }}</strong>
+        } @else if (column.key === 'returnedTotal') {
+          @if (ord.returnedTotal > 0) { <span class="amount returned">-{{ currency() }} {{ ord.returnedTotal | number:'1.2-2' }}</span> }
+        } @else if (column.key === 'status') {
+          <erp-status [value]="ord.status" />
+        } @else if (column.key === 'paymentStatus') {
+          <erp-status [value]="ord.paymentStatus" />
+        } @else {
+          {{ value }}
+        }
+      </ng-template>
+    </erp-paged-table>
+
+    <nz-drawer [nzVisible]="drawerOpen()" [nzTitle]="order()?.number ?? 'Sale'" [nzWidth]="480" (nzOnClose)="close()" [nzFooter]="drawerFooter">
+      <ng-container *nzDrawerContent>
+        @if (loadFailed()) {
+          <nz-alert nzType="error" nzShowIcon nzMessage="This sale could not be loaded."></nz-alert>
+        } @else if (order(); as o) {
+          <div class="tags" data-testid="pos-order-detail">
+            <erp-status [value]="o.status" />
+            <erp-status [value]="o.paymentStatus" />
+            @if (o.invoiceNumber) { <a class="doc" [routerLink]="['/finance/invoices', o.invoiceId]" data-testid="pos-order-invoice">Invoice {{ o.invoiceNumber }}</a> }
+          </div>
+          @if (o.returnedTotal > 0) {
+            <nz-alert nzType="info" nzShowIcon [nzMessage]="'Returned so far: ' + currency() + ' ' + (o.returnedTotal | number:'1.2-2')" class="block"></nz-alert>
+          }
+          @if (o.notes) { <nz-alert nzType="warning" [nzMessage]="o.notes" class="block" data-testid="pos-order-notes"></nz-alert> }
+          @if (receiptData(); as rc) { <erp-thermal-receipt [receipt]="rc" /> }
+          @if (returnsOfOrder().length) {
+            <h4>Returns</h4>
+            @for (r of returnsOfOrder(); track r.id) {
+              <div class="ret">
+                <a [href]="'/print/pos-return/' + r.id" target="_blank" rel="noopener"><strong>{{ r.number }}</strong></a>
+                <span class="muted">{{ r.returnDate | erpDate }} · {{ r.reason }}</span>
+                <strong class="amount">-{{ currency() }} {{ r.totalAmount | number:'1.2-2' }}</strong>
+              </div>
+            }
+          }
+          @if (o.lines.length && hasPayments()) {
+            <h4>Payment</h4>
+            @for (p of o.payments; track p.id) {
+              <div class="ret">
+                <span>{{ tender(p.method) }} @if (p.reference) { <small class="muted">{{ p.reference }}</small> }</span>
+                <strong class="amount">{{ currency() }} {{ p.amount | number:'1.2-2' }}</strong>
+              </div>
+            }
+          }
+        }
+      </ng-container>
+      <ng-template #drawerFooter>
+        @if (order(); as o) {
+          <div class="foot">
+            <a [href]="'/print/pos-receipt/' + o.id" target="_blank" rel="noopener" nz-button data-testid="pos-order-print"><span nz-icon nzType="printer"></span>Receipt</a>
+            @if (canReturn()) {
+              <a *erpHasPermission="'pos.orders.refund'" nz-button [routerLink]="['/pos/terminal']" [queryParams]="{ return: o.number }" data-testid="pos-order-return"><span nz-icon nzType="rollback"></span>Return</a>
+            }
+            @if (o.status === 'completed' && !o.returnedTotal) {
+              <button *erpHasPermission="'pos.orders.void'" nz-button nzDanger type="button" [nzLoading]="voiding()" (click)="voidOrder()" data-testid="pos-order-void"><span nz-icon nzType="stop"></span>Void</button>
+            }
+          </div>
+        }
+      </ng-template>
+    </nz-drawer>
+  

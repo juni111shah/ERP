@@ -1,0 +1,15 @@
+
+    <nz-drawer [nzVisible]="open()" [nzTitle]="title() || ('email.title' | translate: 'Send by email')" nzWidth="440px" (nzOnClose)="closed.emit()" [nzFooter]="footer">
+      <ng-container *nzDrawerContent>
+        <label for="email-to">{{ 'email.to' | translate: 'To' }}</label>
+        <input nz-input id="email-to" type="email" [(ngModel)]="to" autocomplete="off" dir="ltr" data-testid="email-to" />
+        <small style="opacity:.65">{{ 'email.toHint' | translate: "Leave empty to use the party's email address." }}</small>
+        <label for="email-message" style="display:block;margin-top:16px">{{ 'email.message' | translate: 'Message (optional)' }}</label>
+        <textarea nz-input id="email-message" rows="5" maxlength="1000" [(ngModel)]="message" data-testid="email-message"></textarea>
+        @if (error()) { <p style="color:#cf1322;margin-top:12px" data-testid="email-error">{{ error() }}</p> }
+      </ng-container>
+    </nz-drawer>
+    <ng-template #footer>
+      <button nz-button type="button" (click)="closed.emit()">{{ 'common.cancel' | translate: 'Cancel' }}</button>
+      <button nz-button nzType="primary" type="button" [nzLoading]="busy()" (click)="send()" style="margin-inline-start:8px" data-testid="email-send">{{ 'email.send' | translate: 'Send' }}</button>
+    </ng-template>

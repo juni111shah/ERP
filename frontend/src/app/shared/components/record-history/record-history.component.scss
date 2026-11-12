@@ -1,0 +1,10 @@
+
+    .entry { padding: 12px 0; border-bottom: 1px solid var(--erp-color-border-subtle, #f0f0f0); }
+    .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .when { color: var(--erp-color-text-tertiary, #8c8c8c); font-size: 12px; }
+    table { margin-top: 8px; border-collapse: collapse; width: 100%; max-width: 760px; }
+    th, td { text-align: start; padding: 4px 8px; font-size: 13px; vertical-align: top; }
+    th { color: var(--erp-color-text-tertiary, #8c8c8c); font-weight: 500; }
+    .old { text-decoration: line-through; opacity: .6; }
+    .arrow { padding-inline: 4px; }
+  

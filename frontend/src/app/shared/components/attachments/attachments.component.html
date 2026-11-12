@@ -1,0 +1,23 @@
+
+    <h3>Documents</h3>
+    <erp-table-tools [(search)]="q" (refresh)="load()" testId="attachments"></erp-table-tools>
+    <nz-table [nzData]="shown()" nzSize="small" [nzShowPagination]="false" data-testid="attachments">
+      <thead><tr><th>File</th><th>Category</th><th>Expires</th><th>Added</th><th></th></tr></thead>
+      <tbody>
+        @for (a of shown(); track a.id) {
+          <tr>
+            <td><a (click)="download(a)" style="cursor:pointer">{{ a.fileName }}</a></td>
+            <td>{{ a.category | erpLabel }}</td>
+            <td>@if (a.expiresOn) { <nz-tag [nzColor]="tone(a.expiresOn)">{{ a.expiresOn | erpDate }}</nz-tag> }</td>
+            <td>{{ a.createdAt | date: 'dd MMM yyyy' }}</td>
+            <td class="erp-cell-actions"><erp-row-actions><button aria-label="Remove" *erpHasPermission="'core.attachments.write'" nz-button nzType="text" nzSize="small" (click)="remove(a)"><span nz-icon nzType="delete"></span></button></erp-row-actions></td>
+          </tr>
+        } @empty { <tr><td colspan="5">No documents yet.</td></tr> }
+      </tbody>
+    </nz-table>
+    <div *erpHasPermission="'core.attachments.write'" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
+      <input type="file" #file data-testid="attachment-file" />
+      <input aria-label="Category (e.g. Ejari)" nz-input style="width:180px" placeholder="Category (e.g. Ejari)" [(ngModel)]="category" />
+      <nz-date-picker [(ngModel)]="expires" nzPlaceHolder="Expires on (optional)"></nz-date-picker>
+      <button nz-button nzType="primary" [nzLoading]="busy()" (click)="upload(file)" data-testid="attachment-upload">Upload</button>
+    </div>

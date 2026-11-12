@@ -1,0 +1,35 @@
+
+    .fund { display:grid; grid-template-columns: 1.2fr 1.6fr 1.2fr .8fr .8fr auto; gap:8px; margin-bottom:8px; align-items:center }
+    .funding-section-card {
+      background: var(--erp-card-bg); border: 1px solid var(--erp-card-border); box-shadow: var(--erp-card-shadow);
+      margin-top: 24px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .funding-card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--erp-color-border-subtle, #edf2f7);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .funding-header-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--erp-color-text-primary, #0f172a);
+    }
+    .funding-pill {
+      font-size: 11px;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: #64748b;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .funding-card-body {
+      padding: 16px 20px;
+    }
+  

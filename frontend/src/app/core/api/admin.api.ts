@@ -3,10 +3,19 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { LookupOption } from '../custom-fields/lookup-registry';
 import { API_BASE_URL } from './api-config';
-import { ListQuery, PagedResult } from './api.models';
-import { CrudApiService, toHttpParams } from './crud-api.service';
+import { CustomFieldValueMap, ListQuery, PagedResult } from './api.models';
+import { CrudApiService, definedParams, putOrPost, toHttpParams } from './crud-api.service';
 
-type CustomFields = Record<string, unknown>;
+type CustomFields = CustomFieldValueMap;
+
+/** `?includeBalances=true` only when balances are wanted. */
+const balanceParams = (includeBalances: boolean): Record<string, boolean> => (includeBalances ? { includeBalances: true } : {});
+
+/** `?legalEntityId=` only when one legal entity is chosen. */
+const entityParam = (legalEntityId?: string): Record<string, string> => (legalEntityId ? { legalEntityId } : {});
+
+/** A record as a picker option: "CODE · Name". */
+const codeAndName = (r: { id: string; code: string; name: string }): LookupOption => ({ value: r.id, label: `${r.code} · ${r.name}` });
 
 // ---- Models (mirror the ERP.Application DTOs; enums are camelCase strings) -------------------------------------------
 
@@ -62,37 +71,41 @@ export interface CurrencyOption { code: string; name: string; symbol?: string; d
 
 // ---- Option lists -------------------------------------------------------------------------------------------------------
 
-export const ITEM_TYPES = [{ value: 'product', label: 'Product' }, { value: 'service', label: 'Service' }];
-export const ACCOUNT_TYPES = [
+export const ITEM_TYPES: LookupOption[] = [{ value: 'product', label: 'Product' }, { value: 'service', label: 'Service' }];
+export const ACCOUNT_TYPES: LookupOption[] = [
   { value: 'asset', label: 'Asset' }, { value: 'liability', label: 'Liability' }, { value: 'equity', label: 'Equity' },
   { value: 'income', label: 'Income' }, { value: 'expense', label: 'Expense' },
 ];
-export const TAX_KINDS = [
+export const TAX_KINDS: LookupOption[] = [
   { value: 'vat', label: 'VAT' }, { value: 'gst', label: 'GST' }, { value: 'salesTax', label: 'Sales tax' },
   { value: 'withholding', label: 'Withholding' }, { value: 'excise', label: 'Excise' }, { value: 'other', label: 'Other' },
 ];
 
+/** A flag as a list cell: "Yes" or "No". */
 export const yesNo = (v: unknown): string => (v ? 'Yes' : 'No');
 
 // ---- API clients (one line per resource) ----------------------------------------------------------------------------------
 
+/** Products and services (/api/v1/items). */
 @Injectable({ providedIn: 'root' })
 export class ItemsApi extends CrudApiService<ItemDto, unknown> { protected readonly resource = 'items'; }
 
+/** The chart of accounts' code mask. */
 export interface CoaNumbering { mode: 'free' | 'hierarchical'; segments: number[]; separator: string; pattern: string; maxLength: number; }
 
+/** The chart of accounts (/api/v1/finance/accounts), as a flat list or one tree level at a time. */
 @Injectable({ providedIn: 'root' })
 export class AccountsApi extends CrudApiService<AccountDto, unknown> {
   protected readonly resource = 'finance/accounts';
 
   /** Postable accounts matching a typed term, as picker options (code and name). */
   lookup = (term: string): Observable<LookupOption[]> =>
-    this.list({ page: 1, pageSize: 20, search: term }).pipe(map((r) => r.items.filter((a) => a.isPostable && a.isActive).map((a) => ({ value: a.id, label: `${a.code} · ${a.name}` }))));
+    this.list({ page: 1, pageSize: 20, search: term }).pipe(map((r) => r.items.filter((a) => a.isPostable && a.isActive).map(codeAndName)));
 
   // ---- Step-by-step chart of accounts: one level per request -------------------------------------------------------------
   /** The five account categories with counts (and natural-side balances when asked and the user may read reports). */
   categories(includeBalances = false): Observable<AccountCategoryDto[]> {
-    return this.http.get<AccountCategoryDto[]>(`${this.url}/tree/categories`, { params: includeBalances ? { includeBalances: true } : {} });
+    return this.http.get<AccountCategoryDto[]>(`${this.url}/tree/categories`, { params: balanceParams(includeBalances) });
   }
   /** Primary accounts of one category: no parent, or a parent of another type. Paged and searchable (code, name). */
   categoryAccounts(type: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {
@@ -100,7 +113,7 @@ export class AccountsApi extends CrudApiService<AccountDto, unknown> {
   }
   /** The sub-categories of one category (always all of them, in order), with counts. */
   subcategories(type: string, includeBalances = false): Observable<AccountSubcategoryDto[]> {
-    return this.http.get<AccountSubcategoryDto[]>(`${this.url}/tree/categories/${encodeURIComponent(type)}/subcategories`, { params: includeBalances ? { includeBalances: true } : {} });
+    return this.http.get<AccountSubcategoryDto[]>(`${this.url}/tree/categories/${encodeURIComponent(type)}/subcategories`, { params: balanceParams(includeBalances) });
   }
   /** Primary accounts of one sub-category. Paged and searchable (code, name). */
   subcategoryAccounts(type: string, key: string, query: ListQuery): Observable<PagedResult<AccountNodeDto>> {
@@ -126,30 +139,38 @@ export class AccountsApi extends CrudApiService<AccountDto, unknown> {
   }
 }
 
+/** Tax codes (/api/v1/finance/tax-codes). */
 @Injectable({ providedIn: 'root' })
 export class TaxCodesApi extends CrudApiService<TaxCodeDto, unknown> { protected readonly resource = 'finance/tax-codes'; }
 
+/** Legal entities of the workspace (/api/v1/legal-entities). */
 @Injectable({ providedIn: 'root' })
 export class LegalEntitiesApi extends CrudApiService<LegalEntityDto, unknown> {
   protected readonly resource = 'legal-entities';
+  /** Legal entities matching a typed term, as picker options (code and name). */
   lookup = (term: string): Observable<LookupOption[]> =>
-    this.list({ page: 1, pageSize: 20, search: term }).pipe(map((r) => r.items.map((e) => ({ value: e.id, label: `${e.code} · ${e.name}` }))));
+    this.list({ page: 1, pageSize: 20, search: term }).pipe(map((r) => r.items.map(codeAndName)));
 }
 
+/** Business units of a legal entity (/api/v1/business-units). */
 @Injectable({ providedIn: 'root' })
 export class BusinessUnitsApi extends CrudApiService<BusinessUnitDto, unknown> { protected readonly resource = 'business-units'; }
 
+/** Groups of customers and vendors (/api/v1/party-groups). */
 @Injectable({ providedIn: 'root' })
 export class PartyGroupsApi extends CrudApiService<PartyGroupDto, unknown> { protected readonly resource = 'party-groups'; }
 
+/** Roles and the permissions they can grant (/api/v1/roles, /api/v1/permissions). */
 @Injectable({ providedIn: 'root' })
 export class RolesApi extends CrudApiService<RoleDto, unknown> {
   protected readonly resource = 'roles';
   permissions(): Observable<PermissionDefinition[]> { return this.http.get<PermissionDefinition[]>(`${this.baseUrl}/permissions`); }
+  /** Roles matching a typed term, as picker options (name). */
   lookup = (term: string): Observable<LookupOption[]> =>
     this.list({ page: 1, pageSize: 50, search: term }).pipe(map((r) => r.items.map((x) => ({ value: x.id, label: x.name }))));
 }
 
+/** The audit log (/api/v1/audit): read only. */
 @Injectable({ providedIn: 'root' })
 export class AuditApi extends CrudApiService<AuditEvent, never> {
   protected readonly resource = 'audit';
@@ -158,6 +179,8 @@ export class AuditApi extends CrudApiService<AuditEvent, never> {
 }
 
 export interface MessageLogRow { id: string; channel: string; recipient: string; subject: string; body?: string; link?: string; status: string; error?: string; sentAt: string; attempts?: number; }
+
+/** Sent emails and notifications (/api/v1/messages): read only, plus a test email and the reminder run. */
 @Injectable({ providedIn: 'root' })
 export class MessageLogApi extends CrudApiService<MessageLogRow, never> {
   protected readonly resource = 'messages';
@@ -165,7 +188,7 @@ export class MessageLogApi extends CrudApiService<MessageLogRow, never> {
   sendReminders(): Observable<{ sent: number }> { return this.http.post<{ sent: number }>(`${this.url}/send-reminders`, {}); }
 }
 
-/** Endpoints that are not plain paged resources. */
+/** Endpoints that are not plain paged resources: users, settings, approvals, countries and currencies. */
 @Injectable({ providedIn: 'root' })
 export class AdminApi {
   private readonly http = inject(HttpClient);
@@ -203,8 +226,11 @@ export interface TrialBalanceRow { accountId: string; code: string; name: string
 export interface TrialBalance { from?: string; to: string; rows: TrialBalanceRow[]; totalDebit: number; totalCredit: number; balanced: boolean; }
 export interface LedgerLine { journalId: string; number: string; date: string; memo?: string; description?: string; debit: number; credit: number; balance: number; }
 export interface GeneralLedger { accountId: string; code: string; name: string; opening: number; lines: LedgerLine[]; closing: number; }
-export interface StatementLine { group: string; code: string; name: string; amount: number; }
-export interface IncomeStatement { from: string; to: string; income: StatementLine[]; expenses: StatementLine[]; totalIncome: number; totalExpenses: number; netProfit: number; }
+/** A line of an income statement or a balance sheet. */
+export interface FinancialStatementLine { group: string; code: string; name: string; amount: number; }
+/** An imported bank statement line, matched or booked against the ledger in reconciliation. */
+export interface BankStatementLine { id: string; accountId: string; date: string; description: string; reference?: string; amount: number; status: string; matchedJournalLineId?: string; }
+export interface IncomeStatement { from: string; to: string; income: FinancialStatementLine[]; expenses: FinancialStatementLine[]; totalIncome: number; totalExpenses: number; netProfit: number; }
 export interface CashFlowLine { group: string; code: string; name: string; inflows: number; outflows: number; net: number; }
 export interface CashFlowSection { category: 'operating' | 'investing' | 'financing'; inflows: number; outflows: number; net: number; lines: CashFlowLine[]; }
 export interface CashFlowStatement {
@@ -212,27 +238,29 @@ export interface CashFlowStatement {
   ledgerClosingBalance: number; tiesOut: boolean; internalTransfers: number;
 }
 export interface BalanceSheet {
-  asOf: string; assets: StatementLine[]; liabilities: StatementLine[]; equity: StatementLine[]; totalAssets: number; totalLiabilities: number; totalEquity: number;
-  currentEarnings: number; 
+  asOf: string; assets: FinancialStatementLine[]; liabilities: FinancialStatementLine[]; equity: FinancialStatementLine[]; totalAssets: number; totalLiabilities: number; totalEquity: number;
+  currentEarnings: number;
   /** Unclosed years after the last year-end close (0 when the entity never closed a year). */
   priorOpenEarnings?: number; balanced: boolean;
 }
 
+/** Journal entries (/api/v1/finance/journals) and the books lock of a legal entity. */
 @Injectable({ providedIn: 'root' })
 export class JournalsApi extends CrudApiService<JournalSummary, unknown> {
   protected readonly resource = 'finance/journals';
   detail(id: string): Observable<JournalDto> { return this.http.get<JournalDto>(`${this.url}/${id}`); }
-  save(id: string | null, body: unknown): Observable<JournalDto> { return id ? this.http.put<JournalDto>(`${this.url}/${id}`, body) : this.http.post<JournalDto>(this.url, body); }
+  save(id: string | null, body: unknown): Observable<JournalDto> { return putOrPost<JournalDto>(this.http, this.url, id, body); }
   post(id: string): Observable<JournalDto> { return this.http.post<JournalDto>(`${this.url}/${id}/post`, {}); }
   reverse(id: string, memo?: string): Observable<JournalDto> { return this.http.post<JournalDto>(`${this.url}/${id}/reverse`, { memo: memo ?? null }); }
   lockBooks(entityId: string, through: string | null): Observable<unknown> { return this.http.put(`${this.baseUrl}/legal-entities/${entityId}/books-lock`, { through }); }
 }
 
+/** Ledger reports (/api/v1/finance/reports); empty filters are left out of the query. */
 @Injectable({ providedIn: 'root' })
 export class LedgerReportsApi {
   private readonly http = inject(HttpClient);
   private readonly base = `${inject(API_BASE_URL)}/finance/reports`;
-  private params(p: Record<string, string | undefined>): Record<string, string> { return Object.fromEntries(Object.entries(p).filter(([, v]) => !!v)) as Record<string, string>; }
+  private params(p: Record<string, string | undefined>): Record<string, string> { return definedParams(p); }
   trialBalance(p: { from?: string; to: string; legalEntityId?: string }): Observable<TrialBalance> { return this.http.get<TrialBalance>(`${this.base}/trial-balance`, { params: this.params(p) }); }
   generalLedger(p: { accountId: string; from?: string; to: string; legalEntityId?: string }): Observable<GeneralLedger> { return this.http.get<GeneralLedger>(`${this.base}/general-ledger`, { params: this.params(p) }); }
   incomeStatement(p: { from: string; to: string; legalEntityId?: string }): Observable<IncomeStatement> { return this.http.get<IncomeStatement>(`${this.base}/income-statement`, { params: this.params(p) }); }
@@ -254,15 +282,16 @@ export interface AgeingRow { partyId: string; partyName?: string; current: numbe
 export interface ArAgeing { asOf: string; rows: AgeingRow[]; totals: AgeingRow; }
 export interface BillingResult { invoiced: number; totalBilled: number; invoiceIds: string[]; }
 
-export const SETTLEMENT_METHODS = [
+export const SETTLEMENT_METHODS: LookupOption[] = [
   { value: 'cash', label: 'Cash' }, { value: 'bankTransfer', label: 'Bank transfer' }, { value: 'card', label: 'Card' }, { value: 'other', label: 'Other' },
 ];
 
+/** Customer invoices and credit notes (/api/v1/finance/invoices). */
 @Injectable({ providedIn: 'root' })
 export class InvoicesApi extends CrudApiService<InvoiceSummary, unknown> {
   protected readonly resource = 'finance/invoices';
   detail(id: string): Observable<InvoiceDto> { return this.http.get<InvoiceDto>(`${this.url}/${id}`); }
-  save(id: string | null, body: unknown): Observable<InvoiceDto> { return id ? this.http.put<InvoiceDto>(`${this.url}/${id}`, body) : this.http.post<InvoiceDto>(this.url, body); }
+  save(id: string | null, body: unknown): Observable<InvoiceDto> { return putOrPost<InvoiceDto>(this.http, this.url, id, body); }
   issue(id: string): Observable<InvoiceDto> { return this.http.post<InvoiceDto>(`${this.url}/${id}/issue`, {}); }
   /** The API requires a reason (3–500 characters); it is stored in the audit log and the reversal memo. */
   void(id: string, reason: string): Observable<InvoiceDto> { return this.http.post<InvoiceDto>(`${this.url}/${id}/void`, { reason }); }
@@ -272,6 +301,7 @@ export class InvoicesApi extends CrudApiService<InvoiceSummary, unknown> {
   remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
 }
 
+/** Customer receipts and their allocation to invoices (/api/v1/finance/receipts). */
 @Injectable({ providedIn: 'root' })
 export class ReceiptsApi extends CrudApiService<ReceiptSummary, unknown> {
   protected readonly resource = 'finance/receipts';
@@ -289,10 +319,11 @@ export interface ChequeDto extends ChequeRow {
   allocations: AllocationLine[];
 }
 export interface ChequeSummary { inCustodyTotal: number; inCustodyCount: number; maturedTotal: number; maturedCount: number; next7DaysTotal: number; next30DaysTotal: number; depositedTotal: number; bouncedCount: number; }
-export const CHEQUE_KINDS = [
+export const CHEQUE_KINDS: LookupOption[] = [
   { value: 'cheque', label: 'Cheque' }, { value: 'postDatedCheque', label: 'Post-dated cheque' }, { value: 'bankDraft', label: 'Bank draft' }, { value: 'promissoryNote', label: 'Promissory note' },
 ];
 
+/** The cheque register (/api/v1/finance/cheques): received instruments from custody to clearing, bounce and replacement. */
 @Injectable({ providedIn: 'root' })
 export class ChequesApi extends CrudApiService<ChequeRow, unknown> {
   protected readonly resource = 'finance/cheques';
@@ -311,28 +342,28 @@ export class ChequesApi extends CrudApiService<ChequeRow, unknown> {
 
 export interface CashPositionRow { accountId: string; code: string; name: string; isBank: boolean; balance: number; }
 export interface CashPosition { asOf: string; accounts: CashPositionRow[]; total: number; }
-export interface StatementLine { id: string; accountId: string; date: string; description: string; reference?: string; amount: number; status: string; matchedJournalLineId?: string; }
 export interface LedgerItem { journalLineId: string; journalId: string; number: string; date: string; description?: string; amount: number; }
 export interface Reconciliation {
-  accountId: string; code: string; name: string; asOf: string; ledgerBalance: number; matched: number; unmatchedStatement: StatementLine[]; unmatchedLedger: LedgerItem[];
+  accountId: string; code: string; name: string; asOf: string; ledgerBalance: number; matched: number; unmatchedStatement: BankStatementLine[]; unmatchedLedger: LedgerItem[];
   unmatchedStatementTotal: number; unmatchedLedgerTotal: number; reconciled: boolean;
 }
 
+/** Cash and bank (/api/v1/finance/bank): balances, statement import and reconciliation, transfers. */
 @Injectable({ providedIn: 'root' })
 export class BankApi {
   private readonly http = inject(HttpClient);
   private readonly base = `${inject(API_BASE_URL)}/finance/bank`;
-  position(asOf: string, legalEntityId?: string): Observable<CashPosition> { return this.http.get<CashPosition>(`${this.base}/position`, { params: { asOf, ...(legalEntityId ? { legalEntityId } : {}) } }); }
+  position(asOf: string, legalEntityId?: string): Observable<CashPosition> { return this.http.get<CashPosition>(`${this.base}/position`, { params: { asOf, ...entityParam(legalEntityId) } }); }
   reconciliation(accountId: string, asOf: string, legalEntityId?: string): Observable<Reconciliation> {
-    return this.http.get<Reconciliation>(`${this.base}/accounts/${accountId}/reconciliation`, { params: { asOf, ...(legalEntityId ? { legalEntityId } : {}) } });
+    return this.http.get<Reconciliation>(`${this.base}/accounts/${accountId}/reconciliation`, { params: { asOf, ...entityParam(legalEntityId) } });
   }
   import(accountId: string, legalEntityId: string, lines: { date: string; description: string; reference: string | null; amount: number }[]): Observable<{ imported: number; duplicates: number }> {
     return this.http.post<{ imported: number; duplicates: number }>(`${this.base}/accounts/${accountId}/import`, { legalEntityId, lines });
   }
   autoMatch(accountId: string, legalEntityId: string): Observable<{ matched: number }> { return this.http.post<{ matched: number }>(`${this.base}/accounts/${accountId}/auto-match`, { legalEntityId }); }
-  match(lineId: string, journalLineId: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/match`, { journalLineId }); }
-  unmatch(lineId: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/unmatch`, {}); }
-  book(lineId: string, counterAccountId: string, memo?: string): Observable<StatementLine> { return this.http.post<StatementLine>(`${this.base}/statement-lines/${lineId}/book`, { counterAccountId, memo: memo ?? null }); }
+  match(lineId: string, journalLineId: string): Observable<BankStatementLine> { return this.http.post<BankStatementLine>(`${this.base}/statement-lines/${lineId}/match`, { journalLineId }); }
+  unmatch(lineId: string): Observable<BankStatementLine> { return this.http.post<BankStatementLine>(`${this.base}/statement-lines/${lineId}/unmatch`, {}); }
+  book(lineId: string, counterAccountId: string, memo?: string): Observable<BankStatementLine> { return this.http.post<BankStatementLine>(`${this.base}/statement-lines/${lineId}/book`, { counterAccountId, memo: memo ?? null }); }
   transfer(body: unknown): Observable<unknown> { return this.http.post(`${this.base}/transfers`, body); }
 }
 
@@ -344,18 +375,20 @@ export interface BillDto extends BillSummary { legalEntityId: string; net: numbe
 export interface PaymentSummary { id: string; number: string; partyId: string; partyName?: string; date: string; method: string; amount: number; unallocated: number; status: string; currencyCode: string; }
 export interface PaymentDto extends PaymentSummary { legalEntityId: string; bankAccountId?: string; reference?: string; paymentInstrumentId?: string; allocations: { id: string; billId: string; billNumber: string; amount: number }[]; }
 export interface ApprovalPolicy { id: string; documentType: string; minAmount?: number; approverPermission: string; isActive: boolean; level: number; }
-export const PAYMENT_METHODS = [...SETTLEMENT_METHODS, { value: 'instrument', label: 'Cheque issued' }];
+export const PAYMENT_METHODS: LookupOption[] = [...SETTLEMENT_METHODS, { value: 'instrument', label: 'Cheque issued' }];
 
+/** Vendor bills (/api/v1/finance/bills). */
 @Injectable({ providedIn: 'root' })
 export class BillsApi extends CrudApiService<BillSummary, unknown> {
   protected readonly resource = 'finance/bills';
   detail(id: string): Observable<BillDto> { return this.http.get<BillDto>(`${this.url}/${id}`); }
-  save(id: string | null, body: unknown): Observable<BillDto> { return id ? this.http.put<BillDto>(`${this.url}/${id}`, body) : this.http.post<BillDto>(this.url, body); }
+  save(id: string | null, body: unknown): Observable<BillDto> { return putOrPost<BillDto>(this.http, this.url, id, body); }
   post(id: string): Observable<BillDto> { return this.http.post<BillDto>(`${this.url}/${id}/post`, {}); }
   /** The API requires a reason (3–500 characters); it is stored in the audit log and the reversal memo. */
   void(id: string, reason: string): Observable<BillDto> { return this.http.post<BillDto>(`${this.url}/${id}/void`, { reason }); }
 }
 
+/** Vendor payments and their allocation to bills (/api/v1/finance/payments). */
 @Injectable({ providedIn: 'root' })
 export class PaymentsApi extends CrudApiService<PaymentSummary, unknown> {
   protected readonly resource = 'finance/payments';
@@ -366,12 +399,13 @@ export class PaymentsApi extends CrudApiService<PaymentSummary, unknown> {
   clearCheque(instrumentId: string, date: string): Observable<PaymentDto> { return this.http.post<PaymentDto>(`${this.baseUrl}/finance/cheques/${instrumentId}/clear-issued`, { date }); }
 }
 
+/** Approval rules: which documents need approval, from what amount, by whom (/api/v1/approval-policies). */
 @Injectable({ providedIn: 'root' })
 export class ApprovalPoliciesApi {
   private readonly http = inject(HttpClient);
   private readonly url = `${inject(API_BASE_URL)}/approval-policies`;
   list(): Observable<ApprovalPolicy[]> { return this.http.get<ApprovalPolicy[]>(this.url); }
-  save(id: string | null, body: unknown): Observable<ApprovalPolicy> { return id ? this.http.put<ApprovalPolicy>(`${this.url}/${id}`, body) : this.http.post<ApprovalPolicy>(this.url, body); }
+  save(id: string | null, body: unknown): Observable<ApprovalPolicy> { return putOrPost<ApprovalPolicy>(this.http, this.url, id, body); }
   remove(id: string): Observable<void> { return this.http.delete<void>(`${this.url}/${id}`); }
 }
 
@@ -381,22 +415,24 @@ export class ApprovalPoliciesApi {
 export interface KpiCard { key: string; label: string; value: number; format: 'money' | 'percent' | 'number'; caption?: string; order: number; link?: string; captionKey?: string; captionArgs?: Record<string, string>; }
 export interface ChartSeriesDto { name: string; values: number[]; }
 export interface DashboardBucket { from: string; to: string; }
-/** Time-series charts also send `buckets` (one per category, yyyy-MM-dd) and `granularity` so the client labels the axis in the user's language. */
-/** `singleColor`: one series over time reads as one colour, rather than a colour per bar. */
+/**
+ * Time-series charts also send `buckets` (one per category, yyyy-MM-dd) and `granularity` so the client labels the axis in the user's language.
+ * `singleColor`: one series over time reads as one colour, rather than a colour per bar.
+ */
 export interface DashboardChart { key: string; title: string; kind: 'bar' | 'stacked' | 'hbar'; categories: string[]; series: ChartSeriesDto[]; subtitle?: string; order: number; buckets?: DashboardBucket[]; granularity?: 'week' | 'month' | 'quarter'; singleColor?: boolean; }
 export interface DashboardAlert { severity: 'critical' | 'warning' | 'info'; category: string; urgency: 'action' | 'upcoming' | 'info'; message: string; link?: string; rank: number; }
 /** `from`/`to` (yyyy-MM-dd) echo the reporting period the figures cover. */
 export interface DashboardDto { asOf: string; from?: string; to?: string; kpis: KpiCard[]; charts: DashboardChart[]; alerts: DashboardAlert[]; }
 export interface DashboardPeriod { from?: string; to?: string; }
 
+/** The workspace overview: KPI cards, charts and alerts (/api/v1/dashboard). */
 @Injectable({ providedIn: 'root' })
 export class DashboardApi {
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
   /** Without a period the server uses the last year ending today. */
   get(period: DashboardPeriod = {}): Observable<DashboardDto> {
-    const params = Object.fromEntries(Object.entries(period).filter(([, v]) => !!v)) as Record<string, string>;
-    return this.http.get<DashboardDto>(`${this.base}/dashboard`, { params });
+    return this.http.get<DashboardDto>(`${this.base}/dashboard`, { params: definedParams(period) });
   }
 }
 
@@ -410,6 +446,8 @@ export interface BudgetVsActual {
   budgetId: string; name: string; fiscalYear: number; fromMonth: number; toMonth: number; rows: BudgetVsActualRow[];
   budgetIncome: number; actualIncome: number; budgetExpense: number; actualExpense: number; budgetNet: number; actualNet: number;
 }
+
+/** Budgets by account and month, and budget against actual (/api/v1/finance/budgets). */
 @Injectable({ providedIn: 'root' })
 export class BudgetsApi extends CrudApiService<BudgetSummary, unknown> {
   protected readonly resource = 'finance/budgets';

@@ -1,0 +1,41 @@
+
+    <nav class="pg" [class.busy]="loading()" [attr.aria-label]="t('pager.label', 'Pagination')" [attr.aria-busy]="loading()" (keydown)="onKey($event)" data-testid="pagination-bar">
+      <span class="range" aria-live="polite" data-testid="pager-range">
+        @if (total() > 0) { {{ t('pager.showing', 'Showing') }} <b>{{ n(from()) }}–{{ n(to()) }}</b> {{ t('pager.of', 'of') }} <b>{{ n(total()) }}</b> }
+        @else { {{ t('pager.noItems', 'No items') }} }
+      </span>
+      <span class="spacer"></span>
+      <div class="nav">
+        <button type="button" class="pb edge" (click)="go(1)" [disabled]="busy() || cur() <= 1" [attr.aria-label]="t('pager.first', 'First page')" [title]="t('pager.first', 'First page')" data-testid="pager-first">
+          <span class="flip" nz-icon nzType="double-left"></span></button>
+        <button type="button" class="pb" (click)="go(cur() - 1)" [disabled]="busy() || cur() <= 1" [attr.aria-label]="t('pager.prev', 'Previous page')" [title]="t('pager.prev', 'Previous page')" data-testid="pager-prev">
+          <span class="flip" nz-icon nzType="left"></span></button>
+        @for (s of slots(); track $index) {
+          @if (s === 'prev5' || s === 'next5') {
+            <button type="button" class="pb more" (click)="go(s === 'prev5' ? cur() - 5 : cur() + 5)" [disabled]="busy()"
+                    [attr.aria-label]="s === 'prev5' ? t('pager.prev5', 'Previous 5 pages') : t('pager.next5', 'Next 5 pages')" [title]="s === 'prev5' ? t('pager.prev5', 'Previous 5 pages') : t('pager.next5', 'Next 5 pages')">
+              <span class="dots" aria-hidden="true">•••</span><span class="alt flip" nz-icon [nzType]="s === 'prev5' ? 'double-left' : 'double-right'"></span></button>
+          } @else {
+            <button type="button" class="pb num" [class.on]="s === cur()" (click)="go(s)" [disabled]="busy()" [attr.aria-current]="s === cur() ? 'page' : null"
+                    [attr.aria-label]="t('pager.page', 'Page') + ' ' + s" [attr.data-testid]="'pager-page-' + s">{{ n(s) }}</button>
+          }
+        }
+        <span class="cur" data-testid="pager-current">{{ t('pager.page', 'Page') }} {{ n(cur()) }} / {{ n(pageCount()) }}</span>
+        <button type="button" class="pb" (click)="go(cur() + 1)" [disabled]="busy() || cur() >= pageCount()" [attr.aria-label]="t('pager.next', 'Next page')" [title]="t('pager.next', 'Next page')" data-testid="pager-next">
+          <span class="flip" nz-icon nzType="right"></span></button>
+        <button type="button" class="pb edge" (click)="go(pageCount())" [disabled]="busy() || cur() >= pageCount()" [attr.aria-label]="t('pager.last', 'Last page')" [title]="t('pager.last', 'Last page')" data-testid="pager-last">
+          <span class="flip" nz-icon nzType="double-right"></span></button>
+      </div>
+      <div class="tools">
+        @if (showJumper() && pageCount() > 1) {
+          <label class="jumpbox"><span class="lbl lbl-go">{{ t('pager.goTo', 'Go to') }}</span>
+            <input class="jump" type="number" inputmode="numeric" min="1" [max]="pageCount()" [disabled]="busy()" [(ngModel)]="jumpTo" (keydown.enter)="jump()" (blur)="jump()"
+                   [placeholder]="'' + cur()" [attr.aria-label]="t('pager.goToPage', 'Go to page')" data-testid="pager-jump" /></label>
+        }
+        @if (showSizeChanger()) {
+          <nz-select class="size" nzSize="default" [ngModel]="pageSize()" (ngModelChange)="setSize($event)" [nzDisabled]="busy()" [attr.aria-label]="t('pager.rowsPerPage', 'Rows per page')" data-testid="pager-size">
+            @for (o of sizes(); track o) { <nz-option [nzValue]="o" [nzLabel]="o + ' ' + t('pager.perPage', '/ page')"></nz-option> }
+          </nz-select>
+        }
+      </div>
+    </nav>

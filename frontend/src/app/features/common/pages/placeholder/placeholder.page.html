@@ -1,0 +1,33 @@
+
+    <div class="status-container" data-testid="placeholder">
+      <div class="status-card">
+        <div class="status-icon-badge" [class.forbidden]="isForbidden()">
+          <span nz-icon [nzType]="isForbidden() ? 'safety' : 'compass'" nzTheme="outline"></span>
+        </div>
+
+        <div class="badge-row">
+          <nz-tag [nzColor]="isForbidden() ? 'red' : 'default'">
+            {{ isForbidden() ? '403 · FORBIDDEN' : '404 · NOT FOUND' }}
+          </nz-tag>
+        </div>
+
+        <h1 class="status-title">{{ computedTitle() }}</h1>
+        <p class="status-desc">{{ computedDesc() }}</p>
+
+        <div class="status-actions">
+          <a routerLink="/" nz-button nzType="primary" nzSize="large">
+            <span nz-icon nzType="dashboard"></span>
+            {{ 'ui.nav.backDashboard' | translate: 'Return to Dashboard' }}
+          </a>
+          <button nz-button nzSize="large" (click)="goBack()">
+            <span nz-icon nzType="arrow-left"></span>
+            {{ 'ui.nav.goBack' | translate: 'Go Back' }}
+          </button>
+        </div>
+
+        <div class="status-tips">
+          <span>{{ 'ui.nav.needHelpTip' | translate: 'Need help or missing access? Contact your workspace administrator.' }}</span>
+        </div>
+      </div>
+    </div>
+  

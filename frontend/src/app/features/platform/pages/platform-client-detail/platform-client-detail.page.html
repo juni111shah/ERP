@@ -1,0 +1,165 @@
+
+    <a class="back" routerLink="/platform/clients" data-testid="client-back"><span nz-icon nzType="arrow-left"></span>All clients</a>
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load this client" [hint]="failed()" actionLabel="Try again" (action)="load()" />
+    } @else if (!data()) {
+      <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+    } @else {
+      @let d = data()!;
+      @let c = d.client;
+      <section class="pf-card header" data-testid="client-header">
+        <div class="head-row">
+          <div>
+            <h2 data-testid="client-name">{{ c.name }}</h2>
+            <div class="pf-muted pf-small">Workspace code <span class="pf-mono">{{ c.code }}</span> · {{ countryName() }} · client since {{ c.createdAt | erpDate }}</div>
+          </div>
+          <div class="tags">
+            <erp-status [value]="c.status ?? 'inactive'" [label]="statusText()" data-testid="client-status" />
+            @if (c.status) { <erp-status [value]="c.access" [label]="accessText()" data-testid="client-access" /> }
+            @if (c.isComplimentary) { <erp-status value="new" label="Free of charge" /> }
+          </div>
+        </div>
+        @if (c.status) {
+          <div class="pf-actions" data-testid="client-actions">
+            @if (c.status !== 'cancelled') { <button nz-button nzType="primary" type="button" (click)="openDialog('plan')" data-testid="client-change-plan"><span nz-icon nzType="swap"></span>Change plan</button> }
+            @if (canExtend()) { <button nz-button type="button" (click)="openDialog('trial')" data-testid="client-extend-trial"><span nz-icon nzType="calendar"></span>Extend trial</button> }
+            @if (canActivate()) { <button nz-button type="button" (click)="openDialog('activate')" data-testid="client-activate"><span nz-icon nzType="check-circle"></span>Activate</button> }
+            @if (c.status !== 'cancelled') { <button nz-button type="button" (click)="openDialog('invoice')" data-testid="client-issue-invoice"><span nz-icon nzType="file-add"></span>Issue invoice</button> }
+            @if (c.status === 'suspended' || c.status === 'cancelled') { <button nz-button type="button" (click)="reactivate()" [nzLoading]="busy() === 'reactivate'" data-testid="client-reactivate"><span nz-icon nzType="play-circle"></span>Reactivate</button> }
+            @if (c.status !== 'suspended' && c.status !== 'cancelled') { <button nz-button nzDanger type="button" (click)="suspend()" data-testid="client-suspend"><span nz-icon nzType="pause-circle"></span>Suspend</button> }
+            @if (c.status !== 'cancelled') { <button nz-button nzDanger type="button" (click)="cancel()" data-testid="client-cancel"><span nz-icon nzType="stop"></span>Cancel subscription</button> }
+          </div>
+        }
+      </section>
+
+      @if (!c.status) {
+        <div class="assign">
+          <erp-state-panel icon="tag" title="This client has no plan yet" hint="It is not billed and nothing holds it back. Assign a plan to start a trial or a paid period." actionLabel="Assign a plan" (action)="openDialog('assign')" data-testid="client-assign" />
+        </div>
+      } @else {
+        @if (d.requested; as req) {
+          <section class="pf-card request" data-testid="client-request">
+            <h2 style="font-size:15px;font-weight:600;margin:0 0 6px">A plan change is requested</h2>
+            <p>{{ c.name }} asked for <strong>{{ req.planName }}</strong>, {{ cycleText(req.cycle) }}, on {{ req.requestedAt | erpDate }}.@if (req.note) { <br /><span class="note">"{{ req.note }}"</span> }</p>
+            <div class="pf-actions">
+              <button nz-button nzType="primary" nzSize="small" type="button" (click)="applyRequest()" data-testid="client-request-apply">Apply</button>
+              <button nz-button nzSize="small" type="button" (click)="decline()" data-testid="client-request-decline">Decline</button>
+            </div>
+          </section>
+        }
+        <div class="pf-grid">
+          <section class="pf-card" data-testid="client-plan">
+            <h2>Plan and billing</h2>
+            <dl class="pf-facts">
+              <dt>Plan</dt><dd>{{ c.planName }}</dd>
+              <dt>Billing cycle</dt><dd>{{ cycleText(c.cycle) }}</dd>
+              <dt>Price per cycle</dt><dd>{{ c.cyclePrice | erpMoney: currency() }}@if (d.customPrice !== null) { <span class="pf-muted pf-small"> (custom price)</span> }</dd>
+              <dt>Monthly value</dt><dd>{{ c.monthlyValue | erpMoney: currency() }}</dd>
+              <dt>Started</dt><dd>{{ d.startedOn | erpDate }}</dd>
+              @if (c.trialEndsOn) { <dt>Trial ends</dt><dd>{{ c.trialEndsOn | erpDate }}</dd> }
+              @if (d.currentPeriodStart) { <dt>Paid period</dt><dd>{{ d.currentPeriodStart | erpDate }} to {{ c.currentPeriodEnd | erpDate }}</dd> }
+              @if (d.lapsedOn) { <dt>Lapsed on</dt><dd>{{ d.lapsedOn | erpDate }}</dd> }
+              <dt>Open balance</dt><dd>{{ c.openBalance | erpMoney: currency() }}</dd>
+              @if (d.suspendedReason) { <dt>Why suspended</dt><dd>{{ d.suspendedReason }}</dd> }
+              @if (d.cancelledAt) { <dt>Cancelled</dt><dd>{{ d.cancelledAt | erpDate }}{{ d.cancelReason ? ': ' + d.cancelReason : '' }}</dd> }
+            </dl>
+          </section>
+          <section class="pf-card" data-testid="client-usage">
+            <h2>Usage against limits</h2>
+            <div class="bars">
+              <erp-usage-bar label="Active users" [used]="c.activeUsers" [max]="c.maxUsers" />
+              <erp-usage-bar label="Legal entities" [used]="d.legalEntities" [max]="d.maxLegalEntities" />
+              <div class="pf-small pf-muted">Last sign-in: {{ c.lastSignInAt ? (c.lastSignInAt | erpDate) : 'never' }}</div>
+            </div>
+          </section>
+          <section class="pf-card" data-testid="client-contact">
+            <div class="pf-card-head"><h2>Contact and notes</h2><button nz-button nzSize="small" type="button" (click)="openDialog('details')" data-testid="client-edit-details"><span nz-icon nzType="edit"></span>Edit</button></div>
+            <dl class="pf-facts">
+              <dt>Billing email</dt><dd>{{ d.billingEmail || '—' }}</dd>
+              <dt>Phone</dt><dd>{{ d.contactPhone || '—' }}</dd>
+              <dt>Industry</dt><dd>{{ industryText() }}</dd>
+              <dt>Currency</dt><dd>{{ d.baseCurrency }}</dd>
+              <dt>Time zone</dt><dd>{{ d.timeZone }}</dd>
+              <dt>Notes</dt><dd class="note">{{ d.notes || '—' }}</dd>
+            </dl>
+          </section>
+        </div>
+        <section class="pf-card" style="margin-bottom:16px" data-testid="client-users">
+          <h2>Users</h2>
+          <div class="pf-scroll">
+            <table class="pf-table">
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
+              <tbody>
+                @for (m of d.members; track m.userId) {
+                  <tr [attr.data-testid]="'client-user-' + m.email">
+                    <td class="pf-nowrap">{{ m.fullName }}</td>
+                    <td>{{ m.email }}</td>
+                    <td class="pf-nowrap">{{ m.isAdministrator ? 'Administrator' : 'Member' }}</td>
+                    <td><erp-status [value]="m.isActive ? 'active' : 'inactive'" /></td>
+                    <td class="pf-nowrap">{{ m.lastSignInAt ? (m.lastSignInAt | erpDate) : 'Never' }}</td>
+                    <td class="erp-cell-actions num"><erp-row-actions><button nz-button nzSize="small" type="button" (click)="issuePassword(m)" data-testid="client-user-password">Issue temporary password</button></erp-row-actions></td>
+                  </tr>
+                } @empty { <tr><td colspan="6" class="pf-muted">No users.</td></tr> }
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <div class="pf-grid">
+          <section class="pf-card" data-testid="client-modules">
+            <h2>Modules</h2>
+            @if (modules().length) {
+              <ul class="pf-list">
+                @for (m of modules(); track m.key) {
+                  <li class="module">
+                    <div class="about">{{ m.name }}<small>{{ m.description }}</small>@if (notInPlan(m.key)) { <small style="color:var(--erp-color-warning-text)">Not part of the {{ c.planName }} plan</small> }</div>
+                    <nz-switch [ngModel]="isEnabled(m.key)" [nzControl]="true" [nzLoading]="busy() === m.key" (click)="toggleModule(m)" [attr.aria-label]="m.name" [attr.data-testid]="'client-module-' + m.key"></nz-switch>
+                  </li>
+                }
+              </ul>
+            } @else if (modulesFailed()) { <p class="pf-empty">The module list could not be loaded.</p> } @else { <p class="pf-empty">Loading...</p> }
+          </section>
+          <section class="pf-card" data-testid="client-activity">
+            <h2>Activity</h2>
+            @if (d.activity.length) {
+              <ul class="pf-list log">
+                @for (a of d.activity; track a.id) {
+                  <li><time>{{ a.at | erpDate }} · {{ a.actor }}</time><span class="what"><strong>{{ a.action }}</strong></span>@if (a.detail) { <span class="pf-small pf-muted what">{{ a.detail }}</span> }</li>
+                }
+              </ul>
+            } @else { <p class="pf-empty">Nothing has happened yet.</p> }
+          </section>
+        </div>
+        <section class="pf-card" data-testid="client-invoices">
+          <div class="pf-card-head"><h2>Invoices</h2><a [routerLink]="['/platform/invoices']" [queryParams]="{ orgId: c.orgId }" class="pf-small">See in the invoice list</a></div>
+          @if (d.invoices.length) {
+            <div class="pf-scroll">
+              <table class="pf-table">
+                <thead><tr><th>Number</th><th>Description</th><th class="num">Total</th><th>Issued</th><th>Due</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  @for (i of d.invoices; track i.id) {
+                    <tr>
+                      <td class="pf-nowrap"><a [routerLink]="['/platform/invoices', i.id]" [attr.data-testid]="'client-invoice-' + i.number">{{ i.number }}</a></td>
+                      <td style="min-width:200px">{{ i.description }}</td>
+                      <td class="num">{{ i.total | erpMoney: i.currency }}</td>
+                      <td class="pf-nowrap">{{ i.issuedOn | erpDate }}</td>
+                      <td class="pf-nowrap">{{ i.dueOn | erpDate }}</td>
+                      <td><erp-status [value]="tone(i)" /></td>
+                      <td class="num"><erp-invoice-actions [invoice]="i" [clientName]="c.name" (changed)="load()" /></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else { <p class="pf-empty">No invoices yet. Use Issue invoice to bill this client.</p> }
+        </section>
+      }
+    }
+
+    <erp-record-drawer [title]="dialogSpec().title" [open]="!!dialog()" [fields]="dialogSpec().fields" [value]="dialogSpec().value" [saving]="saving()" [errors]="errors()" [submitLabel]="dialogSpec().submit" testId="client-dialog"
+                       (submitted)="submitDialog($event)" (closed)="dialog.set(null)">
+      <div drawerActions>
+        @if (dialogSpec().warning; as w) { <nz-alert nzType="warning" nzShowIcon [nzMessage]="w" style="margin-bottom:16px" data-testid="client-dialog-warning"></nz-alert> }
+        @if (dialogSpec().intro; as i) { <p style="margin:0 0 16px;color:var(--erp-color-text-muted)">{{ i }}</p> }
+      </div>
+    </erp-record-drawer>
+    <erp-one-time-password [secret]="secret()" (closed)="secret.set(null)" />

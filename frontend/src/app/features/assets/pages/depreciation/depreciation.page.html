@@ -1,0 +1,33 @@
+
+    <h1 class="erp-page-title">Depreciation</h1>
+    <erp-paged-table [list]="list" [columns]="columns" [searchable]="false" emptyText="No depreciation has been run yet." (rowClick)="show($event)">
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('period') { <b>{{ periodLabel(row) }}</b> }
+          @case ('total') { {{ row.total | number: '1.2-2' }} }
+          @case ('journal') {
+            @if (row.journalEntryId) { <a [routerLink]="['/finance/journals', row.journalEntryId]" (click)="$event.stopPropagation()">Open journal</a> } @else { — }
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+      <button toolbar *erpHasPermission="'assets.depreciation.run'" nz-button nzType="primary" (click)="runForm.show()" data-testid="depreciation-run"><span nz-icon nzType="play-circle"></span>Run depreciation</button>
+    </erp-paged-table>
+    <erp-record-drawer title="Run depreciation" submitLabel="Run" [open]="runForm.open()" [fields]="fields()" [saving]="runForm.saving()" [errors]="runForm.errors()"
+                       testId="depreciation-form" (submitted)="runForm.submit($event)" (closed)="runForm.close()" />
+    <nz-modal [nzVisible]="!!selected()" [nzTitle]="selected() ? 'Depreciation for ' + periodLabel(selected()!) : ''" [nzFooter]="null" [nzWidth]="720" (nzOnCancel)="selected.set(null)">
+      <ng-container *nzModalContent>
+        @if (selected(); as run) {
+          @if (run.entries?.length) {
+            <nz-table [nzData]="run.entries!" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="run-entries">
+              <thead><tr><th>Asset</th><th>Name</th><th class="r">Depreciation</th><th class="r">Accumulated after</th></tr></thead>
+              <tbody>
+                @for (e of run.entries!; track e.assetId) {
+                  <tr><td><a [routerLink]="['/assets/register', e.assetId]" (click)="selected.set(null)">{{ e.number }}</a></td><td>{{ e.name }}</td><td class="r">{{ e.amount | number: '1.2-2' }}</td><td class="r">{{ e.accumulatedAfter | number: '1.2-2' }}</td></tr>
+                }
+              </tbody>
+            </nz-table>
+          } @else { <p>Nothing was due in this period.</p> }
+        }
+      </ng-container>
+    </nz-modal>

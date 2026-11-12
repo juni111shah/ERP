@@ -4,10 +4,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { TenantThemeService } from '../../theme/tenant-theme.service';
-import { API_BASE_URL } from '../core/api/api-config';
-import { I18nService } from '../core/i18n/i18n.service';
-import { PlatformShellComponent } from './platform-shell.component';
-import { ShellComponent } from './shell.component';
+import { API_BASE_URL } from '@core/api/api-config';
+import { I18nService } from '@core/i18n/i18n.service';
+import { PlatformShellComponent } from './platform-shell/platform-shell.component';
+import { ShellComponent } from './shell/shell.component';
 
 describe('profile menu', () => {
   const providers = [provideRouter([]), provideHttpClient(), provideHttpClientTesting(), provideNoopAnimations(), { provide: API_BASE_URL, useValue: '/api/v1' }];

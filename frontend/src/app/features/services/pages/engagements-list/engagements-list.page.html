@@ -1,0 +1,198 @@
+
+    <!-- The server allows no search or sorting on engagements yet, so neither is offered. -->
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search number, title or client" (rowClick)="viewDetails($event)" emptyText="No engagements yet. Create one to start tracking client work.">
+      <button toolbar *erpHasPermission="'services.engagements.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="engagement-new">
+        <span nz-icon nzType="plus"></span> New Engagement
+      </button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('engagementCode') { <span class="code strong">{{ row.engagementCode }}</span> }
+          @case ('title') {
+            <div>{{ row.title }}</div>
+            <div class="sub">{{ row.clientName }}</div>
+          }
+          @case ('type') { {{ row.type | erpLabel }} }
+          @case ('hours') {
+            <div class="hours">
+              <div class="sub nowrap">{{ row.consumedHours | number:'1.0-1' }} of {{ row.budgetedHours | number:'1.0-1' }} h</div>
+              <nz-progress
+                [nzPercent]="getHoursPercent(row)"
+                [nzStatus]="row.consumedHours > row.budgetedHours && row.budgetedHours > 0 ? 'exception' : 'normal'"
+                [nzShowInfo]="false"
+                [nzStrokeWidth]="6">
+              </nz-progress>
+            </div>
+          }
+          @case ('contractValue') { <span class="num strong">{{ currency() }} {{ row.contractValue | number:'1.2-2' }}</span> }
+          @case ('status') { <erp-status [value]="row.status" /> }
+          @case ('actions') {
+            <div class="table-actions" (click)="$event.stopPropagation()">
+              @if (nextStatuses(row.status).length > 0) {
+                <button *erpHasPermission="'services.engagements.manage'" nz-button nzType="link" nzSize="small" (click)="openStatusModal(row)">
+                  <span nz-icon nzType="edit"></span> Change status
+                </button>
+              }
+            </div>
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
+
+    <!-- Create Engagement Drawer -->
+    <nz-drawer [nzVisible]="drawerVisible()" nzTitle="New engagement" [nzWidth]="520" (nzOnClose)="drawerVisible.set(false)">
+      <ng-container *nzDrawerContent>
+        <form nz-form [formGroup]="form" (ngSubmit)="submitEngagement()" nzLayout="vertical">
+          <nz-form-item>
+            <nz-form-label nzRequired>Legal entity</nz-form-label>
+            <nz-form-control nzErrorTip="Choose a legal entity">
+              <nz-select formControlName="legalEntityId" nzPlaceHolder="Choose a legal entity">
+                @for (entity of legalEntities(); track entity.id) {
+                  <nz-option [nzValue]="entity.id" [nzLabel]="entity.name"></nz-option>
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+
+          <nz-form-item>
+            <nz-form-label nzRequired>Title</nz-form-label>
+            <nz-form-control nzErrorTip="Enter a title">
+              <input nz-input formControlName="title" placeholder="e.g. Cloud migration" />
+            </nz-form-control>
+          </nz-form-item>
+
+          <div class="row-2">
+            <nz-form-item>
+              <nz-form-label nzRequired>Client</nz-form-label>
+              <nz-form-control nzErrorTip="Choose a client">
+                <nz-select formControlName="clientId" nzShowSearch nzPlaceHolder="Choose a client" (ngModelChange)="onClientSelected($event)">
+                  @for (c of clients(); track c.id) {
+                    <nz-option [nzValue]="c.id" [nzLabel]="c.name + ' (' + c.code + ')'"></nz-option>
+                  }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Billing model</nz-form-label>
+              <nz-form-control>
+                <nz-select formControlName="type">
+                  <nz-option nzValue="fixedPrice" nzLabel="Fixed price"></nz-option>
+                  <nz-option nzValue="timeAndMaterials" nzLabel="Time and materials"></nz-option>
+                  <nz-option nzValue="retainer" nzLabel="Retainer"></nz-option>
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+
+          <div class="row-2">
+            <nz-form-item>
+              <nz-form-label nzRequired>Contract value ({{ currency() }})</nz-form-label>
+              <nz-form-control nzErrorTip="Enter a value">
+                <nz-input-number formControlName="contractValue" [nzMin]="0" [nzStep]="1000" class="full"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Budgeted hours</nz-form-label>
+              <nz-form-control nzErrorTip="Enter the hours">
+                <nz-input-number formControlName="budgetedHours" [nzMin]="0" [nzStep]="10" class="full"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+
+          <div class="row-2">
+            <nz-form-item>
+              <nz-form-label nzRequired>Start date</nz-form-label>
+              <nz-form-control nzErrorTip="Choose a start date">
+                <nz-date-picker formControlName="startDate" class="full"></nz-date-picker>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label>Target end date</nz-form-label>
+              <nz-form-control nzErrorTip="The end date cannot be before the start date">
+                <nz-date-picker formControlName="targetEndDate" class="full"></nz-date-picker>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+
+          <nz-form-item>
+            <nz-form-label>Lead consultant</nz-form-label>
+            <nz-form-control>
+              <input nz-input formControlName="leadConsultantName" />
+            </nz-form-control>
+          </nz-form-item>
+
+          <nz-form-item>
+            <nz-form-label>Scope</nz-form-label>
+            <nz-form-control>
+              <textarea nz-input formControlName="description" rows="3" placeholder="Objectives and deliverables"></textarea>
+            </nz-form-control>
+          </nz-form-item>
+
+          <div class="drawer-footer">
+            <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
+            <button nz-button nzType="primary" [nzLoading]="isSubmitting()" type="submit" [disabled]="form.invalid">Save</button>
+          </div>
+        </form>
+      </ng-container>
+    </nz-drawer>
+
+    <!-- Status Modal -->
+    <nz-modal
+      [nzVisible]="statusModalVisible()"
+      [nzTitle]="'Change status of ' + (selectedEngagement()?.engagementCode ?? '')"
+      nzOkText="Save"
+      [nzOkDisabled]="!newStatus"
+      [nzOkLoading]="isSavingStatus()"
+      (nzOnCancel)="statusModalVisible.set(false)"
+      (nzOnOk)="saveStatus()">
+      <ng-container *nzModalContent>
+        <p>Now {{ (selectedEngagement()?.status ?? '') | erpLabel }}. Move it to:</p>
+        <nz-select [(ngModel)]="newStatus" class="full" nzPlaceHolder="Choose a status" aria-label="New status">
+          @for (s of statusOptions(); track s) {
+            <nz-option [nzValue]="s" [nzLabel]="s | erpLabel"></nz-option>
+          }
+        </nz-select>
+      </ng-container>
+    </nz-modal>
+
+    <!-- Details Drawer -->
+    <nz-drawer [nzVisible]="detailsVisible()" [nzTitle]="selectedDetails()?.engagementCode ?? 'Engagement'" [nzWidth]="640" (nzOnClose)="detailsVisible.set(false)">
+      <ng-container *nzDrawerContent>
+        @if (selectedDetails(); as eng) {
+          <div class="detail">
+            <div class="detail-tags">
+              <erp-status [value]="eng.status" />
+              <span class="sub">{{ eng.type | erpLabel }}</span>
+            </div>
+            <h3 class="detail-title">{{ eng.title }}</h3>
+            <div class="sub">{{ eng.clientName }}</div>
+            @if (eng.description) { <p>{{ eng.description }}</p> }
+
+            <nz-card nzSize="small" nzTitle="Money and hours">
+              <dl class="facts">
+                <div><dt>Contract value</dt><dd class="num">{{ currency() }} {{ eng.contractValue | number:'1.2-2' }}</dd></div>
+                <div><dt>Cost so far</dt><dd class="num">{{ currency() }} {{ eng.consumedCost | number:'1.2-2' }}</dd></div>
+                <div><dt>Budgeted hours</dt><dd class="num">{{ eng.budgetedHours | number:'1.0-1' }} h</dd></div>
+                <div><dt>Hours used</dt><dd class="num">{{ eng.consumedHours | number:'1.0-1' }} h</dd></div>
+              </dl>
+            </nz-card>
+
+            <ng-container *erpHasPermission="'services.timeentries.read'">
+              <nz-card nzSize="small" nzTitle="Time logged" data-testid="engagement-time">
+                <erp-engagement-time [engagement]="eng" (changed)="list.reload()" />
+              </nz-card>
+            </ng-container>
+
+            <nz-card nzSize="small" nzTitle="Schedule">
+              <dl class="facts">
+                <div><dt>Start date</dt><dd>{{ eng.startDate | erpDate }}</dd></div>
+                <div><dt>Target end date</dt><dd>{{ eng.targetEndDate ? (eng.targetEndDate | erpDate) : 'Not set' }}</dd></div>
+                @if (eng.actualEndDate) { <div><dt>Ended on</dt><dd>{{ eng.actualEndDate | erpDate }}</dd></div> }
+                <div><dt>Lead consultant</dt><dd>{{ eng.leadConsultantName || 'Not assigned' }}</dd></div>
+              </dl>
+            </nz-card>
+          </div>
+        }
+      </ng-container>
+    </nz-drawer>
+  

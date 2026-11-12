@@ -1,0 +1,6 @@
+
+    .toolbar { display: flex; justify-content: flex-end; margin-block-end: 16px; }
+    .detail-card { max-width: 640px; }
+    .metric-head { display: flex; justify-content: space-between; gap: 12px; margin-block-end: 6px; color: var(--erp-color-text-muted); }
+    .metric-head strong { color: var(--erp-color-text-primary); font-variant-numeric: tabular-nums; }
+  

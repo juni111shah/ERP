@@ -1,0 +1,12 @@
+
+    <div class="card">
+      <div class="brand"><erp-brand-logo size="lg"></erp-brand-logo></div>
+      @if (busy()) {
+        <div class="busy" data-testid="verify-busy"><nz-spin nzSimple></nz-spin><p style="margin:12px 0 0">Confirming your email...</p></div>
+      } @else if (result(); as r) {
+        <erp-register-result [result]="r" [supportEmail]="supportEmail()" />
+      } @else {
+        <erp-state-panel kind="error" title="This link did not work" [hint]="error()" data-testid="verify-error" />
+        <p class="back"><a routerLink="/register" data-testid="verify-back">Back to registration</a></p>
+      }
+    </div>

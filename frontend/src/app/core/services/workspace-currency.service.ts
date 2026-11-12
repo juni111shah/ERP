@@ -1,6 +1,7 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { SessionStore } from '../session/session.store';
 
+/** The currency amounts are shown in: the selected legal entity's, else the workspace's. */
 @Injectable({ providedIn: 'root' })
 export class WorkspaceCurrencyService {
   private readonly session = inject(SessionStore);

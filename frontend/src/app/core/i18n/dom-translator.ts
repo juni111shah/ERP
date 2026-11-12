@@ -6,7 +6,7 @@ const ATTRS = ['placeholder', 'title', 'aria-label'];
 /**
  * Swaps known English UI text for Arabic in the live DOM while the language is Arabic, and restores it when switching back.
  * Covers templates, table columns, form labels, report definitions and ng-zorro internals without per-string markup.
- * Only exact (trimmed) matches from <see cref="PHRASES_AR"/> are replaced, so user data is left alone unless it equals a UI phrase.
+ * Only exact (trimmed) matches from {@link PHRASES_AR} are replaced, so user data is left alone unless it equals a UI phrase.
  * Anything inside an element marked `data-no-i18n` is skipped.
  */
 export class DomTranslator {

@@ -4,6 +4,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { catchError, finalize, throwError } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { SessionStore, SubscriptionSummary } from '../session/session.store';
+import { errorBody } from './problem-details';
 
 const QUIET_MS = 10_000;
 
@@ -25,6 +26,7 @@ export class SubscriptionGateNotice {
   private lastText = '';
   private reloading = false;
 
+  /** Shows the server's reason (once per quiet period) and reloads the session when it does not yet know the new access. */
   handle(access: SubscriptionSummary['access'], text: string): void {
     const now = Date.now();
     if (text !== this.lastText || now - this.lastShownAt > QUIET_MS) {
@@ -45,8 +47,9 @@ export const subscriptionGateInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError((err: unknown) => {
       if (err instanceof HttpErrorResponse && err.status === 402) {
-        const access = accessOf(err.error?.type);
-        if (access) notice.handle(access, err.error?.detail ?? err.error?.message ?? 'This workspace is held back by its subscription.');
+        const body = errorBody(err);
+        const access = accessOf(body?.type);
+        if (access) notice.handle(access, body?.detail ?? body?.message ?? 'This workspace is held back by its subscription.');
       }
       return throwError(() => err);
     }),

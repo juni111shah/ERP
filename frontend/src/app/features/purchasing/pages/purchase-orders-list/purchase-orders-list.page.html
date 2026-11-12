@@ -1,0 +1,265 @@
+
+    <h1 class="erp-page-title">Purchase Orders</h1>
+
+    <!-- KPI Stat Cards -->
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="po-stats">
+      <erp-stat-card
+        label="Open POs"
+        [value]="kpis()?.openOrdersCount ?? 0"
+        format="number"
+        caption="draft to partly received"
+        [tone]="1" />
+      <erp-stat-card
+        label="Open Order Value"
+        [value]="kpis()?.openOrdersAmount ?? 0"
+        format="money"
+        caption="open orders, including drafts"
+        [tone]="3" />
+      <erp-stat-card
+        label="Pending Receiving"
+        [value]="kpis()?.pendingReceiptsCount ?? 0"
+        format="number"
+        caption="approved, not fully received"
+        [tone]="4" />
+      <erp-stat-card
+        label="Total Ordered"
+        [value]="kpis()?.totalSpend ?? 0"
+        format="money"
+        caption="all orders except cancelled"
+        [tone]="0" />
+    </div>
+
+    <!-- Purchase Orders Table -->
+    <erp-paged-table
+      [list]="list"
+      [columns]="columns"
+      searchPlaceholder="Search PO number, vendor, quote ref..."
+      exportFilename="purchase-orders"
+      (rowClick)="openOrder($event)">
+
+      <button toolbar *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="po-new">
+        <span nz-icon nzType="plus"></span>New Purchase Order
+      </button>
+          
+          <ng-template #cell let-row let-column="column" let-value="value">
+            @if (column.key === 'number') {
+              <a [routerLink]="['/purchasing/orders', row.id]" class="po-link" (click)="$event.stopPropagation()">
+                <strong>{{ row.number }}</strong>
+              </a>
+            } @else if (column.key === 'vendorName') {
+              <div class="vendor-cell">
+                <span class="vendor-name">{{ row.vendorName }}</span>
+                @if (row.vendorReference) {
+                  <span class="vendor-ref">Ref: {{ row.vendorReference }}</span>
+                }
+              </div>
+            } @else if (column.key === 'totalAmount') {
+              <strong class="amount">{{ row.currency }} {{ row.totalAmount | number:'1.2-2' }}</strong>
+            } @else if (column.key === 'status') {
+              <erp-status [value]="row.status" />
+            } @else if (column.key === 'invoiced') {
+              @if (row.invoicedBillId) {
+                <nz-tag nzColor="green"><span nz-icon nzType="check"></span> Billed</nz-tag>
+              } @else {
+                <nz-tag nzColor="default">Pending</nz-tag>
+              }
+            } @else if (column.key === 'actions') {
+              <div class="action-buttons" (click)="$event.stopPropagation()">
+                <a [href]="'/print/purchase-order/' + row.id" target="_blank" nz-button nzType="link" nzSize="small">
+                  <span nz-icon nzType="printer"></span>Print
+                </a>
+                @if (row.status === 'draft' || row.status === 'cancelled') {
+                  <button *erpHasPermission="'purchasing.orders.manage'" nz-button nzType="link" nzDanger nzSize="small"
+                          nz-popconfirm nzPopconfirmTitle="Delete this purchase order?" (nzOnConfirm)="deleteOrder(row)">
+                    Delete
+                  </button>
+                }
+              </div>
+            } @else {
+              {{ value }}
+            }
+          </ng-template>
+        </erp-paged-table>
+
+      <!-- Create Purchase Order Drawer -->
+      <nz-drawer
+        [nzVisible]="drawerVisible()"
+        nzTitle="New Purchase Order"
+        [nzWidth]="850"
+        (nzOnClose)="drawerVisible.set(false)">
+        <ng-container *nzDrawerContent>
+          <form nz-form [formGroup]="form" nzLayout="vertical" (ngSubmit)="submitForm()">
+            <div nz-row [nzGutter]="16">
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label nzRequired>Legal Entity</nz-form-label>
+                  <nz-form-control nzErrorTip="Please select a legal entity">
+                    <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Entity">
+                      @for (e of entities(); track e.id) {
+                        <nz-option [nzValue]="e.id" [nzLabel]="e.name"></nz-option>
+                      }
+                    </nz-select>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label>PO Number (Auto if blank)</nz-form-label>
+                  <nz-form-control>
+                    <input nz-input formControlName="number" placeholder="PO-2026-0001" />
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+            </div>
+
+            <div nz-row [nzGutter]="16">
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label nzRequired>Vendor / Supplier</nz-form-label>
+                  <nz-form-control nzErrorTip="Vendor is required">
+                    <nz-select
+                      formControlName="vendorPartyId"
+                      nzShowSearch
+                      nzPlaceHolder="Select Vendor"
+                      (ngModelChange)="onVendorSelected($event)">
+                      @for (v of vendors(); track v.id) {
+                        <nz-option [nzValue]="v.id" [nzLabel]="v.name + ' (' + v.code + ')'"></nz-option>
+                      }
+                    </nz-select>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label>Vendor Quote / Reference</nz-form-label>
+                  <nz-form-control>
+                    <input nz-input formControlName="vendorReference" placeholder="e.g. V-QUOT-9821" />
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+            </div>
+
+            <div nz-row [nzGutter]="16">
+              <div nz-col [nzSpan]="8">
+                <nz-form-item>
+                  <nz-form-label nzRequired>Order Date</nz-form-label>
+                  <nz-form-control>
+                    <nz-date-picker formControlName="orderDate" style="width: 100%;"></nz-date-picker>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+              <div nz-col [nzSpan]="8">
+                <nz-form-item>
+                  <nz-form-label>Expected Delivery Date</nz-form-label>
+                  <nz-form-control>
+                    <nz-date-picker formControlName="expectedDeliveryDate" style="width: 100%;"></nz-date-picker>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+              <div nz-col [nzSpan]="8">
+                <nz-form-item>
+                  <nz-form-label nzRequired>Currency</nz-form-label>
+                  <nz-form-control>
+                    <input nz-input formControlName="currency" placeholder="QAR" />
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+            </div>
+
+            <!-- Lines Section -->
+            <div class="lines-header">
+              <h3>Line Items</h3>
+              <button nz-button nzType="dashed" nzSize="small" type="button" (click)="addLine()">
+                <span nz-icon nzType="plus"></span>Add Item
+              </button>
+            </div>
+
+            <div formArrayName="lines" class="lines-table-container">
+              <table class="lines-table">
+                <thead>
+                  <tr>
+                    <th style="width: 220px;">Item / Product</th>
+                    <th>Description</th>
+                    <th style="width: 80px;">Qty</th>
+                    <th style="width: 100px;">Price</th>
+                    <th style="width: 75px;">Disc %</th>
+                    <th style="width: 75px;">Tax %</th>
+                    <th style="width: 100px;">Total</th>
+                    <th style="width: 40px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (ctrl of linesArray.controls; track $index) {
+                    <tr [formGroupName]="$index">
+                      <td style="width: 220px;">
+                        <nz-select
+                          formControlName="itemId"
+                          nzShowSearch
+                          nzAllowClear
+                          nzPlaceHolder="Select Item"
+                          (ngModelChange)="onItemSelected($index, $event)"
+                          style="width: 100%;">
+                          @for (it of items(); track it.id) {
+                            <nz-option [nzValue]="it.id" [nzLabel]="it.sku + ' - ' + it.name"></nz-option>
+                          }
+                        </nz-select>
+                      </td>
+                      <td><input aria-label="Item description" nz-input formControlName="description" placeholder="Item description" /></td>
+                      <td><nz-input-number formControlName="quantity" [nzMin]="1" [nzStep]="1" style="width: 100%;"></nz-input-number></td>
+                      <td><nz-input-number formControlName="unitPrice" [nzMin]="0" style="width: 100%;"></nz-input-number></td>
+                      <td><nz-input-number formControlName="discountPercent" [nzMin]="0" [nzMax]="100" style="width: 100%;"></nz-input-number></td>
+                      <td><nz-input-number formControlName="taxRate" [nzMin]="0" [nzMax]="100" style="width: 100%;"></nz-input-number></td>
+                      <td class="line-calc">{{ calculateLineTotal(ctrl.value) | number:'1.2-2' }}</td>
+                      <td>
+                        @if (linesArray.length > 1) {
+                          <button nz-button nzType="text" nzDanger nzSize="small" type="button" aria-label="Remove line" nz-tooltip nzTooltipTitle="Remove line" (click)="removeLine($index)"><span nz-icon nzType="delete"></span></button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="po-summary-panel">
+              <div class="summary-line">
+                <span>Subtotal:</span>
+                <span>{{ calculatedTotals().subTotal | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-line">
+                <span>Total Tax:</span>
+                <span>{{ calculatedTotals().taxTotal | number:'1.2-2' }}</span>
+              </div>
+              <div class="summary-line total-highlight">
+                <span>Total Amount:</span>
+                <span>{{ form.get('currency')?.value }} {{ calculatedTotals().total | number:'1.2-2' }}</span>
+              </div>
+            </div>
+
+            <div nz-row [nzGutter]="16" style="margin-top: 16px;">
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label>Delivery / Receiving Address</nz-form-label>
+                  <nz-form-control>
+                    <textarea nz-input formControlName="deliveryAddress" rows="2" placeholder="Warehouse address"></textarea>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+              <div nz-col [nzSpan]="12">
+                <nz-form-item>
+                  <nz-form-label>Payment Terms</nz-form-label>
+                  <nz-form-control>
+                    <textarea nz-input formControlName="paymentTerms" rows="2" placeholder="e.g. Net 30, payment on delivery"></textarea>
+                  </nz-form-control>
+                </nz-form-item>
+              </div>
+            </div>
+
+            <div class="drawer-footer">
+              <button nz-button type="button" (click)="drawerVisible.set(false)">Cancel</button>
+              <button nz-button nzType="primary" type="submit" [nzLoading]="isSubmitting()">Create Purchase Order</button>
+            </div>
+          </form>
+        </ng-container>
+      </nz-drawer>
+  

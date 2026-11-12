@@ -1,0 +1,53 @@
+
+    <div class="tiles">
+      <div class="prj-card tile"><span class="prj-muted">Billed so far</span><b>{{ currency() }} {{ project().billedAmount | number: '1.0-0' }}</b></div>
+      <div class="prj-card tile"><span class="prj-muted">Ready to bill</span><b data-testid="money-unbilled">{{ currency() }} {{ project().unbilledAmount | number: '1.0-0' }}</b>
+        @if (canBill()) { <button nz-button nzType="primary" nzSize="small" [disabled]="project().isTemplate || project().billingType === 'nonBillable'" (click)="bill()?.open(project().id, project().name)" data-testid="money-bill"><span nz-icon nzType="dollar"></span> Bill work</button> }
+      </div>
+      <div class="prj-card tile"><span class="prj-muted">Cost so far</span><b>{{ currency() }} {{ project().totalTimesheetCost | number: '1.0-0' }}</b><span class="prj-muted small">labour {{ project().labourCost | number: '1.0-0' }} · expenses {{ project().expenseCost | number: '1.0-0' }}</span></div>
+      <div class="prj-card tile"><span class="prj-muted">Margin so far</span><b [class.prj-danger]="margin() < 0">{{ currency() }} {{ margin() | number: '1.0-0' }}</b><span class="prj-muted small">billed and ready to bill, less cost</span></div>
+    </div>
+
+    <div class="prj-card block" data-testid="budget-lines">
+      <div class="prj-toolbar"><h3 style="margin:0">Budget by category</h3><span class="prj-spacer"></span><span class="prj-muted">Total budget {{ currency() }} {{ project().effectiveBudget | number: '1.0-0' }} · planned here {{ currency() }} {{ plannedTotal() | number: '1.0-0' }}</span></div>
+      <div class="prj-table-wrap">
+        <table class="plain">
+          <thead><tr><th>Category</th><th class="prj-num">Budget</th><th class="prj-num">Spent</th><th style="width:180px">Used</th><th class="prj-num">Left</th><th></th></tr></thead>
+          <tbody>
+            @for (l of lines(); track l.category) {
+              <tr>
+                <td class="prj-strong">{{ l.category | erpLabel }}@if (!l.id) { <span class="prj-muted"> · no budget line</span> }@if (l.hours) { <div class="prj-muted">{{ l.actualHours | number: '1.0-1' }} of {{ l.hours | number: '1.0-0' }} h</div> }</td>
+                <td class="prj-num">{{ l.amount | number: '1.0-0' }}</td><td class="prj-num">{{ l.actual | number: '1.0-0' }}</td>
+                <td><div class="prj-bar" [class.warn]="share(l) > 85" [class.over]="share(l) > 100 || !l.id"><i [style.width.%]="min100(share(l))"></i></div></td>
+                <td class="prj-num" [class.prj-danger]="l.amount - l.actual < 0">{{ l.amount - l.actual | number: '1.0-0' }}</td>
+                <td class="prj-num"><ng-container *erpHasPermission="'projects.projects.manage'">@if (l.id) { <button nz-button nzSize="small" nzType="text" nzDanger (click)="removeLine(l)" aria-label="Delete budget line"><span nz-icon nzType="delete"></span></button> }</ng-container></td>
+              </tr>
+            } @empty { <tr><td colspan="6" class="prj-empty">No budget by category yet. Split the budget below to track each kind of cost.</td></tr> }
+          </tbody>
+        </table>
+      </div>
+      <div class="prj-toolbar add" *erpHasPermission="'projects.projects.manage'">
+        <nz-select [(ngModel)]="newCategory" nzShowSearch nzPlaceHolder="Category" style="width:190px" aria-label="Budget category" data-testid="budget-category">
+          @for (c of categories; track c) { <nz-option [nzValue]="c" [nzLabel]="c"></nz-option> }
+        </nz-select>
+        <nz-input-number [(ngModel)]="newAmount" [nzMin]="0" nzPlaceHolder="Amount" aria-label="Budget amount" data-testid="budget-amount"></nz-input-number>
+        @if (newCategory === 'Labour') { <nz-input-number [(ngModel)]="newHours" [nzMin]="0" nzPlaceHolder="Hours" aria-label="Budget hours"></nz-input-number> }
+        <button nz-button [disabled]="!newCategory" (click)="saveLine()" data-testid="budget-save">Save budget line</button>
+      </div>
+    </div>
+
+    <div class="prj-card block" data-testid="project-invoices">
+      <h3>Invoices</h3>
+      <div class="prj-table-wrap">
+        <table class="plain">
+          <thead><tr><th>Number</th><th>Date</th><th>Due</th><th>Status</th><th class="prj-num">Total</th><th class="prj-num">Paid</th></tr></thead>
+          <tbody>
+            @for (i of invoices(); track i.id) {
+              <tr><td><a class="prj-link" [routerLink]="['/finance/invoices', i.id]">{{ i.number }}</a></td><td>{{ i.date | erpDate }}</td><td>{{ i.dueDate | erpDate }}</td><td>{{ label(i.status) }}</td><td class="prj-num">{{ i.total | number: '1.2-2' }}</td><td class="prj-num">{{ i.paid | number: '1.2-2' }}</td></tr>
+            } @empty { <tr><td colspan="6" class="prj-empty">Nothing invoiced yet.</td></tr> }
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <erp-bill-modal (billed)="load(); changed.emit()" />
+  

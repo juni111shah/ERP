@@ -1,0 +1,589 @@
+
+    <div class="dashboard-container">
+      <!-- Hidden greeting element to ensure test accessibility & compatibility -->
+      <span data-testid="dashboard-title" class="sr-only">
+        {{ 'dashboard.welcome' | translate: 'Welcome' }}, {{ session.me()?.user?.fullName }}
+      </span>
+
+      <!-- The period for every card and chart. Its own row, outside the data block, so it stays usable while loading or after an error. -->
+      <div class="range-bar" data-testid="dashboard-range-bar">
+        <div class="range-control" erpReveal [erpRevealSelects]="false" role="group" [attr.aria-label]="'ui.overview.range.group' | translate: 'Date range'" data-testid="dashboard-range">
+          <nz-select
+            class="range-select"
+            data-reveal="off"
+            [ngModel]="selectValue()"
+            (ngModelChange)="setPreset($event)"
+            [nzDropdownMatchSelectWidth]="false"
+            [attr.aria-label]="'ui.overview.range.group' | translate: 'Date range'"
+            data-testid="dashboard-range-preset">
+            @for (p of presets; track p.key) {
+              <nz-option [nzValue]="p.key" [nzLabel]="p.labelKey | translate: p.label"></nz-option>
+            }
+            <nz-option nzValue="custom" [nzLabel]="'ui.overview.range.custom' | translate: 'Custom'"></nz-option>
+          </nz-select>
+          @if (showPicker()) {
+            <nz-range-picker
+              class="range-picker"
+              data-reveal="off"
+              nzFormat="dd MMM yyyy"
+              [nzInputReadOnly]="true"
+              (nzOnOpenChange)="onPickerOpenChange($event)"
+              (nzOnCalendarChange)="onCalendarChange($event)"
+              [ngModel]="rangeDates()"
+              (ngModelChange)="setCustomRange($event)"
+              [nzAllowClear]="false"
+              [nzDisabledDate]="disabledDate"
+              [nzRenderExtraFooter]="maxSpanHint()"
+              [nzPlaceHolder]="rangePlaceholders()"
+              [attr.aria-describedby]="rangeError() ? 'dashboard-range-error' : null"
+              data-testid="dashboard-range-picker"></nz-range-picker>
+          }
+          <button nz-button type="button" (click)="refresh()"
+            [nz-tooltip]="'ui.overview.range.refreshHint' | translate: 'Reload the figures for this period'"
+            [attr.aria-label]="'ui.overview.range.refresh' | translate: 'Refresh'" data-testid="dashboard-range-refresh">
+            <span nz-icon nzType="reload" [nzSpin]="loading()"></span><span class="range-btn-label">{{ 'ui.overview.range.refresh' | translate: 'Refresh' }}</span>
+          </button>
+        </div>
+        <span class="range-caption" data-testid="dashboard-range-caption">@for (seg of captionParts(); track $index) {@if (seg.bdi) {<bdi>{{ seg.text }}</bdi>} @else {<span>{{ seg.text }}</span>}}</span>
+        @if (rangeError(); as err) {
+          <span class="range-error" id="dashboard-range-error" role="alert" data-testid="dashboard-range-error">{{ err }}</span>
+        }
+        <span class="sr-only" aria-live="polite" data-testid="dashboard-range-live">{{ announcement() }}</span>
+      </div>
+
+      <nz-spin [nzSpinning]="loading() && !!data()" [attr.aria-busy]="loading()">
+        @if (!data()) {
+          @if (loadError()) {
+            <div class="load-error" role="alert" data-testid="dashboard-error">
+              <span nz-icon nzType="warning" class="load-error-icon"></span>
+              <span>{{ 'ui.overview.range.error' | translate: "Couldn't load the overview for this period." }}</span>
+              <button nz-button nzType="primary" type="button" (click)="refresh()" data-testid="dashboard-retry">
+                <span nz-icon nzType="reload"></span>{{ 'ui.overview.range.retry' | translate: 'Retry' }}
+              </button>
+            </div>
+          } @else {
+            <!-- Skeleton Loading State -->
+            <div class="hero-kpis-wrap" data-testid="dashboard-loading">
+              <div class="erp-stat-grid">
+                @for (i of [0, 1, 2, 3]; track i) {
+                  <erp-stat-card label="" [loading]="true" [tone]="i" />
+                }
+              </div>
+              <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 6 }"></nz-skeleton>
+            </div>
+          }
+        }
+
+        @if (data(); as d) {
+          <!-- Modern Control Bar: Categories & View Modes -->
+          <div class="dashboard-toolbar">
+            <div class="category-tabs">
+              <button
+                class="tab-pill"
+                [class.active]="activeCategory() === 'all'"
+                (click)="setCategory('all')"
+                title="All Overview">
+                <span nz-icon nzType="appstore" class="pill-icon"></span>
+                <span class="pill-text">All Overview</span>
+                <span class="tab-count">{{ d.kpis.length }}</span>
+              </button>
+
+              @if (hasCategory('finance')) {
+                <button
+                  class="tab-pill"
+                  [class.active]="activeCategory() === 'finance'"
+                  (click)="setCategory('finance')"
+                  title="Finance & Treasury">
+                  <span nz-icon nzType="dollar" class="pill-icon"></span>
+                  <span class="pill-text">Finance & Treasury</span>
+                  <span class="tab-count">{{ getCategoryKpis('finance').length }}</span>
+                </button>
+              }
+
+              @if (hasCategory('sales-crm')) {
+                <button
+                  class="tab-pill"
+                  [class.active]="activeCategory() === 'sales-crm'"
+                  (click)="setCategory('sales-crm')"
+                  title="Sales & CRM">
+                  <span nz-icon nzType="rise" class="pill-icon"></span>
+                  <span class="pill-text">Sales & CRM</span>
+                  <span class="tab-count">{{ getCategoryKpis('sales-crm').length }}</span>
+                </button>
+              }
+
+              @if (hasCategory('supply-operations')) {
+                <button
+                  class="tab-pill"
+                  [class.active]="activeCategory() === 'supply-operations'"
+                  (click)="setCategory('supply-operations')"
+                  title="Supply & Operations">
+                  <span nz-icon nzType="shopping" class="pill-icon"></span>
+                  <span class="pill-text">Supply & Operations</span>
+                  <span class="tab-count">{{ getCategoryKpis('supply-operations').length }}</span>
+                </button>
+              }
+
+              @if (hasCategory('projects-services')) {
+                <button
+                  class="tab-pill"
+                  [class.active]="activeCategory() === 'projects-services'"
+                  (click)="setCategory('projects-services')"
+                  title="Projects & Services">
+                  <span nz-icon nzType="project" class="pill-icon"></span>
+                  <span class="pill-text">Projects & Services</span>
+                  <span class="tab-count">{{ getCategoryKpis('projects-services').length }}</span>
+                </button>
+              }
+
+              @if (hasCategory('real-estate')) {
+                <button
+                  class="tab-pill"
+                  [class.active]="activeCategory() === 'real-estate'"
+                  (click)="setCategory('real-estate')"
+                  title="Real Estate">
+                  <span nz-icon nzType="home" class="pill-icon"></span>
+                  <span class="pill-text">Real Estate</span>
+                  <span class="tab-count">{{ getCategoryKpis('real-estate').length }}</span>
+                </button>
+              }
+
+              @if (hasCategory('hr')) {
+                <button
+                  class="tab-pill"
+                  [class.active]="activeCategory() === 'hr'"
+                  (click)="setCategory('hr')"
+                  title="HR & People">
+                  <span nz-icon nzType="team" class="pill-icon"></span>
+                  <span class="pill-text">HR & People</span>
+                  <span class="tab-count">{{ getCategoryKpis('hr').length }}</span>
+                </button>
+              }
+            </div>
+
+            <div class="toolbar-meta">
+              <div class="view-mode-toggle">
+                <button
+                  class="toggle-btn"
+                  [class.active]="viewMode() === 'curated'"
+                  (click)="viewMode.set('curated')">
+                  <span nz-icon nzType="appstore"></span> Curated Focus
+                </button>
+                <button
+                  class="toggle-btn"
+                  [class.active]="viewMode() === 'all'"
+                  (click)="viewMode.set('all')">
+                  <span nz-icon nzType="table"></span> All Metrics ({{ d.kpis.length }})
+                </button>
+              </div>
+            </div>
+          </div>
+
+          @if (periodEmpty()) {
+            <div class="period-empty" role="status" data-testid="dashboard-empty">
+              <span nz-icon nzType="info-circle"></span>
+              <span>{{ 'ui.overview.range.empty' | translate: 'Nothing was billed or collected in this period.' }}</span>
+              @if (canShowLonger()) {
+                <button nz-button nzType="link" type="button" (click)="setPreset('3y')" data-testid="dashboard-empty-action">{{ 'ui.overview.range.emptyAction' | translate: 'Show the last 3 years' }}</button>
+              }
+            </div>
+          }
+
+          @if (viewMode() === 'curated') {
+            <!-- TIER 1: STRATEGIC HIGHLIGHTS (4 HERO STAT CARDS) -->
+            <div class="hero-kpis-wrap" data-testid="kpi-grid">
+              <div class="section-eyebrow">
+                <span nz-icon nzType="fund"></span>
+                <span>{{ activeCategory() === 'all' ? 'Executive Highlights' : (activeCategoryTitle() + ' Key Highlights') }}</span>
+              </div>
+              <div class="erp-stat-grid">
+                @for (k of activeHeroKpis(); track k.key; let i = $index) {
+                  <erp-stat-card
+                    [label]="k.label"
+                    [value]="k.value"
+                    [format]="statFormat(k)"
+                    [caption]="k.caption ?? null"
+                    [tone]="i"
+                    [link]="k.link ?? null"
+                    [testId]="'kpi-' + k.key" />
+                }
+              </div>
+            </div>
+          } @else {
+            <!-- ALL METRICS MATRIX VIEW -->
+            <div class="all-metrics-matrix-wrap" data-testid="kpi-grid">
+              <div class="matrix-header-bar">
+                <div class="matrix-title-wrap">
+                  <span nz-icon nzType="table" class="matrix-icon"></span>
+                  <div class="matrix-titles">
+                    <h3>{{ activeCategory() === 'all' ? 'Complete Enterprise Metrics Matrix' : (activeCategoryTitle() + ' Full Metrics Matrix') }}</h3>
+                    <span class="matrix-sub">Showing {{ filteredMatrixKpis().length }} of {{ activeCategoryKpis().length }} tracked metrics across legal entities</span>
+                  </div>
+                </div>
+
+                <div class="matrix-search-box">
+                  <span nz-icon nzType="search" class="search-icon"></span>
+                  <input [attr.aria-label]="'Search ' + activeCategoryKpis().length + ' metrics (e.g. sales, cash, stock)...'"
+                    type="text"
+                    class="matrix-search-input"
+                    [placeholder]="'Search ' + activeCategoryKpis().length + ' metrics (e.g. sales, cash, stock)...'"
+                    [value]="metricSearchQuery()"
+                    (input)="metricSearchQuery.set($any($event.target).value)" />
+                  @if (metricSearchQuery()) {
+                    <button class="clear-search-btn" (click)="metricSearchQuery.set('')">✕</button>
+                  }
+                </div>
+              </div>
+
+              @if (activeCategory() === 'all' && !metricSearchQuery()) {
+                <!-- Departmental Matrix Grid -->
+                <div class="matrix-departments">
+                  @for (cluster of allMatrixClusters(); track cluster.id) {
+                    @if (cluster.kpis.length > 0) {
+                      <div class="matrix-dept-block">
+                        <div class="dept-block-header">
+                          <div class="dept-title">
+                            <span nz-icon [nzType]="cluster.icon"></span>
+                            <span>{{ cluster.title }}</span>
+                            <span class="dept-badge">{{ cluster.kpis.length }} metrics</span>
+                          </div>
+                        </div>
+                        <div class="erp-stat-grid erp-stat-grid--compact">
+                          @for (k of cluster.kpis; track k.key; let i = $index) {
+                            <erp-stat-card
+                              [compact]="false"
+                              [label]="k.label"
+                              [value]="k.value"
+                              [format]="statFormat(k)"
+                              [caption]="k.caption ?? null"
+                              [tone]="i % 7"
+                              [link]="k.link ?? null"
+                              [testId]="'kpi-' + k.key" />
+                          }
+                        </div>
+                      </div>
+                    }
+                  }
+                </div>
+              } @else {
+                <!-- Flat Filtered / Search Matrix Grid -->
+                <div class="erp-stat-grid" style="margin-top: 14px;">
+                  @for (k of filteredMatrixKpis(); track k.key; let i = $index) {
+                    <erp-stat-card
+                      [compact]="false"
+                      [label]="k.label"
+                      [value]="k.value"
+                      [format]="statFormat(k)"
+                      [caption]="k.caption ?? null"
+                      [tone]="i % 7"
+                      [link]="k.link ?? null"
+                      [testId]="'kpi-' + k.key" />
+                  } @empty {
+                    <div class="empty-matrix-state">
+                      <span nz-icon nzType="search" style="font-size: 26px; color: var(--erp-color-text-muted);"></span>
+                      <span>No metrics found matching "{{ metricSearchQuery() }}"</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="section-divider">
+              <span>Departmental Analytics & Deep Dives</span>
+            </div>
+          }
+
+          <!-- TIER 2: ENTERPRISE ANALYTICS & ACTION CENTER -->
+          <div class="analytics-section">
+            @if (activeCategory() === 'all') {
+              <!-- ALL OVERVIEW: Primary Financial & Invoicing Trend + Alerts -->
+              <div class="analytics-grid">
+                <!-- Financial Trends Chart Card -->
+                <div class="chart-panel" [attr.data-testid]="'chart-' + (currentFinanceChart()?.key ?? currentChart()?.key)">
+                  <div class="chart-panel-header">
+                    <div class="chart-titles">
+                      <div class="chart-badge">
+                        <span nz-icon nzType="dollar"></span>
+                        <span>Finance & Treasury</span>
+                      </div>
+                      <h3>{{ currentFinanceChart()?.title ?? 'Financial Trends' }}</h3>
+                      @if (currentFinanceChart()?.subtitle) {
+                        <div class="sub">{{ currentFinanceChart()?.subtitle }}@if (bucketLabel(currentFinanceChart())) {<span> · {{ bucketLabel(currentFinanceChart()) }}</span>}</div>
+                      }
+                    </div>
+                    <div class="chart-selector-tabs">
+                      @for (c of financeCharts(); track c.key) {
+                        <button
+                          class="chart-tab-btn"
+                          [class.active]="selectedFinanceChartKey() === c.key"
+                          (click)="selectFinanceChart(c.key)">
+                          {{ c.title }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="chart-canvas-wrap">
+                    @if (currentFinanceChart(); as c) {
+                      <erp-apex-chart [chart]="c" />
+                    }
+                  </div>
+                </div>
+
+                <!-- Right Side: Alerts & To-Dos -->
+                <div class="alerts-panel" data-testid="alerts">
+                  <div class="alert-header">
+                    <h3>{{ 'dashboard.alerts' | translate: 'Alerts and to-dos' }}</h3>
+                    <span class="tab-count">{{ d.alerts.length }}</span>
+                  </div>
+                  <div class="alert-list">
+                    @for (a of d.alerts; track $index) {
+                      <a class="alert" [routerLink]="a.link ?? null">
+                        <div class="alert-icon-wrap" [class]="'icon-' + a.severity">
+                          <span nz-icon [nzType]="a.severity === 'info' ? 'bell' : (a.severity === 'critical' ? 'warning' : 'bulb')"></span>
+                        </div>
+                        <div class="msg">
+                          <div class="alert-tags">
+                            <nz-tag>{{ a.category | erpLabel }}</nz-tag>
+                            <nz-tag class="erp-tone" [attr.data-tone]="urgency(a.urgency).tone">{{ urgency(a.urgency).label }}</nz-tag>
+                          </div>
+                          <div>{{ alertText(a.message) }}</div>
+                        </div>
+                      </a>
+                    } @empty {
+                      <div class="empty-state">
+                        <span nz-icon nzType="check-circle" style="color: var(--erp-color-success-solid); font-size: 18px;"></span>
+                        <span>Nothing needs your attention right now.</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <!-- ALL OVERVIEW: Dual Operational Hub (Commercial Pipeline + Operations & Execution) -->
+              @if (salesCharts().length > 0 || opsCharts().length > 0) {
+                <div class="secondary-analytics-grid">
+                  <!-- Card A: Commercial & Sales Pipeline -->
+                  @if (currentSalesChart(); as sc) {
+                    <div class="chart-panel" [attr.data-testid]="'chart-' + sc.key">
+                      <div class="chart-panel-header">
+                        <div class="chart-titles">
+                          <div class="chart-badge">
+                            <span nz-icon nzType="rise"></span>
+                            <span>Sales & Commercial Pipeline</span>
+                          </div>
+                          <h3>{{ sc.title }}</h3>
+                          @if (sc.subtitle) {
+                            <div class="sub">{{ sc.subtitle }}</div>
+                          }
+                        </div>
+                        <div class="chart-selector-tabs">
+                          @for (c of salesCharts(); track c.key) {
+                            <button
+                              class="chart-tab-btn"
+                              [class.active]="selectedSalesChartKey() === c.key"
+                              (click)="selectSalesChart(c.key)">
+                              {{ c.title }}
+                            </button>
+                          }
+                        </div>
+                      </div>
+
+                      <div class="chart-canvas-wrap">
+                        <erp-apex-chart [chart]="sc" />
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Card B: Operations, Manufacturing & Delivery Execution -->
+                  @if (currentOpsChart(); as oc) {
+                    <div class="chart-panel" [attr.data-testid]="'chart-' + oc.key">
+                      <div class="chart-panel-header">
+                        <div class="chart-titles">
+                          <div class="chart-badge">
+                            <span nz-icon nzType="shop"></span>
+                            <span>Supply Chain, Production & Delivery</span>
+                          </div>
+                          <h3>{{ oc.title }}</h3>
+                          @if (oc.subtitle) {
+                            <div class="sub">{{ oc.subtitle }}</div>
+                          }
+                        </div>
+                        <div class="chart-selector-tabs">
+                          @for (c of opsCharts(); track c.key) {
+                            <button
+                              class="chart-tab-btn"
+                              [class.active]="selectedOpsChartKey() === c.key"
+                              (click)="selectOpsChart(c.key)">
+                              {{ c.title }}
+                            </button>
+                          }
+                        </div>
+                      </div>
+
+                      <div class="chart-canvas-wrap">
+                        <erp-apex-chart [chart]="oc" />
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            } @else {
+              <!-- DOMAIN-SPECIFIC VIEW: Main Domain Chart + Alerts -->
+              <div class="analytics-grid">
+                <div class="chart-panel" [attr.data-testid]="'chart-' + currentDomainChart()?.key">
+                  <div class="chart-panel-header">
+                    <div class="chart-titles">
+                      <div class="chart-badge">
+                        <span nz-icon nzType="fund"></span>
+                        <span>{{ activeCategoryTitle() }}</span>
+                      </div>
+                      <h3>{{ currentDomainChart()?.title }}</h3>
+                      @if (currentDomainChart()?.subtitle) {
+                        <div class="sub">{{ currentDomainChart()?.subtitle }}</div>
+                      }
+                    </div>
+                    @if (visibleCharts().length > 1) {
+                      <div class="chart-selector-tabs">
+                        @for (c of visibleCharts(); track c.key) {
+                          <button
+                            class="chart-tab-btn"
+                            [class.active]="currentDomainChart()?.key === c.key"
+                            (click)="selectDomainChart(c.key)">
+                            {{ c.title }}
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  <div class="chart-canvas-wrap">
+                    @if (currentDomainChart(); as c) {
+                      <erp-apex-chart [chart]="c" />
+                    }
+                  </div>
+                </div>
+
+                <!-- Domain Alerts -->
+                <div class="alerts-panel" data-testid="alerts">
+                  <div class="alert-header">
+                    <h3>{{ 'dashboard.alerts' | translate: 'Alerts and to-dos' }}</h3>
+                    <span class="tab-count">{{ activeDomainAlerts().length }}</span>
+                  </div>
+                  <div class="alert-list">
+                    @for (a of activeDomainAlerts(); track $index) {
+                      <a class="alert" [routerLink]="a.link ?? null">
+                        <div class="alert-icon-wrap" [class]="'icon-' + a.severity">
+                          <span nz-icon [nzType]="a.severity === 'info' ? 'bell' : (a.severity === 'critical' ? 'warning' : 'bulb')"></span>
+                        </div>
+                        <div class="msg">
+                          <div class="alert-tags">
+                            <nz-tag>{{ a.category | erpLabel }}</nz-tag>
+                            <nz-tag class="erp-tone" [attr.data-tone]="urgency(a.urgency).tone">{{ urgency(a.urgency).label }}</nz-tag>
+                          </div>
+                          <div>{{ alertText(a.message) }}</div>
+                        </div>
+                      </a>
+                    } @empty {
+                      <div class="empty-state">
+                        <span nz-icon nzType="check-circle" style="color: var(--erp-color-success-solid); font-size: 18px;"></span>
+                        <span>No active alerts for {{ activeCategoryTitle() }}.</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <!-- Domain Secondary Charts: Show other charts belonging to this domain side-by-side -->
+              @if (visibleCharts().length > 1) {
+                <div class="secondary-analytics-grid">
+                  @for (c of visibleCharts().slice(1); track c.key) {
+                    <div class="chart-panel" [attr.data-testid]="'chart-' + c.key">
+                      <div class="chart-panel-header">
+                        <div class="chart-titles">
+                          <div class="chart-badge">
+                            <span nz-icon nzType="bar-chart"></span>
+                            <span>{{ activeCategoryTitle() }}</span>
+                          </div>
+                          <h3>{{ c.title }}</h3>
+                          @if (c.subtitle) {
+                            <div class="sub">{{ c.subtitle }}@if (bucketLabel(c)) {<span> · {{ bucketLabel(c) }}</span>}</div>
+                          }
+                        </div>
+                      </div>
+                      <div class="chart-canvas-wrap">
+                        <erp-apex-chart [chart]="c" />
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            }
+          </div>
+
+          <!-- TIER 3: DEPARTMENTAL CLUSTERS (OPERATIONAL METRICS) -->
+          @if (viewMode() === 'curated') {
+            @if (activeCategory() === 'all') {
+              <!-- In All Overview: Display Clean Thematic Clusters -->
+              <div class="clusters-container">
+                @for (cluster of clusters(); track cluster.id) {
+                  @if (cluster.kpis.length > 0) {
+                    <div class="cluster-card">
+                      <div class="cluster-header">
+                        <div class="cluster-title-wrap">
+                          <span nz-icon [nzType]="cluster.icon" class="cluster-icon"></span>
+                          <span>{{ cluster.title }}</span>
+                          <span class="cluster-badge">{{ cluster.kpis.length }}</span>
+                        </div>
+                        <button class="tab-pill" (click)="setCategory(cluster.category)">
+                          <span>View {{ cluster.title }}</span>
+                          <span nz-icon nzType="arrow-right"></span>
+                        </button>
+                      </div>
+                      <div class="erp-stat-grid erp-stat-grid--compact">
+                        @for (k of cluster.kpis; track k.key) {
+                          <erp-stat-card
+                            [compact]="true"
+                            [label]="k.label"
+                            [value]="k.value"
+                            [format]="statFormat(k)"
+                            [caption]="k.caption ?? null"
+                            [link]="k.link ?? null"
+                            [testId]="'kpi-' + k.key" />
+                        }
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
+            } @else {
+              <!-- In Specific Domain Filter: Show all metrics of this domain -->
+              @if (activeRemainingKpis().length > 0) {
+                <div class="cluster-card" style="margin-top: 10px;">
+                  <div class="cluster-header">
+                    <div class="cluster-title-wrap">
+                      <span nz-icon nzType="dashboard" class="cluster-icon"></span>
+                      <span>Additional {{ activeCategoryTitle() }} Metrics</span>
+                      <span class="cluster-badge">{{ activeRemainingKpis().length }}</span>
+                    </div>
+                  </div>
+                  <div class="erp-stat-grid erp-stat-grid--compact">
+                    @for (k of activeRemainingKpis(); track k.key) {
+                      <erp-stat-card
+                        [compact]="true"
+                        [label]="k.label"
+                        [value]="k.value"
+                        [format]="statFormat(k)"
+                        [caption]="k.caption ?? null"
+                        [link]="k.link ?? null"
+                        [testId]="'kpi-' + k.key" />
+                    }
+                  </div>
+                </div>
+              }
+            }
+          }
+        }
+      </nz-spin>
+    </div>
+  

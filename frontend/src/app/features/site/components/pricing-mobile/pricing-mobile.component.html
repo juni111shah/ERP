@@ -1,0 +1,27 @@
+
+    <div class="grid">
+      <div>
+        <span class="eyebrow">Mobile app</span>
+        <h2>Your business, in your pocket</h2>
+        <p class="lead">The same workspace and the same figures, on your phone. Sign in with your usual account and carry on from where you left off.</p>
+        <div class="list" (mouseenter)="hold(true)" (mouseleave)="hold(false)" (focusin)="hold(true)" (focusout)="hold(false)" data-testid="pricing-mobile-list">
+          @for (s of slides; track s.key; let i = $index) {
+            <button type="button" class="item" [class.on]="i === active()" [attr.aria-pressed]="i === active()" (click)="select(i)" [attr.data-testid]="'pricing-mobile-' + s.key">
+              <span class="ico" nz-icon [nzType]="s.icon"></span>
+              <span><strong>{{ s.title }}</strong><span class="text"><span>{{ s.text }}</span></span></span>
+            </button>
+          }
+        </div>
+        <p class="note">Screens follow the real app. Names and figures are samples.</p>
+      </div>
+      <div class="stage" erpInView erpTilt (mouseenter)="hold(true)" (mouseleave)="hold(false)" (focusin)="hold(true)" (focusout)="hold(false)" data-testid="pricing-mobile-stage">
+        <div class="turntable">
+          <div class="floor" aria-hidden="true"></div>
+          @for (s of slides; track s.key; let i = $index) {
+            <div class="slot" [class.front]="i === active()" [style.transform]="placed()[i].transform" [style.opacity]="placed()[i].opacity" [style.--dim]="placed()[i].dim" erpKeyboardClick [attr.aria-label]="'Show ' + s.title" [attr.aria-pressed]="i === active()" (click)="select(i)">
+              <div class="bob" aria-hidden="true"><erp-phone [screen]="s.key" /></div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>

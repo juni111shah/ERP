@@ -1,0 +1,29 @@
+
+    <nz-form-item class="erp-field" data-origin="custom" [formGroup]="group()" [attr.data-testid]="'cf-' + field().key">
+      <nz-form-label [nzRequired]="field().required" [nzFor]="field().key">{{ field().label }}</nz-form-label>
+      <nz-form-control [nzErrorTip]="error()" [nzExtra]="field().helpText ?? ''">
+        @switch (field().dataType) {
+          @case ('text') { <input nz-input [id]="field().key" [formControlName]="field().key" [attr.maxlength]="field().maxLength ?? 4000" /> }
+          @case ('number') { <nz-input-number [nzId]="field().key" [formControlName]="field().key" [nzPrecision]="0" [nzMin]="field().min ?? -9007199254740991" [nzMax]="field().max ?? 9007199254740991" style="width:100%"></nz-input-number> }
+          @case ('decimal') { <nz-input-number [nzId]="field().key" [formControlName]="field().key" [nzPrecision]="field().scale ?? 2" [nzMin]="field().min ?? -9007199254740991" [nzMax]="field().max ?? 9007199254740991" style="width:100%"></nz-input-number> }
+          @case ('date') { <nz-date-picker [nzId]="field().key" [formControlName]="field().key" style="width:100%"></nz-date-picker> }
+          @case ('dateTime') { <nz-date-picker [nzId]="field().key" [formControlName]="field().key" nzShowTime style="width:100%"></nz-date-picker> }
+          @case ('bool') { <nz-switch [nzId]="field().key" [formControlName]="field().key"></nz-switch> }
+          @case ('select') {
+            <nz-select [nzId]="field().key" [formControlName]="field().key" nzAllowClear nzShowSearch>
+              @for (o of field().options; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label ?? o.value"></nz-option> }
+            </nz-select>
+          }
+          @case ('multiSelect') {
+            <nz-select [nzId]="field().key" [formControlName]="field().key" nzMode="multiple" nzAllowClear>
+              @for (o of field().options; track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label ?? o.value"></nz-option> }
+            </nz-select>
+          }
+          @case ('lookup') {
+            <nz-select [nzId]="field().key" [formControlName]="field().key" nzShowSearch nzServerSearch nzAllowClear (nzOnSearch)="search($event)">
+              @for (o of lookupOptions(); track o.value) { <nz-option [nzValue]="o.value" [nzLabel]="o.label"></nz-option> }
+            </nz-select>
+          }
+        }
+      </nz-form-control>
+    </nz-form-item>

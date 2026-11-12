@@ -1,0 +1,31 @@
+
+    .pay { display: flex; flex-direction: column; gap: 14px; }
+    .due { display: flex; flex-direction: column; align-items: center; padding: 14px; border-radius: 10px; background: var(--erp-color-primary-subtle); }
+    .due.done { background: var(--erp-color-success-bg); color: var(--erp-color-success-text); }
+    .due span { font-size: 13px; font-weight: 600; }
+    .due strong { font-size: 34px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
+    .due small { color: var(--erp-color-text-muted); }
+    .methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+    .method { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 64px; font: inherit; font-weight: 600; color: var(--erp-color-text-primary);
+      background: var(--erp-color-bg-surface); border: 2px solid var(--erp-color-border-default); border-radius: 10px; cursor: pointer; }
+    .method [nz-icon] { font-size: 20px; }
+    .method:hover { border-color: var(--erp-color-primary); }
+    .method:focus-visible { outline: 2px solid var(--erp-color-primary); outline-offset: 2px; }
+    .method.on { border-color: var(--erp-color-primary); background: var(--erp-color-primary-subtle); color: var(--erp-color-primary-text); }
+    .entry { display: flex; flex-direction: column; gap: 8px; }
+    .field { font-weight: 600; }
+    .amount { width: 100%; font-size: 22px; }
+    :host ::ng-deep .amount input { height: 52px; font-size: 22px; font-variant-numeric: tabular-nums; }
+    .quick { display: flex; flex-wrap: wrap; gap: 8px; }
+    .quick button { flex: 1 1 70px; min-height: 46px; font-variant-numeric: tabular-nums; }
+    .note { margin: 0; font-size: 13px; color: var(--erp-color-text-muted); }
+    .note.warn { color: var(--erp-color-error-text); }
+    .tenders { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+    .tenders li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--erp-color-border-subtle); border-radius: 8px; font-weight: 600; }
+    .tenders li > span:first-child { flex: 1; }
+    .tenders small { font-weight: 400; color: var(--erp-color-text-muted); }
+    .amt { font-variant-numeric: tabular-nums; }
+    .remove { width: 32px; height: 32px; color: var(--erp-color-error-text); background: none; border: 0; border-radius: 6px; cursor: pointer; }
+    .keys { float: inline-start; margin-top: 10px; font-size: 12px; color: var(--erp-color-text-muted); }
+    @media (max-width: 640px) { .keys { display: none; } }
+  

@@ -1,0 +1,32 @@
+
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search by name or code" emptyText="No clients yet" [filterable]="false" [configurable]="false" [exportable]="false"
+                     tableName="clients" scrollX="1080px" (rowClick)="open($event)">
+      <div toolbar class="filters">
+        <nz-select [ngModel]="status()" (ngModelChange)="setStatus($event)" nzAllowClear nzPlaceHolder="Any status" data-reveal="off" data-testid="clients-status-filter">
+          @for (s of statusFilters; track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.label"></nz-option> }
+        </nz-select>
+        <nz-select [ngModel]="planId()" (ngModelChange)="setPlan($event)" nzAllowClear nzPlaceHolder="Any plan" data-reveal="off" data-testid="clients-plan-filter">
+          @for (p of plans(); track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="p.name"></nz-option> }
+        </nz-select>
+        <button nz-button nzType="primary" type="button" (click)="newClient()" [nzLoading]="preparing()" data-testid="clients-new"><span nz-icon nzType="plus"></span>New client</button>
+      </div>
+      <ng-template #cell let-r let-col="column">
+        @switch (col.key) {
+          @case ('name') {
+            <a [routerLink]="['/platform/clients', r.orgId]" (click)="$event.stopPropagation()">{{ r.name }}</a>
+            @if (r.hasPlanRequest) { <span class="marker" nz-icon nzType="swap" nz-tooltip nzTooltipTitle="A plan change is requested" aria-label="A plan change is requested" [attr.data-testid]="'plan-request-' + r.code"></span> }
+          }
+          @case ('code') { <span class="pf-mono">{{ r.code }}</span> }
+          @case ('plan') { {{ r.planName ?? '—' }}@if (r.isComplimentary) { <span class="pf-muted pf-small"> (free)</span> } }
+          @case ('status') { <erp-status [value]="r.status ?? 'inactive'" [label]="statusText(r.status)" /> }
+          @case ('price') { @if (r.cyclePrice !== null) { <span class="pf-nowrap">{{ r.cyclePrice | erpMoney: currency() }}</span><span class="pf-muted pf-small">, {{ cycleText(r.cycle) }}</span> } @else { — } }
+          @case ('users') { <span class="pf-nowrap">{{ r.activeUsers }}{{ r.maxUsers ? ' of ' + r.maxUsers : '' }}</span> }
+          @case ('lastSignInAt') { <span class="pf-nowrap">{{ r.lastSignInAt ? (r.lastSignInAt | erpDate) : 'Never' }}</span> }
+          @case ('openBalance') { <span class="pf-nowrap">{{ r.openBalance | erpMoney: currency() }}</span> }
+        }
+      </ng-template>
+    </erp-paged-table>
+
+    <erp-record-drawer title="New client" [open]="drawerOpen()" [fields]="fields()" [saving]="saving()" [errors]="errors()" submitLabel="Create client" [width]="720" testId="client-form"
+                       (submitted)="save($event)" (closed)="drawerOpen.set(false)" />
+    <erp-one-time-password [secret]="secret()" actionLabel="Open the client" (closed)="afterCreated()" />

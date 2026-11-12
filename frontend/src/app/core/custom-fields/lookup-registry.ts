@@ -1,6 +1,7 @@
 import { EnvironmentProviders, Injectable, inject, provideEnvironmentInitializer } from '@angular/core';
 import { Observable, of } from 'rxjs';
 
+/** One choice of a picker: the stored value and the words shown for it. */
 export interface LookupOption {
   value: string;
   label: string;

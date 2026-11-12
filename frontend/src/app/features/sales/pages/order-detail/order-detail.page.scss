@@ -1,0 +1,21 @@
+
+    .order-detail-container { max-width: 1400px; margin: 0 auto; }
+    .header-nav { margin-bottom: 12px; }
+    .back-link { color: var(--erp-color-text-muted); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+    .back-link:hover { color: var(--erp-color-primary); }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+    .number-tag { display: flex; align-items: center; gap: 12px; }
+    .order-number { font-size: 26px; font-weight: 700; color: var(--erp-color-text-primary); margin: 0; }
+    .customer-subtitle { color: var(--erp-color-text-muted); font-size: 14px; margin: 4px 0 0 0; }
+    .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .info-card, .summary-card, .items-card { border-radius: 12px; border: 1px solid var(--erp-color-border-subtle); }
+    .note-box { background: var(--erp-color-bg-subtle); border-inline-start: 3px solid var(--erp-color-primary); padding: 10px 14px; border-start-end-radius: 6px; border-end-end-radius: 6px; font-size: 13px; }
+    .note-box p { margin: 4px 0 0 0; color: var(--erp-color-text-secondary); }
+    .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--erp-color-border-subtle); font-size: 14px; color: var(--erp-color-text-secondary); }
+    .total-row { border-top: 2px solid var(--erp-color-border-subtle); border-bottom: none; margin-top: 8px; padding-top: 12px; font-size: 18px; font-weight: 700; color: var(--erp-color-text-primary); }
+    .fulfillment-meter { margin-top: 20px; border-top: 1px solid var(--erp-color-border-subtle); padding-top: 16px; }
+    .meter-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--erp-color-text-secondary); margin-bottom: 6px; }
+    .modal-fulfillment-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .modal-fulfillment-table th { background: var(--erp-color-bg-subtle); padding: 8px; border: 1px solid var(--erp-color-border-subtle); text-align: left; }
+    .modal-fulfillment-table td { padding: 6px; border: 1px solid var(--erp-color-border-subtle); vertical-align: middle; }
+  

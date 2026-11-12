@@ -1,5 +1,6 @@
 import type { PublicPlan } from './platform.api';
 
+/** One server-sent event of an assistant reply, by its `event:` name. */
 export type AssistantStreamEvent =
   | { type: 'status'; text: string }
   | { type: 'delta'; text: string }
@@ -38,6 +39,7 @@ export class AssistantStreamParser {
   }
 }
 
+/** One complete event block (its `event:` and `data:` lines) as a typed event; null for keep-alives, unknown events and bad JSON. */
 function parseBlock(block: string): AssistantStreamEvent | null {
   let name = '';
   let data = '';

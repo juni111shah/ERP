@@ -3,6 +3,7 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { catchError, throwError } from 'rxjs';
+import { errorBody } from './problem-details';
 
 const MODULE_DISABLED = 'https://erp.local/problems/module-disabled'; // ModuleProblems.ModuleDisabledType (scaffold)
 
@@ -12,8 +13,9 @@ export const moduleDisabledInterceptor: HttpInterceptorFn = (req, next) => {
   const message = inject(NzMessageService);
   return next(req).pipe(
     catchError((err: unknown) => {
-      if (err instanceof HttpErrorResponse && err.status === 403 && err.error?.type === MODULE_DISABLED) {
-        message.warning(err.error?.detail ?? 'This module is not enabled for your workspace.');
+      const body = err instanceof HttpErrorResponse && err.status === 403 ? errorBody(err) : null;
+      if (body?.type === MODULE_DISABLED) {
+        message.warning(body.detail ?? 'This module is not enabled for your workspace.');
         void router.navigateByUrl('/');
       }
       return throwError(() => err);

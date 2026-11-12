@@ -103,6 +103,11 @@ export class IndustryApi {
 export function toneColor(tone: string | null | undefined): string {
   switch (tone) { case 'success': case 'processing': case 'warning': case 'error': return tone; default: return 'default'; }
 }
+/** The name of a status in the type's definition, or the key when the definition does not list it. */
 export function statusLabel(type: RecordTypeView | null | undefined, status: string): string {
   return type?.statuses.find((s) => s.key === status)?.label ?? status;
+}
+/** The tag colour of a status in the type's definition. */
+export function statusTone(type: RecordTypeView | null | undefined, status: string): string {
+  return toneColor(type?.statuses.find((s) => s.key === status)?.tone);
 }

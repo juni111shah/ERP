@@ -1,0 +1,35 @@
+
+    <div class="bar" erpReveal>
+      <nz-range-picker [ngModel]="range()" (ngModelChange)="setRange($event)" [nzAllowClear]="false" data-testid="statement-range"></nz-range-picker>
+      <button nz-button (click)="load()" [nzLoading]="loading()" data-testid="statement-refresh"><span nz-icon nzType="reload"></span>{{ 'statement.refresh' | translate: 'Refresh' }}</button>
+      <button nz-button (click)="print()" [disabled]="!data()" data-testid="statement-print"><span nz-icon nzType="printer"></span>{{ 'statement.print' | translate: 'Print' }}</button>
+      <button *erpHasPermission="'core.email.send'" nz-button (click)="emailOpen.set(true)" data-testid="statement-email"><span nz-icon nzType="mail"></span>{{ 'statement.email' | translate: 'Email' }}</button>
+    </div>
+    <erp-email-document-drawer [open]="emailOpen()" [path]="'parties/' + partyId() + '/statement/email'" [params]="emailParams()" (closed)="emailOpen.set(false)" />
+    @if (error()) { <p class="err" data-testid="statement-error">{{ error() }}</p> }
+    <nz-table #t [nzData]="data()?.lines ?? []" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loading()" [nzScroll]="{ x: '720px' }" data-testid="party-ledger">
+      <thead><tr>
+        <th>{{ 'statement.date' | translate: 'Date' }}</th><th>{{ 'statement.type' | translate: 'Type' }}</th><th>{{ 'statement.number' | translate: 'Number' }}</th><th>{{ 'statement.reference' | translate: 'Reference' }}</th>
+        <th class="num">{{ 'statement.debit' | translate: 'Debit' }}</th><th class="num">{{ 'statement.credit' | translate: 'Credit' }}</th><th class="num">{{ 'statement.balance' | translate: 'Balance' }}</th>
+      </tr></thead>
+      <tbody>
+        @if (data(); as d) {
+          <tr class="sum"><td>{{ d.from | date: 'dd MMM yyyy' }}</td><td colspan="5">{{ 'statement.opening' | translate: 'Opening balance' }}</td><td class="num">{{ d.openingBalance | number: '1.2-2' }}</td></tr>
+          @for (l of t.data; track l.documentId + l.kind) {
+            <tr>
+              <td>{{ l.date | date: 'dd MMM yyyy' }}</td>
+              <td>{{ kindLabel(l.kind) }}</td>
+              <td>@if (route(l.kind); as r) { <a [routerLink]="[r, l.documentId]">{{ l.number }}</a> } @else { {{ l.number }} }</td>
+              <td>{{ l.reference }}</td>
+              <td class="num">{{ l.debit ? (l.debit | number: '1.2-2') : '' }}</td>
+              <td class="num">{{ l.credit ? (l.credit | number: '1.2-2') : '' }}</td>
+              <td class="num">{{ l.balance | number: '1.2-2' }}</td>
+            </tr>
+          } @empty { <tr><td colspan="7" style="text-align: center; color: #999;">{{ 'statement.empty' | translate: 'No transactions in this period' }}</td></tr> }
+          <tr class="sum"><td>{{ d.to | date: 'dd MMM yyyy' }}</td><td colspan="3">{{ 'statement.closing' | translate: 'Closing balance' }}</td>
+            <td class="num">{{ d.totalDebit | number: '1.2-2' }}</td><td class="num">{{ d.totalCredit | number: '1.2-2' }}</td><td class="num" data-testid="statement-closing">{{ d.closingBalance | number: '1.2-2' }}</td></tr>
+        }
+      </tbody>
+    </nz-table>
+    <p style="color: #999; margin-top: 8px;">{{ hint() }}</p>
+  

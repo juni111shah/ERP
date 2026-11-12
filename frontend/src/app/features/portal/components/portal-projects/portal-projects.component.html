@@ -1,0 +1,51 @@
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Your projects could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
+    }
+    @if (waiting().length) {
+      <h3>Waiting for your sign-off</h3>
+      @for (a of waiting(); track a.id; let i = $index) {
+        <div class="card" [attr.data-testid]="'signoff-' + a.id">
+          <b>{{ a.title }}</b><span class="muted" style="margin-inline-start:8px">{{ a.projectName }}</span>
+          @if (i > 0) { <p class="muted" style="margin:4px 0 0">You can sign this one after the one above.</p> } @else {
+          <p class="muted" style="margin:4px 0 0">Enter your name, sign, then accept. To decline, leave a comment saying why.</p>
+          <div class="row">
+            <input nz-input [(ngModel)]="name" placeholder="Your full name" maxlength="150" aria-label="Your full name" data-testid="signoff-name" />
+            <input nz-input [(ngModel)]="signature" placeholder="Type your name to sign" maxlength="150" aria-label="Signature" data-testid="signoff-signature" />
+          </div>
+          <div class="pad">
+            <canvas #pad width="480" height="140" aria-label="Draw your signature here" data-testid="signoff-pad"
+                    (pointerdown)="down($event)" (pointermove)="move($event)" (pointerup)="up()" (pointerleave)="up()"></canvas>
+            <button nz-button nzSize="small" type="button" (click)="clearPad()" data-testid="signoff-clear">Clear</button>
+          </div>
+          <input nz-input [(ngModel)]="comment" placeholder="Comment (needed if you decline)" maxlength="1000" aria-label="Comment" style="margin-top:8px" />
+          <div class="row">
+            <button nz-button nzType="primary" (click)="answer(a, true)" data-testid="signoff-accept">Accept and sign</button>
+            <button nz-button nzDanger (click)="answer(a, false)" data-testid="signoff-decline">Decline</button>
+          </div>
+          }
+        </div>
+      }
+    }
+    <h3>Your projects</h3>
+    @for (p of projects(); track p.id) {
+      <div class="card" [attr.data-testid]="'project-' + p.number">
+        <div class="head"><b>{{ p.number }} · {{ p.name }}</b> <erp-status [value]="p.status" [label]="label('project', p.status)" /></div>
+        <div class="muted">{{ p.startDate | erpDate }}@if (p.endDate) { to {{ p.endDate | erpDate }} }@if (p.managerName) { · {{ p.managerName }} }</div>
+        <nz-progress [nzPercent]="p.percentComplete" nzSize="small"></nz-progress>
+        @if (p.milestones.length) {
+          <nz-table [nzData]="p.milestones" nzSize="small" [nzShowPagination]="false" [nzFrontPagination]="false">
+            <thead><tr><th>Milestone</th><th>Due</th><th>Status</th></tr></thead>
+            <tbody>@for (m of p.milestones; track m.id) { <tr><td>{{ m.title }}</td><td>{{ m.dueDate | erpDate }}</td><td><erp-status [value]="m.status" [label]="label('milestone', m.status)" /></td></tr> }</tbody>
+          </nz-table>
+        }
+      </div>
+    } @empty { @if (!failed()) { <p class="muted">You have no projects with us right now.</p> } }
+    @if (answered().length) {
+      <h3>Answered sign-offs</h3>
+      <nz-table [nzData]="answered()" nzSize="small" [nzShowPagination]="false" [nzFrontPagination]="false">
+        <thead><tr><th>Sign-off</th><th>Project</th><th>Result</th><th>By</th><th>On</th></tr></thead>
+        <tbody>@for (a of answered(); track a.id) { <tr><td>{{ a.title }}</td><td>{{ a.projectName }}</td><td><erp-status [value]="a.status" [label]="label('acceptance', a.status)" /></td><td>{{ a.signedByName }}</td><td>{{ a.signedAt | erpDate }}</td></tr> }</tbody>
+      </nz-table>
+    }
+  

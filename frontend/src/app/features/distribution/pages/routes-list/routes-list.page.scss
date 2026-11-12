@@ -1,0 +1,55 @@
+
+    .text-secondary {
+      color: var(--erp-color-text-muted);
+      margin: 4px 0 0;
+    }
+    .mono-code {
+      font-family: var(--erp-font-family-mono);
+      white-space: nowrap;
+    }
+    .font-bold {
+      font-weight: 600;
+    }
+    .nowrap { white-space: nowrap; }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .table-actions { display: flex; justify-content: flex-end; gap: 4px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+    .drawer-content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .route-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-block-end: 1px solid var(--erp-color-border-subtle);
+    }
+    .route-banner h3 {
+      margin: 0;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .text-center {
+      text-align: center;
+    }
+    .py-4 {
+      padding-top: 16px;
+      padding-bottom: 16px;
+    }
+  

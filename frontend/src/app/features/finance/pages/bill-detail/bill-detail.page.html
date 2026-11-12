@@ -1,0 +1,64 @@
+
+    @if (loading()) {
+      <div style="text-align: center; padding: 48px;"><nz-spin nzSimple></nz-spin></div>
+    } @else if (error()) {
+      <erp-state-panel kind="error" title="Could not load this bill" [hint]="error()" actionLabel="Try again" (action)="retry()" />
+    } @else if (bill()) {
+      <erp-detail-page
+        [backLink]="['/finance/bills']"
+        [backLabel]="'Back to Bills'"
+        [title]="('ui.title.billNo' | translate: 'Bill #') + bill()!.number"
+        [status]="bill()!.status === 'issued' ? 'posted' : statusLabel(bill()!.status)"
+        [actions]="actions()"
+        [kpiCards]="kpiCards()"
+        [descriptions]="descriptions()"
+        [createdAt]="bill()!.billDate"
+        [entityName]="'Bill'"
+        [showDocuments]="false"
+        recordType="Bill" [recordId]="bill()!.id">
+        
+        <div content class="line-items-table">
+          <nz-table #itemsTable [nzData]="bill()!.lines" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
+            <thead>
+              <tr>
+                <th style="width: 40px;">#</th>
+                <th>Description</th>
+                <th style="width: 100px; text-align: end;">Quantity</th>
+                <th style="width: 120px; text-align: end;">Price</th>
+                <th style="width: 120px; text-align: end;">Tax</th>
+                <th style="width: 140px; text-align: end;">Net Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of itemsTable.data; track line.id) {
+                <tr>
+                  <td>{{ line.seq }}</td>
+                  <td>{{ line.description }}</td>
+                  <td style="text-align: end;">{{ line.quantity }}</td>
+                  <td style="text-align: end;">{{ money(line.price) }}</td>
+                  <td style="text-align: end;">{{ money(line.taxAmount) }}</td>
+                  <td style="text-align: end;">{{ money(line.net) }}</td>
+                </tr>
+              }
+            </tbody>
+          </nz-table>
+
+          <div class="totals-section">
+            <div class="total-row">
+              <span>Subtotal:</span>
+              <span>{{ money(bill()!.net) }}</span>
+            </div>
+            <div class="total-row">
+              <span>Tax:</span>
+              <span>{{ money(bill()!.tax) }}</span>
+            </div>
+            <div class="total-row grand">
+              <span>Total:</span>
+              <span>{{ money(bill()!.total) }}</span>
+            </div>
+          </div>
+        </div>
+      </erp-detail-page>
+      <erp-email-document-drawer [open]="emailOpen()" [path]="'finance/bills/' + bill()!.id + '/email'" (closed)="emailOpen.set(false)" />
+    }
+  

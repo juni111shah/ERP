@@ -1,0 +1,28 @@
+
+    <div class="seg" role="group" aria-label="View">
+      @for (v of views; track v.key) { <button type="button" [class.on]="view() === v.key" (click)="view.set(v.key)" [attr.data-testid]="'notes-' + v.key">{{ v.label }}</button> }
+    </div>
+    @switch (view()) {
+      @case ('discussion') {
+        <div class="prj-card" data-testid="comments">
+          @for (c of comments(); track c.id) {
+            <div class="comment"><div class="who"><b>{{ c.authorName }}</b> <span class="prj-muted">{{ c.createdAt | date: 'medium' }}</span>
+              @if (canDelete(c)) { <button nz-button nzSize="small" nzType="link" (click)="removeComment(c)">Delete</button> }</div><p>{{ c.text }}</p></div>
+          } @empty { <p class="prj-empty">No comments yet. Start the conversation.</p> }
+          <div class="row">
+            <textarea nz-input rows="2" [(ngModel)]="newComment" maxlength="2000" placeholder="Write a comment" aria-label="Comment" data-testid="comment-text" style="flex:1"></textarea>
+            <button nz-button nzType="primary" [disabled]="!newComment.trim()" (click)="addComment()" data-testid="comment-add">Post</button>
+          </div>
+        </div>
+      }
+      @case ('files') { <div class="prj-card"><erp-attachments ownerType="project" [ownerId]="projectId()" /></div> }
+      @case ('activity') {
+        <div class="prj-card" data-testid="activity">
+          @for (a of activity(); track $index) {
+            <div class="event"><span class="dot" [class.created]="a.action === 'Created'" [class.deleted]="a.action === 'Deleted'"></span>
+              <div><span class="prj-strong">{{ a.who || 'System' }}</span> {{ verb(a) }} {{ a.kind | erpLabel }} <b>{{ a.title }}</b>@if (a.fields.length) { <span class="prj-muted"> ({{ fieldList(a) }})</span> }<div class="prj-muted">{{ a.at | date: 'medium' }}</div></div></div>
+          } @empty { <p class="prj-empty">Nothing recorded yet.</p> }
+        </div>
+      }
+    }
+  

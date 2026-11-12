@@ -1,0 +1,55 @@
+
+    <h1 class="erp-page-title">HR reports</h1>
+    <nz-tabs>
+      <nz-tab nzTitle="Summary">
+        @if (summaryFailed()) {
+          <erp-state-panel kind="error" title="The report could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="loadSummary()" />
+        } @else if (summary(); as s) {
+          <div class="erp-stat-grid erp-stat-grid--auto" data-testid="hr-kpis">
+            <erp-stat-card label="Headcount" [value]="s.headcount" format="number" [caption]="'as at ' + (s.to | erpDate)" [tone]="0" />
+            <erp-stat-card label="Average service" [value]="(s.averageServiceYears | number: '1.1-1') + ' yrs'" [tone]="1" />
+            <erp-stat-card label="Absence days" [value]="s.absenceDays" format="number" [caption]="(s.from | erpDate) + ' to ' + (s.to | erpDate)" [tone]="3" />
+          </div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap">
+            <div style="min-width:240px"><h3>By department</h3>@for (c of s.byDepartment; track c.key) { <div>{{ c.key || 'No department' }}: <b>{{ c.count }}</b></div> }</div>
+            <div style="min-width:240px"><h3>By nationality</h3>@for (c of s.byNationality; track c.key) { <div>{{ c.key || 'Not set' }}: <b>{{ c.count }}</b></div> }</div>
+            <div style="min-width:240px"><h3>By contract</h3>@for (c of s.byContractType; track c.key) { <div>{{ c.key || 'Not set' }}: <b>{{ c.count }}</b></div> }</div>
+          </div>
+          <h3>Joiners and leavers</h3>
+          <nz-table [nzData]="s.movements" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small">
+            <thead><tr><th>Month</th><th class="num">Joiners</th><th class="num">Leavers</th></tr></thead>
+            <tbody>@for (m of s.movements; track m.year * 100 + m.month) { <tr><td>{{ month(m.month) }} {{ m.year }}</td><td class="num">{{ m.joiners }}</td><td class="num">{{ m.leavers }}</td></tr> }</tbody>
+          </nz-table>
+          @if (s.payrollCost) {
+            <h3>Payroll cost</h3>
+            <nz-table [nzData]="s.payrollCost" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="hr-cost">
+              <thead><tr><th>Month</th><th class="num">Runs</th><th class="num">Employees</th><th class="num">Gross ({{ currency() }})</th><th class="num">Deductions ({{ currency() }})</th><th class="num">Net ({{ currency() }})</th></tr></thead>
+              <tbody>@for (m of s.payrollCost; track m.year * 100 + m.month) { <tr><td>{{ month(m.month) }} {{ m.year }}</td><td class="num">{{ m.runs }}</td><td class="num">{{ m.employees }}</td><td class="num">{{ m.gross | number: '1.2-2' }}</td><td class="num">{{ m.deductions | number: '1.2-2' }}</td><td class="num">{{ m.net | number: '1.2-2' }}</td></tr> }</tbody>
+            </nz-table>
+          }
+          <h3>Leave taken, by type (days)</h3>
+          @for (l of s.leaveDaysByType; track l.leaveType) { <div>{{ l.leaveType }}: <b>{{ l.days }}</b></div> } @empty { <div class="muted">No leave in the period.</div> }
+        } @else { <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 8 }"></nz-skeleton> }
+      </nz-tab>
+      <nz-tab nzTitle="Birthdays and anniversaries">
+        @if (occasions(); as o) {
+          <h3>Birthdays (next {{ o.days }} days)</h3>
+          @for (b of o.birthdays; track b.employeeId) { <div>{{ b.employee }}: {{ b.date | erpDate }} ({{ b.daysAway === 0 ? 'today' : 'in ' + b.daysAway + ' days' }})</div> } @empty { <div class="muted">No birthdays in the next {{ o.days }} days.</div> }
+          <h3>Work anniversaries</h3>
+          @for (a of o.anniversaries; track a.employeeId) { <div>{{ a.employee }}: {{ a.years }} years on {{ a.date | erpDate }}</div> } @empty { <div class="muted">No anniversaries in the next {{ o.days }} days.</div> }
+        } @else if (occasionsFailed()) {
+          <erp-state-panel kind="error" title="This list could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="loadOccasions()" />
+        } @else { <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 4 }"></nz-skeleton> }
+      </nz-tab>
+      <nz-tab nzTitle="End-of-service liability">
+        @if (gratuity(); as g) {
+          <p>Total liability <b data-testid="gratuity-total">{{ currency() }} {{ g.totalLiability | number: '1.2-2' }}</b> @if (g.rule) { <span class="muted">· {{ g.rule }}</span> }</p>
+          <nz-table [nzData]="g.rows" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" nzNoResult="No employees to report">
+            <thead><tr><th>Employee</th><th>Joined</th><th class="num">Basic ({{ currency() }})</th><th class="num">Service (yrs)</th><th class="num">Entitlement (days)</th><th class="num">Amount ({{ currency() }})</th></tr></thead>
+            <tbody>@for (r of g.rows; track r.employeeId) { <tr><td>{{ r.employee }}<div class="sub">{{ r.number }}</div></td><td>{{ r.joined | erpDate }}</td><td class="num">{{ r.basicSalary | number: '1.2-2' }}</td><td class="num">{{ r.serviceYears }}</td><td class="num">{{ r.eligible ? r.entitlementDays : '—' }}</td><td class="num">{{ r.gratuity | number: '1.2-2' }}</td></tr> }</tbody>
+          </nz-table>
+        } @else if (gratuityFailed()) {
+          <erp-state-panel title="This report is not available" hint="It needs access to pay figures, or the employer's country has no end-of-service rule." icon="lock" />
+        } @else { <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 4 }"></nz-skeleton> }
+      </nz-tab>
+    </nz-tabs>

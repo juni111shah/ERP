@@ -1,5 +1,7 @@
-import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { API_BASE_URL } from './api-config';
 import { CrudApiService } from './crud-api.service';
 
 // The API sends enum values in camelCase (see Program.cs), so that is what these types and every comparison use.
@@ -278,11 +280,13 @@ export class ProjectTimesheetsApi extends CrudApiService<TimesheetDto, Timesheet
   protected readonly resource = 'm/projects/timesheets';
 }
 
+/** What is ready to bill across all projects (/m/projects/billing). */
 @Injectable({ providedIn: 'root' })
 export class ProjectBillingApi {
-  constructor(private readonly api: ProjectsApi) {}
+  private readonly http = inject(HttpClient);
+  private readonly baseUrl = inject(API_BASE_URL);
 
   getOverview(): Observable<ProjectBillingSummaryDto[]> {
-    return this.api['http'].get<ProjectBillingSummaryDto[]>(`${this.api['baseUrl']}/m/projects/billing/overview`);
+    return this.http.get<ProjectBillingSummaryDto[]>(`${this.baseUrl}/m/projects/billing/overview`);
   }
 }

@@ -1,0 +1,174 @@
+
+    <h1 class="erp-page-title">{{ 'ui.audit.title' | translate: 'Audit log' }}</h1>
+
+    @if (facets(); as f) {
+      <div class="erp-stat-grid erp-stat-grid--auto" data-testid="audit-summary">
+        <erp-stat-card label="Changes today" [value]="f.today" format="number" [tone]="1" />
+        <erp-stat-card label="Changes in 7 days" [value]="f.last7Days" format="number" [tone]="0" />
+        <erp-stat-card label="Deletions in 7 days" [value]="f.deletionsLast7Days" format="number" [tone]="f.deletionsLast7Days ? 'danger' : 'neutral'" />
+        <erp-stat-card label="People active in 7 days" [value]="f.activeUsersLast7Days" format="number" [tone]="2" />
+      </div>
+    }
+
+    <div class="scope" data-testid="audit-scope">
+      <nz-segmented [nzOptions]="ranges()" [ngModel]="range()" (ngModelChange)="setRange($event)" data-testid="audit-range"></nz-segmented>
+      @if (recordScope(); as s) {
+        <nz-tag class="erp-tone chip" data-tone="info" nzMode="closeable" (nzOnClose)="clearRecordScope()" data-testid="audit-record-scope">{{ s.typeLabel }} {{ s.label }}</nz-tag>
+      }
+    </div>
+
+    <erp-paged-table [list]="list" [columns]="columns()" [exportable]="false" searchPlaceholder="Search record, field or IP address" emptyText="No changes have been recorded yet" (rowClick)="open($event)" tableName="audit">
+      <button toolbar nz-button type="button" [nzLoading]="exporting()" [disabled]="!list.total()" (click)="exportAll()" nz-tooltip [nzTooltipTitle]="'ui.audit.exportHint' | translate: 'Every event matching these filters'" data-testid="audit-export">
+        <span nz-icon nzType="download"></span> {{ 'table.exportCsv' | translate: 'Export CSV' }}
+      </button>
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('userId') {
+            <span class="who"><span class="avatar" [class.system]="!row.userId" aria-hidden="true">{{ initialsOf(row) }}</span><span class="erp-truncate">{{ whoOf(row) }}</span></span>
+          }
+          @case ('action') { <nz-tag class="erp-tone" [attr.data-tone]="tone(row.action)">{{ row.action | erpLabel }}</nz-tag> }
+          @case ('record') {
+            <span class="record erp-truncate"><span class="record-type">{{ typeOf(row) }}</span> {{ row.recordLabel || shortId(row.recordId) }}</span>
+          }
+          @case ('changedFields') { <span class="erp-truncate">{{ changeOf(row) }}</span> }
+          @case ('actions') {
+            @if (linkOf(row); as link) {
+              <a nz-button nzType="text" nzSize="small" [routerLink]="link" (click)="$event.stopPropagation()" nz-tooltip [nzTooltipTitle]="'ui.audit.openRecord' | translate: 'Open record'" [attr.aria-label]="'ui.audit.openRecord' | translate: 'Open record'" data-testid="audit-row-open"><span nz-icon nzType="export"></span></a>
+            }
+            <button nz-button nzType="text" nzSize="small" type="button" (click)="scopeToRecord(row)" nz-tooltip [nzTooltipTitle]="'ui.audit.recordHistory' | translate: 'All changes to this record'" [attr.aria-label]="'ui.audit.recordHistory' | translate: 'All changes to this record'" data-testid="audit-row-history"><span nz-icon nzType="history"></span></button>
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
+
+    <nz-drawer [nzVisible]="!!selected()" [nzTitle]="drawerTitle" [nzExtra]="navigation" [nzFooter]="hasFooter() ? drawerFooter : undefined" nzWidth="720px" (nzOnClose)="close()" data-testid="audit-drawer">
+      <ng-template #drawerTitle>
+        @if (selected(); as e) {
+          <span class="title-row" data-testid="audit-headline">
+            <nz-tag class="erp-tone" [attr.data-tone]="tone(e.action)">{{ e.action | erpLabel }}</nz-tag>
+            <span class="title-text"><span>{{ typeOf(e) }}</span>&ngsp;@if (e.recordLabel) { <span class="title-name">{{ e.recordLabel }}</span> }</span>
+          </span>
+        }
+      </ng-template>
+      <ng-template #navigation>
+        <span class="drawer-nav">
+          @if (position(); as p) { <span class="position" data-testid="audit-position"><bdi dir="ltr">{{ p }}</bdi></span> }
+          <button nz-button type="button" nzSize="small" [disabled]="!hasPrevious()" (click)="step(-1)" nz-tooltip [nzTooltipTitle]="'ui.audit.newer' | translate: 'Newer event'" [attr.aria-label]="'ui.audit.newer' | translate: 'Newer event'" data-testid="audit-newer"><span nz-icon nzType="up"></span></button>
+          <button nz-button type="button" nzSize="small" [disabled]="!hasNext()" (click)="step(1)" nz-tooltip [nzTooltipTitle]="'ui.audit.older' | translate: 'Older event'" [attr.aria-label]="'ui.audit.older' | translate: 'Older event'" data-testid="audit-older"><span nz-icon nzType="down"></span></button>
+        </span>
+      </ng-template>
+      <ng-template #drawerFooter>
+        @if (selected(); as e) {
+          @if ((detail()?.recordEventCount ?? 0) > 1) {
+            <button nz-button type="button" (click)="scopeToRecord(e); close()" data-testid="audit-record-history"><span nz-icon nzType="history"></span> {{ 'ui.audit.seeAll' | translate: 'See all' }} {{ detail()?.recordEventCount }} {{ 'ui.audit.changes' | translate: 'changes' }}</button>
+          }
+          @if (linkOf(e); as link) {
+            <a nz-button nzType="primary" [routerLink]="link" data-testid="audit-open-record"><span nz-icon nzType="export"></span> {{ 'ui.audit.openRecord' | translate: 'Open record' }}</a>
+          }
+        }
+      </ng-template>
+      <ng-container *nzDrawerContent>
+        @if (selected(); as e) {
+          <div class="summary" data-testid="audit-summary-block">
+            <span class="avatar large" [class.system]="!e.userId" aria-hidden="true">{{ initialsOf(e) }}</span>
+            <div class="summary-main">
+              <div class="summary-who">{{ whoOf(e) }}</div>
+              <div class="summary-when">{{ e.occurredAt | erpDate }} · {{ relative(e.occurredAt) }}@if (e.ipAddress) { · <bdi dir="ltr">IP {{ e.ipAddress }}</bdi> }</div>
+            </div>
+            <div class="summary-id">
+              <span class="summary-id-label">{{ 'ui.audit.recordId' | translate: 'Record ID' }}</span>
+              <bdi class="mono" dir="ltr" nz-tooltip [nzTooltipTitle]="e.recordId" data-testid="audit-record-id">{{ shortId(e.recordId) }}</bdi>
+              <button nz-button nzType="text" nzSize="small" type="button" (click)="copy(e.recordId)" nz-tooltip [nzTooltipTitle]="'ui.audit.copy' | translate: 'Copy'" [attr.aria-label]="'ui.audit.copy' | translate: 'Copy'" data-testid="audit-copy-id"><span nz-icon nzType="copy"></span></button>
+            </div>
+          </div>
+
+          @if (detailLoading()) {
+            <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 5 }" data-testid="audit-detail-loading"></nz-skeleton>
+          } @else if (detailFailed()) {
+            <erp-state-panel kind="error" title="Could not load this event" hint="The list is still up to date." actionLabel="Try again" (action)="load(e)" />
+          } @else if (detail(); as d) {
+            <nz-tabset nzSize="small">
+              <nz-tab [nzTitle]="changesTab(d)">
+                @if (primaryFields(d); as rows) {
+                  @if (rows.length) {
+                    <table class="diff" data-testid="audit-diff">
+                      <thead><tr>
+                        <th class="field">{{ 'ui.audit.field' | translate: 'Field' }}</th>
+                        @if (e.action !== 'Created') { <th>{{ (e.action === 'Updated' ? 'ui.audit.before' : 'ui.audit.value') | translate: (e.action === 'Updated' ? 'Before' : 'Value') }}</th> }
+                        @if (e.action !== 'Deleted') { <th>{{ (e.action === 'Updated' ? 'ui.audit.after' : 'ui.audit.value') | translate: (e.action === 'Updated' ? 'After' : 'Value') }}</th> }
+                      </tr></thead>
+                      <tbody>
+                        @for (f of rows; track f.field) {
+                          <tr data-testid="audit-diff-changed">
+                            <td class="field">{{ fieldLabel(f.field) }}</td>
+                            @if (e.action !== 'Created') {
+                              <td [attr.data-label]="e.action === 'Updated' ? ('ui.audit.before' | translate: 'Before') : null"><span class="val" [class.old]="e.action === 'Updated' && !!f.old" [class.empty]="!f.old" [class.mono]="isCode(f.old)" nz-tooltip [nzTooltipTitle]="isId(f.old) ? f.old : null" dir="auto">{{ valueText(f.old) }}</span></td>
+                            }
+                            @if (e.action !== 'Deleted') {
+                              <td [attr.data-label]="e.action === 'Updated' ? ('ui.audit.after' | translate: 'After') : null"><span class="val" [class.new]="e.action === 'Updated' && !!f.new" [class.empty]="!f.new" [class.mono]="isCode(f.new)" nz-tooltip [nzTooltipTitle]="isId(f.new) ? f.new : null" dir="auto">{{ valueText(f.new) }}</span></td>
+                            }
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  } @else {
+                    <p class="muted" data-testid="audit-no-fields">{{ noFieldsText(e) }}</p>
+                  }
+                }
+
+                @if (restFields(d).length; as restCount) {
+                  <button class="more-toggle" type="button" [attr.aria-expanded]="showUnchanged()" (click)="showUnchanged.set(!showUnchanged())" data-testid="audit-show-unchanged">
+                    <span nz-icon [nzType]="showUnchanged() ? 'up' : 'down'"></span>
+                    @if (e.action === 'Updated') { {{ 'ui.audit.unchangedFields' | translate: 'Unchanged fields' }} } @else { {{ 'ui.audit.emptyFields' | translate: 'Empty fields' }} }
+                    <span class="count">({{ restCount }})</span>
+                  </button>
+                  @if (showUnchanged()) {
+                    @if (restCount > manyFields) {
+                      <input class="find" nz-input nzSize="small" [attr.aria-label]="'ui.audit.findField' | translate: 'Find a field'" [placeholder]="'ui.audit.findField' | translate: 'Find a field'" [ngModel]="fieldSearch()" (ngModelChange)="fieldSearch.set($event)" data-testid="audit-find-field" />
+                    }
+                    <table class="diff rest" data-testid="audit-diff-rest">
+                      <tbody>
+                        @for (f of matchingRest(d); track f.field) {
+                          <tr data-testid="audit-diff-same">
+                            <td class="field">{{ fieldLabel(f.field) }}</td>
+                            <td><span class="val" [class.empty]="!(f.new ?? f.old)" [class.mono]="isCode(f.new ?? f.old)" nz-tooltip [nzTooltipTitle]="isId(f.new ?? f.old) ? (f.new ?? f.old) : null" dir="auto">{{ valueText(f.new ?? f.old) }}</span></td>
+                          </tr>
+                        } @empty {
+                          <tr><td class="muted" data-testid="audit-no-field-match">{{ 'ui.audit.noFieldMatch' | translate: 'No field matches that.' }}</td></tr>
+                        }
+                      </tbody>
+                    </table>
+                  }
+                }
+
+                @if (d.sameSave.length) {
+                  <h4 class="sub">{{ 'ui.audit.sameSave' | translate: 'Saved at the same moment' }} ({{ d.sameSave.length }})</h4>
+                  <ul class="related" data-testid="audit-same-save">
+                    @for (r of visibleSameSave(d); track r.id) {
+                      <li>
+                        <nz-tag class="erp-tone" [attr.data-tone]="tone(r.action)">{{ r.action | erpLabel }}</nz-tag>
+                        <button nz-button nzType="link" nzSize="small" type="button" (click)="open(r)" data-testid="audit-related-open">{{ typeOf(r) }} {{ r.recordLabel || shortId(r.recordId) }}</button>
+                      </li>
+                    }
+                  </ul>
+                  @if (!sameSaveOpen() && d.sameSave.length > sameSaveShown) {
+                    <button class="more-toggle" type="button" (click)="sameSaveOpen.set(true)" data-testid="audit-same-save-more"><span nz-icon nzType="down"></span>{{ 'ui.audit.seeAll' | translate: 'See all' }} {{ d.sameSave.length }}</button>
+                  }
+                }
+              </nz-tab>
+              <nz-tab [nzTitle]="'ui.audit.rawData' | translate: 'Raw data'">
+                @if (e.action !== 'Created') {
+                  <h4 class="sub">{{ 'ui.audit.before' | translate: 'Before' }}</h4>
+                  <pre class="raw" data-testid="audit-before" dir="ltr">{{ pretty(d.before) }}</pre>
+                }
+                @if (e.action !== 'Deleted') {
+                  <h4 class="sub">{{ 'ui.audit.after' | translate: 'After' }}</h4>
+                  <pre class="raw" data-testid="audit-after" dir="ltr">{{ pretty(d.after) }}</pre>
+                }
+              </nz-tab>
+            </nz-tabset>
+          }
+        }
+      </ng-container>
+    </nz-drawer>

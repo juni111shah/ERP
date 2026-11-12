@@ -1,5 +1,6 @@
 import { FormControl, FormGroup, ValidatorFn, Validators } from '@angular/forms';
 import { CustomFieldValueMap } from '../api/api.models';
+import { toIsoDate } from '../format/dates';
 import { CustomFieldDataType, FormFieldMeta, FormSectionMeta } from './custom-field.models';
 
 /** Builds the nested `customFields` FormGroup from metadata (one control per active field). */
@@ -16,6 +17,7 @@ export function buildCustomFieldsGroup(
   return new FormGroup(controls);
 }
 
+/** The Angular validators for a field's metadata: required, length and pattern for text, range for numbers. */
 export function validatorsFor(f: FormFieldMeta): ValidatorFn[] {
   const v: ValidatorFn[] = [];
   if (f.required && f.dataType !== 'bool') v.push(Validators.required);
@@ -31,6 +33,7 @@ export function validatorsFor(f: FormFieldMeta): ValidatorFn[] {
   return v;
 }
 
+/** The control value of an empty field: no choices for a multi-select, off for a switch, null otherwise. */
 function emptyValue(t: CustomFieldDataType): unknown {
   return t === 'multiSelect' ? [] : t === 'bool' ? false : null;
 }
@@ -79,7 +82,3 @@ export function toApiValues(
   return out;
 }
 
-export function toIsoDate(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}

@@ -1,0 +1,17 @@
+
+    <erp-expand-search #searchComp [value]="term()" (valueChange)="type($event)" width="320px" testId="global-search" [label]="t('ui.search.records', 'Search records')"
+                       (focusin)="open.set(true)" (focusout)="close()" />
+    @if (!open() && !term()) {
+      <kbd class="search-kbd-hint" aria-hidden="true">Ctrl K</kbd>
+    }
+    @if (open() && term().trim().length >= 2) {
+      <div class="panel" data-testid="search-results">
+        @for (h of hits(); track $index; let i = $index) {
+          @if (i === 0 || hits()[i - 1].category !== h.category) { <div class="cat">{{ h.category | erpLabel }}</div> }
+          <div class="hit" (mousedown)="go(h)" [attr.data-testid]="'search-hit'">
+            <div class="hit-title">{{ h.title }}</div>
+            @if (h.subtitle) { <div class="sub">{{ h.subtitle }}</div> }
+          </div>
+        } @empty { <div class="empty">{{ t('ui.search.noMatches', 'No matches') }}</div> }
+      </div>
+    }

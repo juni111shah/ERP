@@ -1,0 +1,50 @@
+
+    <div class="root" [dir]="i18n.dir()">
+      <aside class="side" [class.as-drawer]="narrow()" [class.is-open]="drawerOpen()" (keydown.escape)="drawerOpen.set(false)" data-testid="platform-sidebar" aria-label="Console navigation">
+        <div class="brand"><erp-brand-logo subtitle="Platform console"></erp-brand-logo></div>
+        <nav>
+          @for (l of links; track l.path) {
+            <a [routerLink]="l.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: !!l.exact }" [attr.data-testid]="l.testId" (click)="drawerOpen.set(false)">
+              <span class="icon" nz-icon [nzType]="l.icon" aria-hidden="true"></span>
+              <span class="label">{{ l.label }}</span>
+              @if (l.badge && api.pendingSignups() > 0) { <nz-badge [nzCount]="api.pendingSignups()" [attr.aria-label]="api.pendingSignups() + ' waiting'" data-testid="platform-signups-badge"></nz-badge> }
+            </a>
+          }
+        </nav>
+        <div class="foot">
+          <button type="button" (click)="backToWorkspace()" data-testid="platform-back-to-workspace"><span nz-icon nzType="arrow-left" aria-hidden="true"></span>Back to workspace</button>
+          <button type="button" (click)="auth.logout()" data-testid="platform-sign-out"><span nz-icon nzType="logout" aria-hidden="true"></span>Sign out</button>
+        </div>
+      </aside>
+      @if (narrow() && drawerOpen()) { <div class="backdrop" erpKeyboardClick aria-label="Close menu" (click)="drawerOpen.set(false)" data-testid="platform-backdrop"></div> }
+      <div class="main">
+        <header class="bar">
+          @if (narrow()) {
+            <button type="button" class="menu-btn" (click)="drawerOpen.set(true)" [attr.aria-expanded]="drawerOpen()" aria-label="Open menu" data-testid="platform-nav-open"><span nz-icon nzType="menu-unfold"></span></button>
+          }
+          <div class="bar-title">
+            @if (pageTitle.module(); as mod) {
+              <span class="topbar-module-badge"><span class="badge-dot"></span><span>{{ mod }}</span></span>
+              <span class="topbar-breadcrumb-slash">/</span>
+            }
+            <h1 class="topbar-title" data-testid="platform-title">{{ pageTitle.title() }}</h1>
+          </div>
+          <span class="who">{{ session.me()?.user?.fullName }}</span>
+          <button type="button" class="tool-btn" nz-dropdown nzTrigger="click" [nzDropdownMenu]="userMenu" nzPlacement="bottomRight" [attr.aria-label]="session.me()?.user?.fullName || 'User menu'" data-testid="platform-user-menu">
+            <nz-avatar nzSize="small" [nzText]="initials()"></nz-avatar>
+          </button>
+          <nz-dropdown-menu #userMenu="nzDropdownMenu">
+            <ul nz-menu>
+              <li nz-menu-item nzDisabled>{{ session.me()?.user?.email }}</li>
+              <li nz-menu-item routerLink="/account/security"><span nz-icon nzType="lock"></span> Account security</li>
+              <li nz-menu-divider></li>
+              <li nz-menu-item (click)="i18n.toggle()" data-no-i18n data-testid="platform-lang-toggle"><span nz-icon nzType="global"></span> {{ i18n.lang() === 'ar' ? 'English' : 'العربية' }}</li>
+              <li nz-menu-item (click)="theme.toggleTheme()" data-testid="platform-theme-toggle"><span nz-icon nzType="bulb"></span> {{ theme.resolvedTheme() === 'dark' ? 'Light mode' : 'Dark mode' }}</li>
+              <li nz-menu-divider></li>
+              <li nz-menu-item (click)="auth.logout()"><span nz-icon nzType="logout"></span> Sign out</li>
+            </ul>
+          </nz-dropdown-menu>
+        </header>
+        <main class="content"><router-outlet /></main>
+      </div>
+    </div>

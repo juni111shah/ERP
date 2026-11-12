@@ -1,0 +1,111 @@
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load the dashboard" hint="The server did not answer." actionLabel="Try again" (action)="load()" />
+    } @else {
+      @let d = data();
+      <div class="pf-head">
+        <p>{{ d ? d.totalClients + (d.totalClients === 1 ? ' client' : ' clients') + ', ' + d.newClients30Days + ' new in the last 30 days.' : ' ' }}</p>
+        <div class="pf-actions">
+          <button nz-button type="button" [nzLoading]="running()" (click)="runBilling()" data-testid="platform-run-billing"><span nz-icon nzType="thunderbolt"></span>Run billing now</button>
+        </div>
+      </div>
+
+      @if (d && d.pendingSignups > 0) {
+        <div class="todo" data-testid="platform-todo-signups">
+          <span><strong>{{ d.pendingSignups }} {{ d.pendingSignups === 1 ? 'registration is' : 'registrations are' }} waiting</strong> for your review.</span>
+          <a nz-button nzType="primary" nzSize="small" routerLink="/platform/signups">Review</a>
+        </div>
+      }
+      @if (d && d.planRequests > 0) {
+        <div class="todo" data-testid="platform-todo-plans">
+          <span><strong>{{ d.planRequests }} {{ d.planRequests === 1 ? 'client has' : 'clients have' }} asked</strong> for a plan change.</span>
+          <a nz-button nzType="primary" nzSize="small" routerLink="/platform/clients" [queryParams]="{ status: 'planRequest' }">See them</a>
+        </div>
+      }
+      @if (lastRun(); as r) {
+        <nz-alert class="done" nzType="success" nzShowIcon nzCloseable nzMessage="Billing run finished" [nzDescription]="runResult" (nzOnClose)="lastRun.set(null)" data-testid="platform-run-result"></nz-alert>
+        <ng-template #runResult>
+          <dl>
+            <div><dt>Trials ended</dt><dd>{{ r.trialsExpired }}</dd></div>
+            <div><dt>Invoices issued</dt><dd>{{ r.invoicesIssued }}</dd></div>
+            <div><dt>Marked overdue</dt><dd>{{ r.markedPastDue }}</dd></div>
+            <div><dt>Suspended</dt><dd>{{ r.suspended }}</dd></div>
+            <div><dt>Reminders sent</dt><dd>{{ r.remindersSent }}</dd></div>
+            <div><dt>Registrations expired</dt><dd>{{ r.signupsExpired }}</dd></div>
+          </dl>
+        </ng-template>
+      }
+
+      <div class="erp-stat-grid kpis" data-testid="platform-kpis">
+        <erp-stat-card label="Monthly recurring revenue" [value]="money(d?.monthlyRecurring)" caption="From paying clients" [tone]="0" [loading]="!d" testId="kpi-mrr" />
+        <erp-stat-card label="Annual recurring revenue" [value]="money(d?.annualRecurring)" caption="Monthly times twelve" [tone]="1" [loading]="!d" testId="kpi-arr" />
+        <erp-stat-card label="Active clients" [value]="d?.active ?? 0" format="number" caption="Paying or free of charge" [tone]="2" [loading]="!d" [link]="['/platform/clients']" testId="kpi-active" />
+        <erp-stat-card label="On trial" [value]="d?.trialing ?? 0" format="number" caption="Not paying yet" [tone]="3" [loading]="!d" [link]="['/platform/clients']" testId="kpi-trial" />
+        <erp-stat-card label="Overdue amount" [value]="money(d?.overdue)" [caption]="'All open: ' + money(d?.outstanding)" [tone]="(d?.overdue ?? 0) > 0 ? 'danger' : 'neutral'" [loading]="!d" [link]="['/platform/invoices']" testId="kpi-overdue" />
+        <erp-stat-card label="Collected this month" [value]="money(d?.collectedThisMonth)" [caption]="'All time: ' + money(d?.collectedTotal)" tone="success" [loading]="!d" testId="kpi-collected" />
+      </div>
+
+      @if (d) {
+        <div class="pf-grid">
+          <section class="pf-card" data-testid="platform-collected-chart">
+            <h2>Collected over the last 6 months</h2>
+            <erp-apex-chart [chart]="chart()!" />
+          </section>
+          <section class="pf-card" data-testid="platform-by-status">
+            <h2>Clients by status</h2>
+            <ul class="pf-list">
+              @for (s of statuses(); track s.key) {
+                <li>
+                  <a [routerLink]="['/platform/clients']" [queryParams]="{ status: s.key }"><erp-status [value]="s.tone" [label]="s.label" /></a>
+                  <strong>{{ s.count }}</strong>
+                </li>
+              }
+            </ul>
+          </section>
+        </div>
+        <div class="pf-grid">
+          <section class="pf-card" data-testid="platform-by-plan">
+            <h2>Clients by plan</h2>
+            @if (d.byPlan.length) {
+              <div class="pf-scroll">
+                <table class="pf-table">
+                  <thead><tr><th>Plan</th><th class="num">Clients</th><th class="num">Monthly value</th></tr></thead>
+                  <tbody>
+                    @for (p of d.byPlan; track p.planId) {
+                      <tr><td><a [routerLink]="['/platform/clients']" [queryParams]="{ planId: p.planId }">{{ p.planName }}</a></td><td class="num">{{ p.clients }}</td><td class="num">{{ p.monthlyValue | erpMoney: d.currency }}</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else { <p class="pf-empty">No client is on a plan yet.</p> }
+          </section>
+          <section class="pf-card" data-testid="platform-trials">
+            <h2>Trials ending soon</h2>
+            @if (d.trialsEnding.length) {
+              <ul class="pf-list">
+                @for (t of d.trialsEnding; track t.orgId) {
+                  <li>
+                    <a [routerLink]="['/platform/clients', t.orgId]">{{ t.name }}</a>
+                    <span class="pf-small pf-muted pf-nowrap">{{ t.trialEndsOn | erpDate }} ({{ t.daysLeft < 0 ? 'ended' : t.daysLeft === 0 ? 'today' : t.daysLeft === 1 ? '1 day' : t.daysLeft + ' days' }})</span>
+                  </li>
+                }
+              </ul>
+            } @else { <p class="pf-empty">No trial ends in the next 7 days.</p> }
+          </section>
+          <section class="pf-card" data-testid="platform-recent">
+            <div class="pf-card-head"><h2>Recent activity</h2><a routerLink="/platform/activity" class="pf-small">See all</a></div>
+            @if (d.recentActivity.length) {
+              <ul class="pf-list log">
+                @for (a of d.recentActivity; track a.id) {
+                  <li>
+                    <time>{{ a.at | erpDate }}</time>
+                    <span class="what"><strong class="act">{{ a.action }}{{ a.clientName ? ':' : '' }}</strong>@if (a.clientName) { @if (a.orgId) { <a [routerLink]="['/platform/clients', a.orgId]">{{ a.clientName }}</a> } @else { {{ a.clientName }} } }</span>
+                    @if (a.detail) { <span class="pf-small pf-muted what">{{ a.detail }}</span> }
+                  </li>
+                }
+              </ul>
+            } @else { <p class="pf-empty">Nothing has happened yet.</p> }
+          </section>
+        </div>
+      }
+    }

@@ -1,0 +1,245 @@
+
+      <div class="erp-stat-grid erp-stat-grid--auto mb-4" data-testid="opp-stats">
+        <erp-stat-card label="Open Pipeline" [value]="openValue()" format="money" [caption]="deals_(openCount(), 'open') + ', not weighted'" [tone]="1" />
+        <erp-stat-card label="Closed Won" [value]="stageSummary('closedWon')?.totalExpectedRevenue ?? 0" format="money" [caption]="deals_(stageSummary('closedWon')?.count ?? 0) + ', expected value'" tone="success" />
+        <erp-stat-card label="Closed Lost" [value]="stageSummary('closedLost')?.totalExpectedRevenue ?? 0" format="money" [caption]="deals_(stageSummary('closedLost')?.count ?? 0) + ', expected value'" tone="danger" />
+        <erp-stat-card label="Win Rate" [value]="winRate()" format="percent" [caption]="closedCount() ? 'of ' + closedCount() + ' closed deals' : 'no closed deals yet'" [tone]="4" />
+      </div>
+
+      <div class="view-bar">
+        <nz-radio-group [ngModel]="view()" (ngModelChange)="setView($event)" nzButtonStyle="solid" aria-label="View" data-testid="opp-view">
+          <label nz-radio-button nzValue="board" data-testid="opp-view-board"><span nz-icon nzType="appstore"></span> Board</label>
+          <label nz-radio-button nzValue="table" data-testid="opp-view-table"><span nz-icon nzType="unordered-list"></span> Table</label>
+        </nz-radio-group>
+        @if (view() === 'board') {
+          <span class="spacer"></span>
+          <button *erpHasPermission="'crm.opportunities.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="opp-new-board">
+            <span nz-icon nzType="plus"></span> New Opportunity
+          </button>
+        }
+      </div>
+
+      @if (view() === 'board') {
+        @if (boardFailed()) {
+          <erp-state-panel kind="error" title="The pipeline could not be loaded." hint="Check your connection and try again." actionLabel="Try again" (action)="loadBoard()" />
+        } @else if (boardLoading() && !deals().length) {
+          <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 8 }" />
+        } @else if (!deals().length) {
+          <erp-state-panel title="No opportunities yet" hint="Add a deal, or convert a lead, to start your pipeline." icon="fund" [actionLabel]="canManage() ? 'New Opportunity' : null" (action)="openCreateDrawer()" />
+        } @else {
+          <div class="board" cdkDropListGroup data-testid="opp-board">
+            @for (stage of stages; track stage) {
+              <section class="col" [attr.data-testid]="'opp-col-' + stage">
+                <header class="col-head">
+                  <div class="col-title"><erp-status [value]="stage" /> <span class="col-count" [attr.data-testid]="'opp-count-' + stage">{{ stageSummary(stage)?.count ?? inStage(stage).length }}</span></div>
+                  <div class="col-value">{{ currency() }} {{ stageValue(stage) | number:'1.0-0' }}</div>
+                </header>
+                <div class="list" cdkDropList [cdkDropListData]="stage" [cdkDropListEnterPredicate]="canEnter" [cdkDropListDisabled]="!canManage()" (cdkDropListDropped)="drop($event)">
+                  @for (d of inStage(stage); track d.id) {
+                    <article class="card" cdkDrag [cdkDragData]="d" [cdkDragDisabled]="!canManage() || !movesOf(d).length" [attr.data-testid]="'opp-card-' + d.opportunityNumber">
+                      <div class="card-top"><span class="num">{{ d.opportunityNumber }}</span><span class="prob">{{ d.probabilityPercent }}%</span></div>
+                      <div class="card-title">{{ d.title }}</div>
+                      <div class="card-customer">{{ d.customerName }}</div>
+                      <div class="card-foot">
+                        <strong class="amount">{{ currency() }} {{ d.expectedRevenue | number:'1.0-0' }}</strong>
+                        @if (d.expectedCloseDate) { <span class="card-date">{{ d.expectedCloseDate | erpDate }}</span> }
+                      </div>
+                      @if (canManage() && movesOf(d).length) {
+                        <button nz-button nzSize="small" nzBlock class="mover" type="button" nz-dropdown nzTrigger="click" [nzDropdownMenu]="moveMenu" [attr.aria-label]="'Move ' + d.opportunityNumber + ' to'" [attr.data-testid]="'opp-move-' + d.opportunityNumber">
+                          Move to <span nz-icon nzType="down"></span>
+                        </button>
+                        <nz-dropdown-menu #moveMenu="nzDropdownMenu">
+                          <ul nz-menu>
+                            @for (s of movesOf(d); track s) { <li nz-menu-item (click)="moveTo(d, s)">{{ stageName(s) }}</li> }
+                          </ul>
+                        </nz-dropdown-menu>
+                      }
+                    </article>
+                  } @empty { <div class="empty">No deals</div> }
+                </div>
+              </section>
+            }
+          </div>
+          @if (boardTruncated()) { <p class="board-note" data-testid="opp-board-note">The board shows the first {{ deals().length }} deals. The counts and values above each column cover all of them.</p> }
+        }
+      } @else {
+      <erp-paged-table
+        #table
+        [list]="list"
+        [columns]="columns"
+        searchPlaceholder="Search deal, title or customer"
+        [clickable]="false"
+        emptyText="No opportunities yet. Add one to start your pipeline."
+        exportFilename="opportunities">
+        <button toolbar *erpHasPermission="'crm.opportunities.manage'" nz-button nzType="primary" (click)="openCreateDrawer()" data-testid="opp-new">
+          <span nz-icon nzType="plus"></span> New Opportunity
+        </button>
+          <ng-template #cell let-row let-column="column" let-value="value">
+            @switch (column.key) {
+              @case ('opportunityNumber') { <span class="num-cell">{{ row.opportunityNumber }}</span> }
+              @case ('title') {
+                <div class="deal-cell"><strong>{{ row.title }}</strong><span class="card-customer">{{ row.customerName }}</span></div>
+              }
+              @case ('stage') { <erp-status [value]="row.stage" /> }
+              @case ('probabilityPercent') { <span class="amount">{{ row.probabilityPercent }}%</span> }
+              @case ('expectedRevenue') { <strong class="amount">{{ currency() }} {{ row.expectedRevenue | number:'1.0-0' }}</strong> }
+              @case ('assignedUserName') { {{ row.assignedUserName || 'Unassigned' }} }
+              @case ('actions') {
+                <div class="table-actions">
+                  @if (row.stage === 'closedWon') {
+                    <erp-create-project-button sourceType="crm.opportunity" [sourceId]="row.id" [sourceLabel]="'opportunity ' + row.opportunityNumber" [defaultName]="row.title" [legalEntityId]="row.legalEntityId" [amount]="row.expectedRevenue" />
+                  }
+                  @if (openMoves(row).length) {
+                    <button
+                      *erpHasPermission="'crm.opportunities.manage'"
+                      nz-button nzType="link" nzSize="small" nz-dropdown [nzDropdownMenu]="stageMenu">
+                      <span nz-icon nzType="step-forward"></span> Move
+                    </button>
+                    <nz-dropdown-menu #stageMenu="nzDropdownMenu">
+                      <ul nz-menu>
+                        @for (s of openMoves(row); track s) {
+                          <li nz-menu-item (click)="advanceStage(row, s)">{{ stageName(s) }}</li>
+                        }
+                      </ul>
+                    </nz-dropdown-menu>
+                  }
+                  @if (row.stage !== 'closedWon' && row.stage !== 'closedLost') {
+                    <button
+                      *erpHasPermission="'crm.opportunities.manage'"
+                      nz-button nzType="link" nzSize="small"
+                      (click)="openCloseModal(row)">
+                      <span nz-icon nzType="check-circle"></span> Close Deal
+                    </button>
+                  }
+                </div>
+              }
+              @default { {{ value }} }
+            }
+          </ng-template>
+        </erp-paged-table>
+      }
+
+      <!-- Create Opportunity Drawer -->
+      <nz-drawer
+        [nzVisible]="createVisible()"
+        [nzWidth]="620"
+        nzTitle="New Opportunity"
+        (nzOnClose)="createVisible.set(false)">
+        <ng-container *nzDrawerContent>
+          <form [formGroup]="oppForm" nz-form nzLayout="vertical" (ngSubmit)="saveOpportunity()">
+            <nz-form-item>
+              <nz-form-label nzRequired>Legal Entity</nz-form-label>
+              <nz-form-control nzErrorTip="Please select an entity">
+                <nz-select formControlName="legalEntityId" nzPlaceHolder="Select Entity">
+                  <nz-option *ngFor="let ent of entities()" [nzValue]="ent.id" [nzLabel]="ent.name"></nz-option>
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+
+            <nz-form-item>
+              <nz-form-label nzRequired>Deal Title</nz-form-label>
+              <nz-form-control nzErrorTip="Title is required">
+                <input nz-input formControlName="title" placeholder="e.g. Annual supply contract" />
+              </nz-form-control>
+            </nz-form-item>
+
+            <nz-form-item>
+              <nz-form-label nzRequired>Customer</nz-form-label>
+              <nz-form-control nzErrorTip="Customer name is required">
+                <input nz-input formControlName="customerName" placeholder="Customer or company name" />
+              </nz-form-control>
+            </nz-form-item>
+
+            <div class="grid grid-cols-2 gap-4">
+              <nz-form-item>
+                <nz-form-label nzRequired>Expected Value ({{ currency() }})</nz-form-label>
+                <nz-form-control>
+                  <nz-input-number formControlName="expectedRevenue" [nzMin]="0" class="w-full"></nz-input-number>
+                </nz-form-control>
+              </nz-form-item>
+
+              <nz-form-item>
+                <nz-form-label nzRequired>Stage</nz-form-label>
+                <nz-form-control>
+                  <nz-select formControlName="stage" (ngModelChange)="onStageChange($event)">
+                    <nz-option nzValue="qualification" nzLabel="Qualification (20%)"></nz-option>
+                    <nz-option nzValue="proposal" nzLabel="Proposal (50%)"></nz-option>
+                    <nz-option nzValue="negotiation" nzLabel="Negotiation (80%)"></nz-option>
+                  </nz-select>
+                </nz-form-control>
+              </nz-form-item>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <nz-form-item>
+                <nz-form-label>Win Probability (%)</nz-form-label>
+                <nz-form-control>
+                  <nz-input-number formControlName="probabilityPercent" [nzMin]="0" [nzMax]="100" class="w-full"></nz-input-number>
+                </nz-form-control>
+              </nz-form-item>
+
+              <nz-form-item>
+                <nz-form-label>Target Close Date</nz-form-label>
+                <nz-form-control>
+                  <nz-date-picker formControlName="expectedCloseDate" class="w-full"></nz-date-picker>
+                </nz-form-control>
+              </nz-form-item>
+            </div>
+
+            <nz-form-item>
+              <nz-form-label>Notes</nz-form-label>
+              <nz-form-control>
+                <textarea nz-input formControlName="notes" rows="3" placeholder="Decision makers, competition, pricing..."></textarea>
+              </nz-form-control>
+            </nz-form-item>
+
+            <div class="drawer-footer">
+              <button nz-button type="button" (click)="createVisible.set(false)">Cancel</button>
+              <button nz-button nzType="primary" type="submit" [nzLoading]="isSubmitting()">Create Deal</button>
+            </div>
+          </form>
+        </ng-container>
+      </nz-drawer>
+
+      <!-- Close Deal Modal -->
+      <nz-modal
+        [nzVisible]="closeModalVisible()"
+        nzTitle="Close Deal"
+        [nzOkLoading]="isClosing()"
+        (nzOnCancel)="closeModalVisible.set(false)"
+        (nzOnOk)="submitCloseDeal()">
+        <ng-container *nzModalContent>
+          <form [formGroup]="closeForm" nz-form nzLayout="vertical">
+            <div *ngIf="selectedOpportunity() as opp" class="mb-4 close-summary-box">
+              <p><strong>Deal:</strong> {{ opp.title }}</p>
+              <p><strong>Customer:</strong> {{ opp.customerName }}</p>
+              <p><strong>Expected value:</strong> {{ currency() }} {{ opp.expectedRevenue | number:'1.0-0' }}</p>
+            </div>
+
+            <nz-form-item>
+              <nz-form-label nzRequired>Outcome</nz-form-label>
+              <nz-form-control [nzExtra]="canWin() ? undefined : 'A deal can be won only from Negotiation. Move it there first.'">
+                <nz-radio-group formControlName="isWon">
+                  <label nz-radio [nzValue]="true" [nzDisabled]="!canWin()" data-testid="opp-close-won">Won</label>
+                  <label nz-radio [nzValue]="false" data-testid="opp-close-lost">Lost</label>
+                </nz-radio-group>
+              </nz-form-control>
+            </nz-form-item>
+
+            <nz-form-item *ngIf="closeForm.value.isWon">
+              <nz-form-label nzRequired>Final Value ({{ currency() }})</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="actualRevenue" [nzMin]="0" class="w-full"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+
+            <nz-form-item>
+              <nz-form-label>Reason</nz-form-label>
+              <nz-form-control>
+                <textarea nz-input formControlName="closeReason" rows="2" placeholder="Why did we win or lose this deal?"></textarea>
+              </nz-form-control>
+            </nz-form-item>
+          </form>
+        </ng-container>
+      </nz-modal>
+  

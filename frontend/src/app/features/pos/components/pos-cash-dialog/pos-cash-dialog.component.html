@@ -1,0 +1,31 @@
+
+    <nz-modal [nzVisible]="open()" nzTitle="Cash in or out" nzOkText="Record" [nzOkLoading]="busy()" [nzOkDisabled]="!valid()" (nzAfterOpen)="focusAmount()" (nzOnCancel)="closed.emit()" (nzOnOk)="submit()">
+      <ng-container *nzModalContent>
+        <div class="stack">
+          @if (!shifts().length) {
+            <nz-alert nzType="warning" nzShowIcon nzMessage="No shift is open. Open one from the terminal first."></nz-alert>
+          } @else if (shifts().length > 1) {
+            <div>
+              <label class="field" for="pos-cash-shift">Shift</label>
+              <nz-select nzId="pos-cash-shift" [ngModel]="shiftId()" (ngModelChange)="shiftId.set($event)" style="width:100%">
+                @for (s of shifts(); track s.id) { <nz-option [nzValue]="s.id" [nzLabel]="s.label"></nz-option> }
+              </nz-select>
+            </div>
+          }
+          <nz-radio-group [ngModel]="type()" (ngModelChange)="type.set($event)" nzButtonStyle="solid" aria-label="Kind of movement" class="kinds">
+            @for (k of kinds; track k.value) { <label nz-radio-button [nzValue]="k.value">{{ k.label }}</label> }
+          </nz-radio-group>
+          <p class="hint">{{ hint() }}</p>
+          <div>
+            <label class="field" for="pos-cash-amount">Amount</label>
+            <nz-input-number nzId="pos-cash-amount" [ngModel]="amount()" (ngModelChange)="amount.set($event)" [nzMin]="0" [nzStep]="10" style="width:100%" data-testid="pos-cash-amount"></nz-input-number>
+            @if (selected(); as s) { <small class="hint">Expected in the drawer now: {{ s.expectedCash.toFixed(2) }}</small> }
+          </div>
+          <div>
+            <label class="field" for="pos-cash-reason">Reason</label>
+            <input id="pos-cash-reason" nz-input aria-label="Reason" [ngModel]="reason()" (ngModelChange)="reason.set($event)" (keydown.enter)="submit()" maxlength="250" placeholder="e.g. Midday drop" data-testid="pos-cash-reason" />
+          </div>
+        </div>
+      </ng-container>
+    </nz-modal>
+  

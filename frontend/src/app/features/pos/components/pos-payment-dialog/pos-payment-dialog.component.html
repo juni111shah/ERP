@@ -1,0 +1,62 @@
+
+    <nz-modal [nzVisible]="open()" nzTitle="Take payment" [nzWidth]="620" [nzFooter]="footer" [nzMaskClosable]="false" (nzAfterOpen)="focusAmount()" (nzOnCancel)="cancelled.emit()">
+      <ng-container *nzModalContent>
+        <div class="pay" (keydown)="onKey($event)">
+          <div class="due" [class.done]="remaining() === 0" data-testid="pos-due">
+            <span>{{ remaining() === 0 ? (change() > 0 ? 'Change to give' : 'Paid in full') : (tenders().length ? 'Still to pay' : 'Amount due') }}</span>
+            <strong>{{ currency() }} {{ (remaining() === 0 ? change() : remaining()) | number:'1.2-2' }}</strong>
+            @if (tenders().length) { <small>of {{ currency() }} {{ total() | number:'1.2-2' }}</small> }
+          </div>
+
+          <div class="methods" role="group" aria-label="Payment method">
+            @for (m of methods(); track m.method) {
+              <button type="button" class="method" [class.on]="method() === m.method" [attr.aria-pressed]="method() === m.method" [attr.data-testid]="'pos-tender-' + m.method" (click)="choose(m.method)">
+                <span nz-icon [nzType]="m.icon"></span>
+                <span>{{ label(m.method) }}</span>
+              </button>
+            }
+          </div>
+
+          @if (remaining() > 0) {
+            <div class="entry">
+              <label class="field" for="pos-tender-amount">{{ method() === 'cash' ? 'Cash received' : label(method()) + ' amount' }}</label>
+              <nz-input-number #amountBox nzId="pos-tender-amount" class="amount" [ngModel]="amount()" (ngModelChange)="amount.set($event ?? 0)" [nzMin]="0" [nzStep]="1" [nzPrecision]="2"
+                (keydown.enter)="onEnter($event)" data-testid="pos-tendered"></nz-input-number>
+
+              @if (method() === 'cash') {
+                <div class="quick">
+                  <button nz-button type="button" nzSize="large" (click)="takeCash(remaining())" data-testid="pos-exact">Exact</button>
+                  @for (q of quick(); track q) { <button nz-button type="button" nzSize="large" (click)="takeCash(q)">{{ q | number:'1.0-2' }}</button> }
+                </div>
+              } @else if (method() === 'card' || method() === 'other') {
+                <input class="ref" nz-input nzSize="large" [placeholder]="method() === 'card' ? 'Card approval reference (optional)' : 'Reference (optional)'" [ngModel]="reference()" (ngModelChange)="reference.set($event)" (keydown.enter)="onEnter($event)" aria-label="Reference" data-testid="pos-reference" />
+                @if (method() === 'card') { <p class="note">Take the payment on the card machine first, then confirm here.</p> }
+              } @else if (method() === 'account') {
+                <p class="note" data-testid="pos-account-note">Goes on the account of <strong>{{ customerName() }}</strong> as an invoice.</p>
+              }
+              @if (blocked(); as why) { <p class="note warn" data-testid="pos-tender-blocked">{{ why }}</p> }
+            </div>
+          }
+
+          @if (tenders().length) {
+            <ul class="tenders" data-testid="pos-tenders">
+              @for (t of tenders(); track $index) {
+                <li>
+                  <span>{{ label(t.method) }} @if (t.reference) { <small>{{ t.reference }}</small> }</span>
+                  <span class="amt">{{ currency() }} {{ t.amount | number:'1.2-2' }}</span>
+                  <button type="button" class="remove" [attr.aria-label]="'Remove ' + label(t.method)" (click)="removeTender($index)"><span nz-icon nzType="close"></span></button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </ng-container>
+      <ng-template #footer>
+        <span class="keys">Enter confirms · C cash · K card · O other @if (canUseAccount()) { · A account }</span>
+        <button nz-button nzSize="large" (click)="cancelled.emit()">Cancel</button>
+        <button nz-button nzType="primary" nzSize="large" [nzLoading]="busy()" [disabled]="!canConfirm()" (click)="confirm()" data-testid="pos-confirm-payment">
+          <span nz-icon nzType="check"></span>Complete sale
+        </button>
+      </ng-template>
+    </nz-modal>
+  

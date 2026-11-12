@@ -1,0 +1,36 @@
+
+    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search worker name or description" emptyText="No time logged yet." [clickable]="false" scrollX="1520px" exportFilename="timesheets">
+      <button toolbar *erpHasPermission="'projects.timesheets.manage'" nz-button nzType="primary" (click)="logTime()?.open(projectId())" data-testid="timesheet-new"><span nz-icon nzType="clock-circle"></span> Log time</button>
+      <a toolbar nz-button routerLink="/projects/week" data-testid="timesheet-week"><span nz-icon nzType="calendar"></span> Week view</a>
+      @if (config()?.timesheetApproval) {
+        <button toolbar *erpHasPermission="'projects.timesheets.manage'" nz-button (click)="submitDrafts()" data-testid="timesheet-submit-drafts"><span nz-icon nzType="send"></span> Submit my drafts</button>
+      }
+      <ng-template #cell let-row let-column="column" let-value="value">
+        @switch (column.key) {
+          @case ('workerName') { <span class="prj-strong">{{ row.workerName }}</span> }
+          @case ('projectName') { <a [routerLink]="['/projects', row.projectId]" class="prj-link">{{ row.projectName }}</a> }
+          @case ('hours') { <span class="prj-strong">{{ row.hours | number: '1.2-2' }} h</span> }
+          @case ('hourlyRate') { <span>{{ currency() }} {{ row.hourlyRate | number: '1.2-2' }}</span> }
+          @case ('totalAmount') { <span class="prj-strong">{{ currency() }} {{ row.totalAmount | number: '1.2-2' }}</span> }
+          @case ('approvalStatus') { <erp-prj-tag kind="approval" [value]="row.approvalStatus" [hint]="row.rejectReason" /> }
+          @case ('status') {
+            @if (row.writtenOff) { <nz-tag>Written off</nz-tag> }
+            @else if (!row.isBillable) { <nz-tag>Non-billable</nz-tag> }
+            @else if (row.isBilled) { <nz-tag nzColor="green">Billed</nz-tag> }
+            @else { <nz-tag nzColor="orange">Unbilled</nz-tag> }
+          }
+          @case ('actions') {
+            @if (!row.isBilled && !row.writtenOff) {
+              <span *erpHasPermission="'projects.timesheets.manage'" class="acts">
+                @if (editable(row)) { <button nz-button nzSize="small" (click)="logTime()?.edit(row)" [attr.data-testid]="'timesheet-edit-' + row.id">Edit</button> }
+                @if (row.approvalStatus === 'draft' || row.approvalStatus === 'rejected') { <button nz-button nzSize="small" (click)="submit([row.id])" [attr.data-testid]="'timesheet-submit-' + row.id">Submit</button> }
+                @if (editable(row)) { <button nz-button nzSize="small" nzDanger (click)="remove(row)">Delete</button> }
+              </span>
+            }
+          }
+          @default { {{ value }} }
+        }
+      </ng-template>
+    </erp-paged-table>
+    <erp-log-time (saved)="list.reload()" />
+  

@@ -1,0 +1,9 @@
+
+    .toolbar { display: flex; align-items: center; gap: 8px; }
+    .nowrap { white-space: nowrap; }
+    .amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .muted { color: var(--erp-color-text-muted); }
+    .variance { font-weight: 600; color: var(--erp-color-text-muted); }
+    .variance.short { color: var(--erp-color-error-text); }
+    .variance.over { color: var(--erp-color-success-text); }
+  

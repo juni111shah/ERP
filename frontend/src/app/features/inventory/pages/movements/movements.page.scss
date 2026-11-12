@@ -1,0 +1,36 @@
+
+    .qty-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .qty-in {
+      background: var(--erp-color-success-bg);
+      color: var(--erp-color-success-text);
+    }
+    .qty-out {
+      background: var(--erp-color-error-bg);
+      color: var(--erp-color-error-text);
+    }
+    .qty-neutral {
+      background: var(--erp-color-bg-subtle);
+      color: var(--erp-color-text-secondary);
+    }
+    .ref-pill {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      background: var(--erp-color-bg-subtle);
+      border: 1px solid var(--erp-color-border-subtle);
+      padding: 2px 7px;
+      border-radius: 4px;
+      color: var(--erp-color-text-primary);
+    }
+    .sub { color: var(--erp-color-text-secondary); margin: 4px 0 0; font-size: 13px; }
+    .none { color: var(--erp-color-text-muted); }
+  

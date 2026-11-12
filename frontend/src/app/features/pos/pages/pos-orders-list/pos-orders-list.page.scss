@@ -1,0 +1,15 @@
+
+    .nowrap { white-space: nowrap; }
+    .amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .returned { color: var(--erp-color-error-text); }
+    .tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
+    .doc { font-weight: 600; }
+    .block { display: block; margin-bottom: 12px; }
+    h4 { margin: 12px 0 6px; font-size: 13px; font-weight: 700; }
+    .ret { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; border-top: 1px solid var(--erp-color-border-subtle); }
+    .ret > :first-child { flex-shrink: 0; }
+    .ret .muted { flex: 1; min-width: 0; }
+    .ret .amount { margin-inline-start: auto; }
+    .muted { color: var(--erp-color-text-muted); }
+    .foot { display: flex; flex-wrap: wrap; gap: 8px; }
+  

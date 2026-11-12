@@ -1,0 +1,54 @@
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { NzMessageService } from 'ng-zorro-antd/message';
+import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
+import { BusinessUnitDto, BusinessUnitsApi, LegalEntitiesApi, yesNo } from '@core/api/admin.api';
+import { createPagedList } from '@core/api/paged-list';
+import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
+import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { MasterDataState } from '@shared/utils/master-data-state';
+
+/** What a business unit can be; any other word can be typed. */
+const BUSINESS_UNIT_KINDS = ['branch', 'store', 'site', 'department', 'warehouse'];
+
+/** Business units (branches, stores, sites...) of each legal entity: the paged list and the edit drawer. */
+@Component({
+  selector: 'erp-business-units',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NzToolTipModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
+  template: `
+    <h1 class="erp-page-title">Business units</h1>
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No business units yet" (rowClick)="state.edit($event)">
+      <button toolbar *erpHasPermission="'core.businessunits.write'" nz-button nzType="primary" (click)="state.create()" data-testid="bu-new"><span nz-icon nzType="plus"></span> New business unit</button>
+    </erp-paged-table>
+    <erp-record-drawer [title]="state.editing() ? 'Edit business unit' : 'New business unit'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
+                       customFieldEntityType="businessunit" [saving]="state.saving()" [errors]="state.errors()" testId="bu-form"
+                       (submitted)="state.submit($event)" (closed)="state.close()" />`,
+})
+export class BusinessUnitsPage {
+  private readonly api = inject(BusinessUnitsApi);
+  private readonly entities = inject(LegalEntitiesApi);
+  readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
+  readonly state = new MasterDataState<BusinessUnitDto>({
+    save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)),
+    reload: () => this.list.reload(), message: inject(NzMessageService), entityName: 'Business unit',
+  });
+  readonly columns: TableColumn<BusinessUnitDto>[] = [
+    { key: 'code', label: 'Code', sortField: 'code', width: '140px' },
+    { key: 'name', label: 'Name', sortField: 'name' },
+    { key: 'kind', label: 'Kind', width: '140px' },
+    { key: 'address', label: 'Address' },
+    { key: 'isActive', label: 'Active', value: (b) => yesNo(b.isActive) },
+  ];
+  readonly fields: FieldSpec[] = [
+    { key: 'legalEntityId', label: 'Legal entity', type: 'lookup', required: true, readonlyOnEdit: true, lookup: this.entities.lookup, currentLabel: (r) => String(r['legalEntityId']) },
+    { key: 'code', label: 'Code', type: 'text', required: true, maxLength: 30 },
+    { key: 'name', label: 'Name', type: 'text', required: true, maxLength: 150 },
+    { key: 'kind', label: 'Kind', type: 'text', maxLength: 30, default: 'branch', suggestions: BUSINESS_UNIT_KINDS, hint: 'What this unit is: pick one or type your own.' },
+    { key: 'address', label: 'Address', type: 'textarea', maxLength: 500 },
+    { key: 'isActive', label: 'Active', type: 'switch', default: true },
+  ];
+}

@@ -1,0 +1,12 @@
+
+    <div class="bar" erpReveal>
+      @if (searchable()) {
+        <erp-expand-search class="search" [placeholder]="placeholder()" [label]="placeholder()" [(value)]="search" [testId]="testId() + '-search'" />
+      }
+      <ng-content />
+      <span class="spacer"></span>
+      <ng-content select="[end]" />
+      <button nz-button nzType="default" type="button" (click)="refresh.emit()" [disabled]="loading()" [attr.data-testid]="testId() + '-refresh'">
+        <span nz-icon nzType="reload"></span> {{ t('ui.common.refresh', 'Refresh') }}
+      </button>
+    </div>

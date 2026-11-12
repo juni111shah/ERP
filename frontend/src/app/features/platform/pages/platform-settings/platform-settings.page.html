@@ -1,0 +1,160 @@
+
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Could not load the settings" hint="The server did not answer." actionLabel="Try again" (action)="load()" />
+    } @else if (!settings()) {
+      <div style="padding:64px;text-align:center"><nz-spin nzSimple></nz-spin></div>
+    } @else {
+      <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="save()" data-testid="settings-form" novalidate>
+        <section class="pf-card group" data-testid="settings-registration">
+          <h2>Registration</h2>
+          @if (!settings()!.emailServerConfigured) {
+            <nz-alert nzType="warning" nzShowIcon style="margin-bottom:16px" data-testid="settings-email-off"
+              nzMessage="Email is off" nzDescription="No email server is set up, so nobody can confirm an email address. Registrations go to your review queue, and clients get no email from us."></nz-alert>
+          }
+          <nz-form-item>
+            <nz-form-label>Who can register</nz-form-label>
+            <nz-form-control [nzErrorTip]="err('signupMode')">
+              <nz-radio-group formControlName="signupMode" data-testid="settings-mode">
+                @for (m of modes; track m.value) {
+                  <label nz-radio class="mode" [nzValue]="m.value" [attr.data-testid]="'settings-mode-' + m.value">{{ m.label }}<small>{{ m.hint }}</small></label>
+                }
+              </nz-radio-group>
+            </nz-form-control>
+          </nz-form-item>
+          <div class="two">
+            <nz-form-item>
+              <nz-form-label>Require email verification</nz-form-label>
+              <nz-form-control nzExtra="They must open a link from their email before anything else happens.">
+                <nz-switch formControlName="requireEmailVerification" data-testid="settings-verify"></nz-switch>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label>Default plan</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('defaultPlanId')" nzExtra="Used when a registration does not name a plan.">
+                <nz-select formControlName="defaultPlanId" nzAllowClear nzPlaceHolder="No default" data-testid="settings-default-plan">
+                  @for (p of plans(); track p.id) { <nz-option [nzValue]="p.id" [nzLabel]="p.name"></nz-option> }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </section>
+
+        <section class="pf-card group" data-testid="settings-billing">
+          <h2>Billing</h2>
+          <div class="two">
+            <nz-form-item>
+              <nz-form-label nzRequired>Currency</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('currency')" nzExtra="All plans and invoices are in this currency.">
+                <nz-select formControlName="currency" nzShowSearch data-testid="settings-currency">
+                  @for (c of currencies(); track c.code) { <nz-option [nzValue]="c.code" [nzLabel]="c.code + ' · ' + c.name"></nz-option> }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Invoice prefix</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('invoicePrefix')" nzExtra="Starts every invoice number, up to 10 letters or digits.">
+                <input nz-input formControlName="invoicePrefix" maxlength="10" data-testid="settings-prefix" />
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Tax percent</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('taxPercent')" nzExtra="Added to every new invoice. Use 0 for none.">
+                <nz-input-number formControlName="taxPercent" [nzMin]="0" [nzMax]="100" [nzPrecision]="2" data-testid="settings-tax"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Tax label</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('taxLabel')" nzExtra="The name of the tax on your invoices.">
+                <input nz-input formControlName="taxLabel" maxlength="40" data-testid="settings-tax-label" />
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label>Next invoice number</nz-form-label>
+              <nz-form-control nzExtra="Counts up by itself, so it cannot be edited.">
+                <div class="read" data-testid="settings-next-number">{{ nextNumber() }}</div>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Invoice due days</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('invoiceDueDays')" nzExtra="How long a client has to pay a new invoice.">
+                <nz-input-number formControlName="invoiceDueDays" [nzMin]="0" [nzMax]="120" [nzPrecision]="0" data-testid="settings-due-days"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Renewal lead days</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('renewalLeadDays')" nzExtra="How long before a period ends the renewal invoice goes out.">
+                <nz-input-number formControlName="renewalLeadDays" [nzMin]="0" [nzMax]="60" [nzPrecision]="0" data-testid="settings-lead-days"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Grace days</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('graceDays')" nzExtra="How long after a missed payment the client can still make changes.">
+                <nz-input-number formControlName="graceDays" [nzMin]="0" [nzMax]="120" [nzPrecision]="0" data-testid="settings-grace-days"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Suspend after days</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('suspendAfterDays')" nzExtra="How long after a missed payment the workspace is suspended. Must be longer than the grace days.">
+                <nz-input-number formControlName="suspendAfterDays" [nzMin]="1" [nzMax]="365" [nzPrecision]="0" data-testid="settings-suspend-days"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </section>
+
+        <section class="pf-card group" data-testid="settings-company">
+          <h2>Your company</h2>
+          <p class="pf-muted" style="margin:-4px 0 12px">Shown to clients on their billing page and on invoices.</p>
+          <div class="two">
+            <nz-form-item>
+              <nz-form-label>Company name</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('companyName')"><input nz-input formControlName="companyName" data-testid="settings-company-name" /></nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label>Tax number</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('companyTaxNumber')"><input nz-input formControlName="companyTaxNumber" data-testid="settings-company-tax" /></nz-form-control>
+            </nz-form-item>
+            <nz-form-item class="wide">
+              <nz-form-label>Address</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('companyAddress')"><textarea nz-input rows="2" formControlName="companyAddress" data-testid="settings-company-address"></textarea></nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label>Support email</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('supportEmail')"><input nz-input type="email" formControlName="supportEmail" data-testid="settings-support-email" /></nz-form-control>
+            </nz-form-item>
+            <nz-form-item>
+              <nz-form-label>Terms on another site (optional)</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('termsUrl')" nzExtra="Leave empty to use the terms below."><input nz-input formControlName="termsUrl" placeholder="https://" data-testid="settings-terms" /></nz-form-control>
+            </nz-form-item>
+            <nz-form-item class="wide">
+              <nz-form-label>Payment instructions</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('paymentInstructions')" nzExtra="How to pay you, such as bank details. Clients see this on invoices and their billing page.">
+                <textarea nz-input rows="4" formControlName="paymentInstructions" maxlength="2000" data-testid="settings-instructions"></textarea>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item class="wide">
+              <nz-form-label>About your company</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('aboutText')" nzExtra="A few lines the public AI assistant can use when people ask about you. Leave it empty and the assistant says it does not know.">
+                <textarea nz-input rows="4" formControlName="aboutText" maxlength="2000" data-testid="settings-about"></textarea>
+              </nz-form-control>
+            </nz-form-item>
+            @if (settings()?.legalIsStarterText) {
+              <nz-alert class="wide" nzType="warning" nzShowIcon data-testid="settings-legal-starter" nzMessage="The terms and privacy policy below are starter wording. Have a lawyer review them for your country, and fill in your company name and support email above, before you sell." style="margin-bottom:16px"></nz-alert>
+            }
+            <nz-form-item class="wide">
+              <nz-form-label>Terms of Service</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('termsText')" [nzExtra]="legalHint">
+                <textarea nz-input rows="12" formControlName="termsText" data-testid="settings-terms-text"></textarea>
+              </nz-form-control>
+            </nz-form-item>
+            <nz-form-item class="wide">
+              <nz-form-label>Privacy Policy</nz-form-label>
+              <nz-form-control [nzErrorTip]="err('privacyText')" [nzExtra]="legalHint">
+                <textarea nz-input rows="12" formControlName="privacyText" data-testid="settings-privacy-text"></textarea>
+              </nz-form-control>
+            </nz-form-item>
+            <ng-template #legalHint>Shown at <a routerLink="/terms" target="_blank">/terms</a> and <a routerLink="/privacy" target="_blank">/privacy</a> after you save. Start a line with ## to make it a heading. {{ '{' }}company{{ '}' }} and {{ '{' }}email{{ '}' }} are filled in from above. Empty the box to go back to the starter wording.</ng-template>
+          </div>
+        </section>
+        <div class="save-row"><button nz-button nzType="primary" [nzLoading]="saving()" data-testid="settings-save">Save settings</button></div>
+      </form>
+    }

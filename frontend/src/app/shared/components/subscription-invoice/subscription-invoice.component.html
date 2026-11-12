@@ -1,0 +1,62 @@
+
+    @let d = doc();
+    <div class="toolbar">
+      <button nz-button nzType="primary" type="button" (click)="print()" data-testid="invoice-print"><span nz-icon nzType="printer"></span>Print</button>
+      <a nz-button [routerLink]="backLink()" data-testid="invoice-back"><span nz-icon nzType="arrow-left"></span>{{ backLabel() }}</a>
+    </div>
+    <div class="sheet" data-testid="invoice-sheet">
+      @if (d.status === 'paid') { <div class="stamp paid">Paid</div> }
+      @if (d.status === 'void') { <div class="stamp void">Void</div> }
+      <div class="head">
+        <div>
+          <div class="company">{{ d.companyName }}</div>
+          @if (d.companyAddress) { <div class="line">{{ d.companyAddress }}</div> }
+          @if (d.companyTaxNumber) { <div class="line">{{ d.taxLabel }} number: <strong>{{ d.companyTaxNumber }}</strong></div> }
+          @if (d.supportEmail) { <div class="line">{{ d.supportEmail }}</div> }
+        </div>
+        <div class="id">
+          <div class="title">Invoice</div>
+          <div class="no" data-testid="invoice-number">{{ d.number }}</div>
+        </div>
+      </div>
+      <div class="parties">
+        <div>
+          <div class="label">Bill to</div>
+          <div class="name">{{ d.clientName }}</div>
+          <div class="line">Workspace code: {{ d.clientCode }}</div>
+          @if (d.billingEmail) { <div class="line">{{ d.billingEmail }}</div> }
+        </div>
+        <table class="meta">
+          <tr><td>Date of issue</td><td>{{ d.issuedOn | erpDate }}</td></tr>
+          <tr><td>Due date</td><td>{{ d.dueOn | erpDate }}</td></tr>
+          @if (d.periodStart && d.periodEnd) { <tr><td>Period</td><td>{{ d.periodStart | erpDate }} to {{ d.periodEnd | erpDate }}</td></tr> }
+          <tr><td>Currency</td><td>{{ d.currency }}</td></tr>
+        </table>
+      </div>
+      <table class="lines">
+        <thead><tr><th>Description</th><th class="num">Amount</th></tr></thead>
+        <tbody><tr><td>{{ d.description }}</td><td class="num">{{ d.subtotal | erpMoney: d.currency }}</td></tr></tbody>
+      </table>
+      <div class="totals">
+        <div class="row"><span>Subtotal</span><span>{{ d.subtotal | erpMoney: d.currency }}</span></div>
+        <div class="row"><span>{{ d.taxLabel }} ({{ d.taxPercent }}%)</span><span>{{ d.taxAmount | erpMoney: d.currency }}</span></div>
+        <div class="row grand"><span>Total</span><span data-testid="invoice-total">{{ d.total | erpMoney: d.currency }}</span></div>
+      </div>
+      @if (d.status === 'paid') {
+        <div class="box" data-testid="invoice-paid">
+          <div class="box-title">Payment received</div>
+          {{ d.paidOn | erpDate }}{{ d.paymentMethod ? ' by ' + d.paymentMethod : '' }}{{ d.paymentReference ? ', reference ' + d.paymentReference : '' }}
+        </div>
+      } @else if (d.status === 'void') {
+        <div class="box" data-testid="invoice-void">
+          <div class="box-title">This invoice was voided</div>
+          {{ d.voidReason || 'Nothing is owed on this invoice.' }}
+        </div>
+      } @else if (d.paymentInstructions) {
+        <div class="box" data-testid="invoice-instructions">
+          <div class="box-title">How to pay</div>
+          {{ d.paymentInstructions }}
+        </div>
+      }
+      <div class="foot">Please quote the invoice number with your payment. Thank you for your business.</div>
+    </div>

@@ -1,0 +1,7 @@
+
+    .bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+    .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--erp-color-text-muted); }
+    .r { text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .short { font-weight: 700; color: var(--erp-color-error-text, #cf1322); }
+    .note { margin: 0 0 12px; color: var(--erp-color-text-muted); }
+  

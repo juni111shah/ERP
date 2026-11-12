@@ -1,0 +1,119 @@
+
+    <div class="top"><h1>{{ 'portal.welcome' | translate: 'Welcome' }}, {{ portal.name() }}</h1><button nz-button (click)="signOut()" data-testid="portal-signout">{{ 'portal.signOut' | translate: 'Sign out' }}</button></div>
+    @if (failed()) {
+      <erp-state-panel kind="error" title="Some of your details could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="refresh()" style="margin-bottom:16px" data-testid="portal-failed" />
+    }
+    @if (!ready()) {
+      <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 8 }"></nz-skeleton>
+    } @else {
+    <div class="erp-stat-grid erp-stat-grid--auto" data-testid="portal-summary">
+      <erp-stat-card label="Balance due" [value]="statement() ? money(statement()!.balance, code()) : '—'" [caption]="statement() ? 'after payments on account' : null" [tone]="(statement()?.balance ?? 0) > 0 ? 'danger' : 'success'" />
+      <erp-stat-card label="Invoices to pay" [value]="openInvoices()" format="number" [tone]="openInvoices() > 0 ? 'warning' : 'neutral'" />
+      @if (leases().length) { <erp-stat-card label="Open maintenance requests" [value]="openRequests()" format="number" [tone]="2" /> }
+    </div>
+    <erp-table-tools [search]="q()" (searchChange)="search($event)" (refresh)="refresh()" placeholder="Search invoices, receipts and requests" testId="portal"></erp-table-tools>
+    <nz-tabset>
+      @if (leases().length) {
+      <nz-tab [nzTitle]="'portal.tab.lease' | translate: 'My lease'">
+        @for (l of leases(); track l.id) {
+          <div class="lease" data-testid="portal-lease">
+            <h3>{{ l.property }} · {{ 'ui.re.unit' | translate: 'Unit' }} {{ l.unit }} <erp-status [value]="l.status" /></h3>
+            <p>{{ l.startDate | erpDate }} {{ 'ui.common.toLc' | translate: 'to' }} {{ l.endDate | erpDate }} · {{ 'ui.re.annualRent' | translate: 'Annual rent' }} {{ money(l.annualRent, l.currencyCode) }} · {{ 'ui.re.deposit' | translate: 'Deposit' }} {{ money(l.securityDeposit, l.currencyCode) }}</p>
+            <nz-table [nzData]="l.schedule" nzSize="small" [nzFrontPagination]="false" [nzShowPagination]="false" nzNoResult="The rent schedule is not ready yet">
+              <thead><tr><th>#</th><th>Due</th><th class="num">Amount</th><th>Status</th></tr></thead>
+              <tbody>@for (s of l.schedule; track s.sequence) { <tr><td>{{ s.sequence }}</td><td>{{ s.dueDate | erpDate }}</td><td class="num">{{ money(s.amount, l.currencyCode) }}</td><td><erp-status [value]="s.state" /></td></tr> }</tbody>
+            </nz-table>
+          </div>
+        }
+      </nz-tab>
+      }
+      <nz-tab [nzTitle]="'portal.tab.invoices' | translate: 'Invoices'">
+        <div class="panel">
+          <nz-table #ti [nzData]="invoicesShown()" nzSize="middle" [nzShowPagination]="false" [nzPageIndex]="invPg.page()" [nzPageSize]="invPg.size()" nzNoResult="No invoices yet" data-testid="portal-invoices">
+            <thead><tr><th>Number</th><th>Date</th><th>Due</th><th class="num">Total</th><th class="num">Outstanding</th><th>Status</th></tr></thead>
+            <tbody>
+              @for (i of ti.data; track i.id) {
+                <tr>
+                  <td style="white-space:nowrap"><span class="code-pill">{{ i.number }}</span>@if (i.isCreditNote) { <nz-tag class="credit">Credit note</nz-tag> }</td>
+                  <td>{{ i.invoiceDate | erpDate }}</td>
+                  <td>{{ i.dueDate | erpDate }}</td>
+                  <td class="num"><strong>{{ money(i.isCreditNote ? -i.total : i.total, i.currencyCode) }}</strong></td>
+                  <td class="num" [class.owed]="i.outstanding > 0 && !i.isCreditNote" [class.clear]="i.outstanding <= 0 || i.isCreditNote">{{ money(i.isCreditNote ? -i.outstanding : i.outstanding, i.currencyCode) }}</td>
+                  <td><erp-status [value]="i.status" /></td>
+                </tr>
+              }
+            </tbody>
+          </nz-table>
+        </div>
+        <erp-pagination-bar [total]="invoicesShown().length" [page]="invPg.page()" [pageSize]="invPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-invoices" (pageChange)="invPg.change($event)" />
+      </nz-tab>
+      <nz-tab [nzTitle]="'portal.tab.receipts' | translate: 'Receipts'">
+        <div class="panel">
+          <nz-table #tr [nzData]="receiptsShown()" nzSize="middle" [nzShowPagination]="false" [nzPageIndex]="recPg.page()" [nzPageSize]="recPg.size()" nzNoResult="No receipts yet">
+            <thead><tr><th>Number</th><th>Date</th><th>Method</th><th class="num">Amount</th><th>Reference</th></tr></thead>
+            <tbody>
+              @for (r of tr.data; track r.id) {
+                <tr>
+                  <td><span class="code-pill">{{ r.number }}</span></td>
+                  <td>{{ r.date | erpDate }}</td>
+                  <td><erp-status [value]="r.method" /></td>
+                  <td class="num clear">{{ money(r.amount, r.currencyCode) }}</td>
+                  <td>{{ r.reference || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </nz-table>
+        </div>
+        <erp-pagination-bar [total]="receiptsShown().length" [page]="recPg.page()" [pageSize]="recPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-receipts" (pageChange)="recPg.change($event)" />
+      </nz-tab>
+      <nz-tab [nzTitle]="'portal.tab.statement' | translate: 'Statement'">
+        @if (statement(); as s) {
+          <div class="balance" data-testid="portal-balance">
+            <span class="label">{{ 'portal.balance' | translate: 'Balance due' }}</span>
+            <div class="amount" [class.owed]="s.balance > 0" [class.clear]="s.balance <= 0">{{ money(s.balance, code()) }}</div>
+            <span class="asof">{{ 'ui.common.asOfLc' | translate: 'as of' }} {{ s.asOf | erpDate }}</span>
+          </div>
+          <div class="panel">
+            <nz-table [nzData]="s.items" nzSize="middle" [nzFrontPagination]="false" [nzShowPagination]="false" nzNoResult="Nothing is outstanding">
+              <thead><tr><th>Document</th><th>Due</th><th>Overdue</th><th class="num">Outstanding</th></tr></thead>
+              <tbody>
+                @for (i of s.items; track i.number) {
+                  <tr>
+                    <td style="white-space:nowrap"><span class="code-pill">{{ i.number }}</span>@if (i.isCreditNote) { <nz-tag class="credit">Credit note</nz-tag> }</td>
+                    <td>{{ i.dueDate | erpDate }}</td>
+                    <td>@if (i.isCreditNote || i.daysOverdue === 0) { Not overdue } @else { <nz-tag [nzColor]="i.daysOverdue > 30 ? 'red' : 'orange'">{{ i.daysOverdue }} {{ i.daysOverdue === 1 ? 'day' : 'days' }}</nz-tag> }</td>
+                    <td class="num" [class.owed]="!i.isCreditNote" [class.clear]="i.isCreditNote">{{ money(i.isCreditNote ? -i.outstanding : i.outstanding, code()) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </nz-table>
+          </div>
+          @if (s.unallocatedReceipts > 0) { <p class="clear" style="margin-top:12px">{{ 'ui.portal.onAccount' | translate: 'On account' }}: {{ money(s.unallocatedReceipts, code()) }}</p> }
+        } @else {
+          <erp-state-panel title="Your statement is not available right now" hint="Use Try again at the top of the page, or contact us if it keeps happening." icon="file-text" />
+        }
+      </nz-tab>
+      <nz-tab [nzTitle]="'portal.tab.projects' | translate: 'Projects'">
+        <ng-template nz-tab><erp-portal-projects /></ng-template>
+      </nz-tab>
+      @if (leases().length) {
+      <nz-tab [nzTitle]="'portal.tab.maintenance' | translate: 'Maintenance'">
+        @if (leases().length) {
+          <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="raise()" style="max-width:520px">
+            <nz-form-item><nz-form-label nzRequired>Lease</nz-form-label><nz-form-control>
+              <nz-select formControlName="leaseId" data-testid="portal-req-lease">@for (l of leases(); track l.id) { <nz-option [nzValue]="l.id" [nzLabel]="l.property + ' · Unit ' + l.unit"></nz-option> }</nz-select></nz-form-control></nz-form-item>
+            <nz-form-item><nz-form-label nzRequired>What is wrong?</nz-form-label><nz-form-control nzErrorTip="Describe the issue"><input nz-input formControlName="issue" maxlength="300" data-testid="portal-req-issue" /></nz-form-control></nz-form-item>
+            <nz-form-item><nz-form-label>Priority</nz-form-label><nz-form-control>
+              <nz-select formControlName="priority"><nz-option nzValue="normal" nzLabel="Normal"></nz-option><nz-option nzValue="high" nzLabel="Urgent"></nz-option><nz-option nzValue="low" nzLabel="Low"></nz-option></nz-select></nz-form-control></nz-form-item>
+            <button nz-button nzType="primary" [nzLoading]="raising()" data-testid="portal-req-submit">{{ 'portal.sendRequest' | translate: 'Send request' }}</button>
+          </form>
+        }
+        <nz-table #tq [nzData]="requestsShown()" nzSize="small" style="margin-top:16px" [nzShowPagination]="false" [nzPageIndex]="reqPg.page()" [nzPageSize]="reqPg.size()" nzNoResult="You have not sent any requests yet" data-testid="portal-requests">
+          <thead><tr><th>Number</th><th>Issue</th><th>Reported</th><th>Status</th></tr></thead>
+          <tbody>@for (r of tq.data; track r.id) { <tr><td style="white-space:nowrap">{{ r.number }}</td><td>{{ r.issue }}</td><td style="white-space:nowrap">{{ r.reportedOn | erpDate }}</td><td><erp-status [value]="r.status" /></td></tr> }</tbody>
+        </nz-table>
+        <erp-pagination-bar [total]="requestsShown().length" [page]="reqPg.page()" [pageSize]="reqPg.size()" [hideOnSinglePage]="true" storageKey="erp.table.pageSize:portal-requests" (pageChange)="reqPg.change($event)" />
+      </nz-tab>
+      }
+    </nz-tabset>
+    }

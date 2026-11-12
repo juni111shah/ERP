@@ -1,0 +1,69 @@
+
+    <nav class="tabs" role="tablist" aria-label="Resources">
+      @for (t of tabs(); track t.key) { <button type="button" role="tab" [class.on]="tab() === t.key" [attr.aria-selected]="tab() === t.key" (click)="tab.set(t.key)" [attr.data-testid]="'res-tab-' + t.key">{{ t.label }}</button> }
+    </nav>
+
+    @switch (tab()) {
+      @case ('capacity') {
+        <div class="prj-toolbar">
+          <span class="prj-muted">Planned hours a week against {{ capacity() | number: '1.0-0' }} hours of capacity. Red means more is planned than the person can do.</span>
+          <span class="prj-spacer"></span>
+          <button nz-button (click)="shift(-4)" aria-label="Earlier weeks"><span nz-icon nzType="left"></span></button>
+          <button nz-button (click)="offset.set(0)">Now</button>
+          <button nz-button (click)="shift(4)" aria-label="Later weeks"><span nz-icon nzType="right"></span></button>
+        </div>
+        <div class="prj-card prj-table-wrap heat-card">
+          <table class="heat" data-testid="capacity-grid">
+            <thead><tr><th class="who">Person</th>@for (w of weeks(); track w.key) { <th class="wk">{{ w.label }}</th> }</tr></thead>
+            <tbody>
+              @for (p of heat(); track p.userId) {
+                <tr>
+                  <td class="who">{{ p.name }}</td>
+                  @for (c of p.cells; track c.key) {
+                    <td class="wk"><span class="cell" [class.free]="!c.hours" [class.ok]="c.hours > 0 && c.ratio <= 0.8" [class.full]="c.ratio > 0.8 && c.ratio <= 1" [class.over]="c.ratio > 1" [title]="c.hint" [attr.data-testid]="c.ratio > 1 ? 'over-allocated' : null">{{ c.hours ? (c.hours | number: '1.0-0') : '' }}</span></td>
+                  }
+                </tr>
+              } @empty { <tr><td [attr.colspan]="weeks().length + 1" class="prj-empty">Nobody is allocated yet. Add an allocation to plan who works on what.</td></tr> }
+            </tbody>
+          </table>
+        </div>
+      }
+      @case ('allocations') {
+        <div class="prj-toolbar">
+          <span class="prj-muted">Hours a week a person is planned to give a project.</span><span class="prj-spacer"></span>
+          <button *erpHasPermission="'projects.team.manage'" nz-button nzType="primary" (click)="allocState.create()" data-testid="alloc-new"><span nz-icon nzType="plus"></span> New allocation</button>
+        </div>
+        <div class="prj-card prj-table-wrap">
+          <nz-table [nzData]="allocations()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="alloc-table">
+            <thead><tr><th>Person</th><th>Project</th><th>From</th><th>To</th><th class="prj-num">Hours / week</th><th></th></tr></thead>
+            <tbody>
+              @for (a of allocations(); track a.id) {
+                <tr><td>{{ a.userName }}</td><td><a class="prj-link" [routerLink]="['/projects', a.projectId]" [queryParams]="{ tab: 'team' }">{{ projectName(a.projectId) }}</a></td><td>{{ a.fromDate | erpDate }}</td><td>{{ a.toDate | erpDate }}</td><td class="prj-num">{{ a.hoursPerWeek | number: '1.0-1' }}</td>
+                  <td class="prj-num"><ng-container *erpHasPermission="'projects.team.manage'"><button nz-button nzSize="small" (click)="allocState.edit(a)">Edit</button> <button nz-button nzSize="small" nzDanger (click)="removeAlloc(a)">Delete</button></ng-container></td></tr>
+              } @empty { <tr><td colspan="6" class="prj-empty">Nobody is allocated yet.</td></tr> }
+            </tbody>
+          </nz-table>
+        </div>
+      }
+      @case ('rates') {
+        <div class="prj-toolbar">
+          <span class="prj-muted">The most specific rate wins: a person on a project, then the person, then a role, then the project, then everyone.</span><span class="prj-spacer"></span>
+          <button *erpHasPermission="'projects.rates.manage'" nz-button nzType="primary" (click)="rateState.create()" data-testid="rate-new"><span nz-icon nzType="plus"></span> New rate</button>
+        </div>
+        <div class="prj-card prj-table-wrap">
+          <nz-table [nzData]="rates()" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" data-testid="rate-table">
+            <thead><tr><th>Applies to</th><th>Project</th><th class="prj-num">Bill rate / hour</th><th class="prj-num">Cost rate / hour</th><th class="prj-num">Margin</th><th></th></tr></thead>
+            <tbody>
+              @for (r of rates(); track r.id) {
+                <tr><td>{{ r.userName || r.role || 'Everyone' }}</td><td>{{ projectName(r.projectId) }}</td><td class="prj-num">{{ currency() }} {{ r.billRate | number: '1.2-2' }}</td><td class="prj-num">{{ currency() }} {{ r.costRate | number: '1.2-2' }}</td>
+                  <td class="prj-num">{{ r.billRate > 0 ? ((r.billRate - r.costRate) / r.billRate * 100 | number: '1.0-0') + '%' : '' }}</td>
+                  <td class="prj-num"><ng-container *erpHasPermission="'projects.rates.manage'"><button nz-button nzSize="small" (click)="rateState.edit(r)">Edit</button> <button nz-button nzSize="small" nzDanger (click)="removeRate(r)">Delete</button></ng-container></td></tr>
+              } @empty { <tr><td colspan="6" class="prj-empty">No rate cards. Time uses the workspace default rate.</td></tr> }
+            </tbody>
+          </nz-table>
+        </div>
+      }
+    }
+    <erp-record-drawer [title]="rateState.editing() ? 'Edit rate' : 'New rate'" [open]="rateState.open()" [fields]="rateFields()" [value]="$any(rateState.editing())" [saving]="rateState.saving()" [errors]="rateState.errors()" testId="rate-form" (submitted)="rateState.submit($event)" (closed)="rateState.close()" />
+    <erp-record-drawer [title]="allocState.editing() ? 'Edit allocation' : 'New allocation'" [open]="allocState.open()" [fields]="allocFields()" [value]="$any(allocState.editing())" [saving]="allocState.saving()" [errors]="allocState.errors()" testId="alloc-form" (submitted)="allocState.submit($event)" (closed)="allocState.close()" />
+  

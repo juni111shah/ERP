@@ -1,0 +1,18 @@
+
+    .emp-cell { display: flex; align-items: center; gap: 10px; }
+    .emp-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10955d 0%, #05663d 100%);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .emp-info { display: flex; flex-direction: column; }
+    .emp-name { font-weight: 600; color: var(--erp-color-text-primary); font-size: 13px; }
+  

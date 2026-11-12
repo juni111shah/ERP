@@ -200,6 +200,7 @@ export interface ManufacturingKpisDto {
   totalManufacturingCostMonth: number;
 }
 
+/** Bills of materials. */
 @Injectable({ providedIn: 'root' })
 export class ManufacturingBomsApi extends CrudApiService<BomSummaryDto, BomInput> {
   protected readonly resource = 'm/manufacturing/boms';
@@ -209,6 +210,7 @@ export class ManufacturingBomsApi extends CrudApiService<BomSummaryDto, BomInput
   }
 }
 
+/** Work orders: CRUD, release, material issue and return, hours, completion, reversal and requirements. */
 @Injectable({ providedIn: 'root' })
 export class ManufacturingWorkOrdersApi extends CrudApiService<WorkOrderSummaryDto, WorkOrderInput> {
   protected readonly resource = 'm/manufacturing/workorders';
@@ -256,6 +258,7 @@ export class ManufacturingWorkOrdersApi extends CrudApiService<WorkOrderSummaryD
   }
 }
 
+/** Standard cost roll-ups and cost variances. */
 @Injectable({ providedIn: 'root' })
 export class ManufacturingCostingApi {
   private readonly http = inject(HttpClient);
@@ -272,6 +275,7 @@ export class ManufacturingCostingApi {
   }
 }
 
+/** The manufacturing KPI summary. */
 @Injectable({ providedIn: 'root' })
 export class ManufacturingKpiApi {
   private readonly http = inject(HttpClient);

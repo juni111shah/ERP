@@ -1,5 +1,5 @@
-import { displayDate, displayLabel, isIsoDate } from './display';
 import { currentLang, phraseNow } from '../i18n/translate-now';
+import { displayDate, displayLabel, isIsoDate } from './display';
 
 const SHOWN_FIELDS = 3;
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -35,6 +35,7 @@ export function auditRecordType(type: string, kind?: string | null): string {
   return phraseNow('Receipt or payment');
 }
 
+/** Whether a stored value is a record id (a GUID). */
 export function auditIsId(value: string | null | undefined): boolean { return !!value && GUID.test(value); }
 
 /** Ids and stored JSON read better in a fixed-width font. */
@@ -69,6 +70,7 @@ export function auditSummary(e: { action: string; changedFields: readonly string
   return fields.length > SHOWN_FIELDS ? `${named} +${fields.length - SHOWN_FIELDS}` : named;
 }
 
+/** Two letters for an avatar: first and last name initials, or the first two letters of a single name; "?" for none. */
 export function initials(name: string | null | undefined): string {
   const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '?';

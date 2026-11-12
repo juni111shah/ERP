@@ -4,8 +4,8 @@ import { Observable, tap } from 'rxjs';
 import { SubscriptionSummary } from '../session/session.store';
 import { CountryDto, CurrencyOption } from './admin.api';
 import { API_BASE_URL } from './api-config';
-import { AssistantStreamEvent, AssistantStreamParser } from './assistant-stream';
 import { ListQuery, PagedResult } from './api.models';
+import { AssistantStreamEvent, AssistantStreamParser } from './assistant-stream';
 import { toHttpParams } from './crud-api.service';
 
 export type SubscriptionStatus = NonNullable<SubscriptionSummary['status']>;
@@ -32,6 +32,8 @@ export interface SignInKeyAvailability { available: boolean; reason: string | nu
 export interface PublicModule { key: string; name: string; description: string; category: string; isCore: boolean; requires: string[]; }
 export interface PublicFeature { icon: string; title: string; text: string; titleAr: string; textAr: string; }
 export interface PublicFaq { q: string; a: string; qAr: string; aAr: string; }
+/** Whether the public assistant shows on the brand site, and where to write instead. */
+export interface BrandAssistantStatus { visible: boolean; supportEmail: string | null; }
 export interface PublicContent { builtIn: PublicFeature[]; trust: PublicFeature[]; faqs: PublicFaq[]; about: string | null; }
 export interface BrandLeadInput { token: string | null; name: string; email: string; phone: string | null; company: string | null; need: string | null; consent: boolean; website: string | null; }
 export interface LegalDocuments { companyName: string; supportEmail: string | null; termsUrl: string | null; terms: string; privacy: string; updatedAt: string | null; }
@@ -147,7 +149,7 @@ export class PlatformApi {
   // ---- Public --------------------------------------------------------------------------------------------------------
   publicModules(): Observable<PublicModule[]> { return this.http.get<PublicModule[]>(`${this.base}/public/modules`); }
   publicContent(): Observable<PublicContent> { return this.http.get<PublicContent>(`${this.base}/public/content`); }
-  brandAssistantStatus(): Observable<{ visible: boolean; supportEmail: string | null }> { return this.http.get<{ visible: boolean; supportEmail: string | null }>(`${this.base}/public/assistant/status`); }
+  brandAssistantStatus(): Observable<BrandAssistantStatus> { return this.http.get<BrandAssistantStatus>(`${this.base}/public/assistant/status`); }
   askBrandAssistant(input: { token: string | null; text: string; website: string | null }): Observable<AssistantStreamEvent> { return this.assistantStream(`${this.base}/public/assistant/messages`, input); }
   submitBrandLead(input: BrandLeadInput): Observable<unknown> { return this.http.post(`${this.base}/public/assistant/leads`, input); }
   legal(): Observable<LegalDocuments> { return this.http.get<LegalDocuments>(`${this.base}/public/legal`); }
