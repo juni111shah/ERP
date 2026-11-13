@@ -8,6 +8,18 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { ffmpeg, here } from './media.mjs';
 
 const FPS = 30;
+
+/** [width, height] of a JPEG, read from its start-of-frame marker. */
+function jpegSize(b) {
+  let i = 2;
+  while (i < b.length - 9) {
+    if (b[i] !== 0xff) return null;
+    const m = b[i + 1];
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)];
+    i += 2 + b.readUInt16BE(i + 2);
+  }
+  return null;
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const logoSvg = readFileSync(here('../../frontend/public/highersquare-logo.svg'), 'utf8');
 const emblemPng = readFileSync(here('../../frontend/public/highersquare-emblem.png')).toString('base64');
@@ -78,7 +90,7 @@ export class WebRecorder {
   }
 
   async launch() {
-    this.browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--hide-scrollbars', '--force-color-profile=srgb', '--font-render-hinting=none'] });
+    this.browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--hide-scrollbars', '--force-color-profile=srgb', '--font-render-hinting=none', `--window-size=${this.width},${this.height}`] });
     this.context = await this.browser.newContext({ viewport: { width: this.width, height: this.height }, deviceScaleFactor: 1, locale: 'en-US', timezoneId: 'Asia/Karachi', colorScheme: 'light' });
     await this.context.addInitScript(overlayInit, { emblem: emblemPng });
     this.page = await this.context.newPage();
@@ -96,11 +108,17 @@ export class WebRecorder {
     this.cdp = await this.context.newCDPSession(this.page);
     this.latest = null;
     this.cdp.on('Page.screencastFrame', ({ data, sessionId }) => {
-      if (!this.frozen) this.latest = Buffer.from(data, 'base64');
+      const buf = Buffer.from(data, 'base64');
+      // Headless Chrome can send a first frame at its default window size; only full-size frames go to the encoder.
+      const size = jpegSize(buf);
+      if (!this.frozen && size && size[0] === this.width && size[1] === this.height) this.latest = buf;
       this.cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
     });
     await this.cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: this.width, maxHeight: this.height, everyNthFrame: 1 });
-    while (!this.latest) await sleep(20);
+    for (let i = 0; !this.latest; i++) {
+      await sleep(40);
+      if (i % 5 === 0) await this.page.evaluate((k) => { document.documentElement.style.outline = k % 2 ? '0px solid transparent' : 'none'; }, i).catch(() => {});
+    }
     this.t0 = Date.now(); this.written = 0;
     this.ticker = setInterval(() => {
       const due = Math.floor(((Date.now() - this.t0) / 1000) * FPS);

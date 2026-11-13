@@ -1,7 +1,7 @@
 // Records the phone walkthrough on a running Android emulator (one screen recording per scene), then lays it into a branded
 // 1920x1080 stage with a phone bezel, animated side titles and title cards. Output: work/rec/mobile.mp4 + mobile.marks.json,
 // which build.mjs turns into the finished video with voice, music and captions.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { find, tap, tapText, type, back, hideKeyboard, swipe, sleep, shell, record, nodes } from './lib/adb.mjs';
 import { here, run, probeDuration } from './lib/media.mjs';
 import { renderStage, STAGE } from './lib/phone-stage.mjs';
@@ -13,11 +13,14 @@ const VO_LEAD = 0.6, TAIL = 1.0, XF = 0.6;
 const PKG = 'com.erp.erp_mobile';
 const dir = here('work/rec'); mkdirSync(dir, { recursive: true });
 const stageDir = here('work/stage'); mkdirSync(stageDir, { recursive: true });
+/** COMPOSE_ONLY=1 re-lays the clips already in work/rec without recording again. */
+const COMPOSE_ONLY = !!process.env.COMPOSE_ONLY;
 const need = (id) => VO_LEAD + voice[id].seconds + TAIL;
 const sceneOf = (id) => script.mobile.scenes.find((s) => s.id === id);
 
 // ---------- title cards (recorded in Chrome) ----------
 async function cardClip(id, card) {
+  if (COMPOSE_ONLY && existsSync(`${dir}/mcard-${id}.mp4`)) return `${dir}/mcard-${id}.mp4`;
   const r = new WebRecorder('mcard-' + id);
   const page = await r.launch();
   await page.setContent('<body style="margin:0;background:#1F3A44"></body>');
@@ -33,6 +36,7 @@ async function cardClip(id, card) {
 async function phoneScene(id, actions) {
   console.log('scene', id);
   const file = `${dir}/phone-${id}.mp4`;
+  if (COMPOSE_ONLY) return file;
   const rec = record('demo-' + id, file);
   await sleep(900);
   const t0 = Date.now();
@@ -49,10 +53,12 @@ const scrollUp = (px = 900, ms = 500) => swipe(540, 700, 540, 700 + px, ms);
 const tapIf = async (re, opts) => { const n = await find(re, { timeout: 2500, ...opts }); if (n) { await tap(n.x, n.y); await sleep(opts?.after ?? 1200); } return n; };
 
 // Fresh start: clear the app so it opens on its intro, then launch it before recording.
-await shell(`pm clear ${PKG}`).catch(() => {});
-await shell('settings put system show_touches 1');
-await shell(`monkey -p ${PKG} -c android.intent.category.LAUNCHER 1`);
-await sleep(7000);
+if (!COMPOSE_ONLY) {
+  await shell(`pm clear ${PKG}`).catch(() => {});
+  await shell('settings put system show_touches 1');
+  await shell(`monkey -p ${PKG} -c android.intent.category.LAUNCHER 1`);
+  await sleep(7000);
+}
 
 const clips = [];
 clips.push({ id: 'm01-intro', file: await cardClip('m01-intro', { kick: 'Mobile app', title: 'HigherSquare <span>360</span>', sub: 'Your business, in your pocket' }), card: true });
@@ -121,10 +127,11 @@ for (const c of clips) {
   if (c.card) {
     await run(['-i', c.file, '-vf', 'fps=30,format=yuv420p', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-an', out]);
   } else {
+    const clipDur = await probeDuration(c.file);
     await run(['-loop', '1', '-i', `${stageDir}/stage-bg.png`, '-i', c.file, '-loop', '1', '-i', `${stageDir}/stage-bezel.png`, '-loop', '1', '-i', `${stageDir}/stage-mask.png`,
       '-filter_complex', `[1:v]fps=30,scale=${s.screenW}:${s.screenH}:flags=lanczos,format=rgba[sc];[3:v]scale=${s.screenW}:${s.screenH},format=gray[m];[sc][m]alphamerge[sm];` +
         `[0:v][sm]overlay=${s.screenX}:${s.screenY}:shortest=1[a];[a][2:v]overlay=0:0,format=yuv420p[v]`,
-      '-map', '[v]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-r', '30', out]);
+      '-map', '[v]', '-t', clipDur.toFixed(3), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-r', '30', out]);
   }
   parts.push({ ...c, out, dur: await probeDuration(out) });
 }

@@ -127,7 +127,165 @@ await scene('w05-bridge', async () => {
 }, { label: false });
 await r.uncard();
 
-// TODO(after explore): dashboard, sales, receivables, purchasing, finance, approvals, HR, industry modules, control.
+/** Glides over the first few rows of the main table, so the viewer's eye follows real data. */
+async function skimRows(n = 3) {
+  const rows = page.locator('tbody tr:visible');
+  const count = Math.min(n, await rows.count().catch(() => 0));
+  for (let i = 0; i < count; i++) { await r.hover(rows.nth(i), 450); await sleep(350); }
+}
+/** Opens a page, shows it for a moment, glides over its data. */
+async function visit(term, path, { hold = 1600, rows = 3, scroll = 0 } = {}) {
+  await go(term, path);
+  await sleep(hold);
+  if (rows) await skimRows(rows);
+  if (scroll) { await r.scroll(scroll, 1200); await sleep(900); await r.scroll(-scroll, 900); }
+}
+
+await scene('w06-dashboard', async () => {
+  await sleep(2500);
+  const kpis = page.locator('erp-stat-card, .erp-stat-card').first();
+  if (await kpis.count()) await r.spotlight(page.locator('.erp-stat-grid').first(), 2200);
+  await r.scroll(700, 1500); await sleep(1500);
+  await r.scroll(700, 1500); await sleep(1200);
+  await r.scroll(-1400, 1200); await sleep(600);
+  const search = page.getByPlaceholder(/search/i).first();
+  if (await search.count()) { await r.type(search, 'Al Noor', { delay: 70 }); await sleep(2200); await page.keyboard.press('Escape'); }
+});
+
+let invoiceNo = null;
+await scene('w07-sales', async () => {
+  await visit('Quotes', '/sales/quotes', { hold: 1400, rows: 2 });
+  await visit('Sales orders', '/sales/orders', { hold: 1200, rows: 2 });
+  await go('Invoices', '/finance/invoices'); await sleep(1500);
+  await r.spotlight(tid('invoice-stats'), 1800);
+  await r.click(tid('invoice-new')); await sleep(1500);
+  const party = tid('inv-party');
+  await r.click(party); await page.keyboard.type('Al Noor', { delay: 80 }); await sleep(1500);
+  const opt = page.locator('nz-option-item, .ant-select-item-option').first();
+  await r.click(opt);
+  await r.type(tid('inv-desc-0'), 'Office fit-out consultancy', { delay: 40 });
+  const qty = tid('inv-qty-0').locator('input'); await r.click(qty); await qty.fill(''); await qty.pressSequentially('3', { delay: 80 });
+  const price = tid('inv-price-0').locator('input'); await r.click(price); await price.fill(''); await price.pressSequentially('4500', { delay: 80 });
+  // Tax on the first line, if the workspace has tax codes.
+  const tax = page.locator('[data-testid="invoice-form"] nz-select').last();
+  await r.click(tax); await sleep(700);
+  const taxOpt = page.locator('.ant-select-item-option').first();
+  if (await taxOpt.count()) await r.click(taxOpt); else await page.keyboard.press('Escape');
+  await sleep(600);
+  await r.spotlight(tid('inv-totals'), 1800);
+  await r.click(tid('inv-issue')); await sleep(3000);
+  const print = tid('success-print');
+  invoiceNo = await page.locator('[data-testid="sheet-number"]').first().innerText().catch(() => null);
+  if (await print.count()) { await r.hover(print); await sleep(1200); }
+});
+
+await scene('w08-receivables', async () => {
+  const pay = tid('success-pay');
+  if (await pay.count()) {
+    await r.click(pay); await sleep(1800);
+    const save = page.getByRole('button', { name: /^(save|record|post)/i }).last();
+    await r.hover(save); await sleep(800); await r.click(save); await sleep(2500);
+  } else {
+    await visit('Receipts', '/finance/receipts', { rows: 3 });
+  }
+  await page.keyboard.press('Escape').catch(() => {});
+  await go('Customers', '/parties?type=customer'); await sleep(1500);
+  const row = page.locator('tbody tr:visible', { hasText: 'Al Noor' }).first();
+  if (await row.count()) { await r.click(row); await sleep(2500); await r.scroll(600, 1200); await sleep(1500); }
+});
+
+await scene('w09-purchasing', async () => {
+  await visit('Requisitions', '/purchasing/requisitions', { hold: 1100, rows: 2 });
+  await visit('Purchase orders', '/purchasing/orders', { hold: 1100, rows: 2 });
+  const po = page.locator('tbody tr:visible').first();
+  if (await po.count()) { await r.click(po); await sleep(2500); await page.keyboard.press('Escape'); await sleep(600); }
+  await visit('Goods receipts', '/purchasing/receipts', { hold: 1000, rows: 2 });
+  await visit('Bills', '/finance/bills', { hold: 1000, rows: 2 });
+  await visit('Stock', '/inventory/stock', { hold: 1400, rows: 4 });
+});
+
+await scene('w10-finance', async () => {
+  await visit('Chart of accounts', '/finance/accounts', { hold: 1200, rows: 3 });
+  await visit('Journals', '/finance/journals', { hold: 1000, rows: 2 });
+  await go('Reports', '/finance/reports'); await sleep(2000);
+  for (const name of [/profit|income/i, /balance sheet/i, /trial balance/i]) {
+    const tab = page.getByRole('tab', { name }).or(page.getByRole('button', { name })).first();
+    if (await tab.count()) { await r.click(tab); await sleep(2200); }
+  }
+  await visit('Budgets', '/finance/budgets', { hold: 1600, rows: 2 });
+});
+
+await scene('w11-approvals', async () => {
+  await go('Approvals', '/approvals'); await sleep(1800);
+  await skimRows(2);
+  const approve = page.getByRole('button', { name: /^approve/i }).first();
+  if (await approve.count()) { await r.hover(approve); await sleep(900); await r.click(approve); await sleep(1500);
+    const ok = page.getByRole('button', { name: /^(approve|ok|confirm|yes)/i }).last(); if (await ok.isVisible().catch(() => false)) await r.click(ok); await sleep(1500); }
+});
+
+await scene('w12-hr', async () => {
+  await visit('Employees', '/hr/employees', { hold: 1200, rows: 3 });
+  await visit('Attendance', '/hr/attendance', { hold: 1000, rows: 2 });
+  await visit('Leave', '/hr/leave', { hold: 1000, rows: 2 });
+  await go('Payroll', '/hr/payroll'); await sleep(1500);
+  const run = page.locator('tbody tr:visible').first();
+  if (await run.count()) { await r.click(run); await sleep(2500); await r.scroll(600, 1200); await sleep(1200); }
+});
+
+await scene('w13-industry', async () => {
+  // Real estate lives in its own workspace: switch to it behind a short title card.
+  await r.card({ kick: 'Industry modules', title: 'Switch on what <span>your industry</span> needs', sub: 'Real estate · Projects · POS · CRM · Manufacturing · and more' });
+  await sleep(2200);
+  r.freeze();
+  await page.context().clearCookies();
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+  await page.goto(BASE + '/auth/login', { waitUntil: 'networkidle' });
+  await page.getByTestId('login-email').fill('owner@demo.local');
+  await page.getByTestId('login-password').fill(PASSWORD);
+  await page.getByTestId('login-password').press('Enter');
+  const ws = page.getByTestId('workspace-demo-re'); await ws.waitFor({ timeout: 10000 }).catch(() => {}); if (await ws.count()) await ws.click();
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.goto(BASE + '/real-estate/properties', { waitUntil: 'networkidle' });
+  await r.card({ kick: 'Industry modules', title: 'Switch on what <span>your industry</span> needs', sub: 'Real estate · Projects · POS · CRM · Manufacturing · and more' });
+  await r.unfreeze(1000); await r.uncard();
+  await r.lowerThird('Real estate', 3500);
+  await skimRows(3);
+  await visit('Leases', '/real-estate/leases', { hold: 1100, rows: 2 });
+  // Back to the general Demo workspace for the other modules.
+  r.freeze();
+  await page.context().clearCookies();
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+  await page.goto(BASE + '/auth/login', { waitUntil: 'networkidle' });
+  await page.getByTestId('login-email').fill('admin@demo.local');
+  await page.getByTestId('login-password').fill(PASSWORD);
+  await page.getByTestId('login-password').press('Enter');
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.goto(BASE + '/projects/board', { waitUntil: 'networkidle' });
+  await sleep(800);
+  await r.unfreeze(400);
+  await r.lowerThird('Projects', 3000); await sleep(2200);
+  await visit('Timesheets', '/projects/timesheets', { hold: 1000, rows: 2 });
+  await go('Terminal', '/pos/terminal'); await r.lowerThird('Point of sale', 3000); await sleep(1500);
+  const tiles = page.locator('button:visible, .tile:visible').filter({ hasText: /\d/ });
+  for (let i = 0; i < 2 && i < (await tiles.count()); i++) { await r.click(tiles.nth(i + 3)).catch(() => {}); await sleep(500); }
+  await sleep(1200);
+  await go('Opportunities', '/crm/opportunities'); await r.lowerThird('CRM', 3000); await sleep(2200);
+  await go('Work orders', '/manufacturing/workorders'); await r.lowerThird('Manufacturing', 3000); await sleep(1500); await skimRows(2);
+  await visit('Engagements', '/services/engagements', { hold: 1100, rows: 1 });
+  await visit('Stores', '/retail/stores', { hold: 1000, rows: 1 });
+  await visit('Routes', '/distribution/routes', { hold: 1000, rows: 1 });
+  await visit('Asset register', '/assets/register', { hold: 1100, rows: 2 });
+}, { label: false });
+
+await scene('w14-control', async () => {
+  await visit('Modules', '/admin/modules', { hold: 1800, rows: 0, scroll: 700 });
+  await visit('Users', '/admin/users', { hold: 1200, rows: 3 });
+  await visit('Roles', '/admin/roles', { hold: 1000, rows: 2 });
+  await go('Security', '/account/security'); await sleep(2000);
+  const lang = tid('lang-toggle');
+  if (await lang.count()) { await r.click(lang); await sleep(1200); const ar = page.getByText(/العربية|Arabic/).first(); if (await ar.isVisible().catch(() => false)) await r.click(ar); await sleep(2500);
+    await go('Dashboard', '/'); await sleep(2500); }
+});
 
 await scene('w15-outro', async () => {
   await r.card({ kick: 'HigherSquare 360', title: 'Your whole business, <span>in one place</span>', sub: 'Start your free trial today' });

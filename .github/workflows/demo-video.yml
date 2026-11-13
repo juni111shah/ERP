@@ -1,6 +1,6 @@
 # Records the client demo videos (tools/demo-video) on Linux runners: SQL Server + the API with demo data + the web app in Chrome,
 # and the Flutter app on an Android emulator. tools/demo-video/ci-mode.txt picks "explore" (screenshots of every screen) or
-# "record" (the finished videos). Results go to the branches demo-video-out-web / demo-video-out-mobile and to the run's artifacts.
+# "record" (the finished videos). Put [web-only] or [mobile-only] in the commit message to run one job. Results go to the branches demo-video-out-web / demo-video-out-mobile and to the run's artifacts.
 name: Demo video
 on:
   push:
@@ -11,9 +11,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: demo-video
-  cancel-in-progress: true
 
 env:
   SQL_PASSWORD: 'Demo#Video-Passw0rd1'
@@ -22,6 +19,8 @@ env:
 jobs:
   web:
     name: Web demo
+    if: ${{ !contains(github.event.head_commit.message, '[mobile-only]') }}
+    concurrency: { group: demo-video-web, cancel-in-progress: true }
     runs-on: ubuntu-latest
     timeout-minutes: 90
     services:
@@ -72,6 +71,8 @@ jobs:
 
   mobile:
     name: Mobile demo
+    if: ${{ !contains(github.event.head_commit.message, '[web-only]') }}
+    concurrency: { group: demo-video-mobile, cancel-in-progress: true }
     runs-on: ubuntu-latest
     timeout-minutes: 100
     services:

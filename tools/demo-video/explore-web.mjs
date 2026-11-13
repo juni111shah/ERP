@@ -41,13 +41,18 @@ await step('pricing', async () => {
 await step('register', async () => {
   await p1.goto(BASE + '/register', { waitUntil: 'networkidle' });
   await dump(p1, 'register-plans');
-  const choose = p1.getByRole('button', { name: /choose/i }).first();
-  await choose.click();
+  await p1.getByTestId('plan-choose-business').click();
   await dump(p1, 'register-form');
   await p1.getByTestId('register-business').fill('Crescent Trading Co');
   await p1.waitForTimeout(800);
-  await p1.getByTestId('register-industry').click(); await dump(p1, 'register-industry-open'); await p1.keyboard.press('Escape');
-  await p1.getByTestId('register-country').click(); await dump(p1, 'register-country-open'); await p1.keyboard.press('Escape');
+  const pick = async (tidName, text, name) => {
+    await p1.getByTestId(tidName).click(); await p1.keyboard.type(text, { delay: 40 }); await p1.waitForTimeout(800);
+    await dump(p1, name);
+    await p1.locator('.ant-select-item-option').first().click(); await p1.waitForTimeout(500);
+  };
+  await pick('register-industry', 'Wholesale', 'register-industry-open');
+  await pick('register-country', 'Pakistan', 'register-country-open');
+  if (!(await p1.getByTestId('register-currency').innerText()).match(/[A-Z]{3}/)) await pick('register-currency', 'PKR', 'register-currency-open');
   await p1.getByTestId('register-name').fill('Ayesha Khan');
   await p1.getByTestId('register-email').fill(`ayesha.${Date.now()}@crescent.example.test`);
   await p1.getByTestId('register-phone').fill('+92 300 1234567');
@@ -68,11 +73,11 @@ async function signIn(page, email, wsCode) {
   await page.getByTestId('login-password').fill('DevOnly#2026');
   await page.getByTestId('login-password').press('Enter');
   await page.waitForTimeout(3000);
-  if (wsCode) { const ws = page.getByTestId('workspace-' + wsCode); if (await ws.count()) { await dump(page, 'workspace-picker'); await ws.click(); } }
+  if (wsCode) { const ws = page.getByTestId('workspace-' + wsCode); await ws.waitFor({ timeout: 8000 }).catch(() => {}); if (await ws.count()) { await dump(page, 'workspace-picker'); await ws.click(); await page.waitForTimeout(3000); } }
   await page.waitForLoadState('networkidle').catch(() => {});
 }
 
-for (const [email, ws, tag] of [['admin@demo.local', null, 'demo'], ['owner@demo.local', 'demo-re', 're']]) {
+for (const [email, ws, tag] of [['admin@demo.local', 'demo', 'demo'], ['owner@demo.local', 'demo-re', 're']]) {
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   const page = await ctx.newPage();
   watch(page);
@@ -81,11 +86,11 @@ for (const [email, ws, tag] of [['admin@demo.local', null, 'demo'], ['owner@demo
     await dump(page, tag + '-home');
     // Open every collapsed sidebar group so all links are in the DOM.
     for (let k = 0; k < 3; k++) {
-      for (const g of await page.locator('nav [aria-expanded="false"], aside [aria-expanded="false"]').all()) await g.click().catch(() => {});
+      for (const g of await page.locator('[data-testid^="nav-group-"][aria-expanded="false"], [data-testid="sidebar"] [aria-expanded="false"]').all()) await g.click().catch(() => {});
       await page.waitForTimeout(300);
     }
     await dump(page, tag + '-sidebar-open');
-    const hrefs = [...new Set(await page.$$eval('nav a[href], aside a[href]', (as) => as.map((a) => a.getAttribute('href')).filter((h) => h && h.startsWith('/') && !h.startsWith('//'))))];
+    const hrefs = [...new Set(await page.$eval('[data-testid="sidebar"] a[href], nav a[href], aside a[href]', (as) => as.map((a) => a.getAttribute('href')).filter((h) => h && h.startsWith('/') && !h.startsWith('//'))))];
     writeFileSync(`${out}/${tag}-links.txt`, hrefs.join('\n'));
     const limit = tag === 'demo' ? 140 : 30;
     for (const h of hrefs.slice(0, limit)) await step(h, async () => { await page.goto(BASE + h, { waitUntil: 'networkidle', timeout: 20000 }).catch(() => {}); await dump(page, tag + h); });
