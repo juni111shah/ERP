@@ -42,7 +42,7 @@ writeFileSync(assFile, buildAss(placed.map((p) => ({ start: p.start, duration: p
 const args = ['-i', abs(settings.video), ...(hasMusic ? ['-stream_loop', '-1', '-i', music] : ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo'])];
 placed.forEach((p) => args.push('-i', `${voiceDir}/${p.id}.mp3`));
 const fadeOut = Math.max(0, duration - 1.2);
-const voiceChains = placed.map((p, i) => `[${i + 2}:a]aresample=48000,aformat=channel_layouts=stereo,volume=1.35,adelay=${Math.round(p.start * 1000)}|${Math.round(p.start * 1000)}[v${i}]`);
+const voiceChains = placed.map((p, i) => `[${i + 2}:a]aresample=48000,aformat=channel_layouts=stereo,volume=1.9,adelay=${Math.round(p.start * 1000)}|${Math.round(p.start * 1000)}[v${i}]`);
 const vlabels = placed.map((_, i) => `[v${i}]`).join('');
 // The subtitles filter wants a path with escaped drive colon and forward slashes.
 const assArg = assFile.replace(/\\/g, '/').replace(/^([A-Za-z]):/, '$1\\:');
@@ -51,9 +51,9 @@ const filter = [
   ...voiceChains,
   `${vlabels}amix=inputs=${placed.length}:normalize=0,atrim=0:${duration.toFixed(2)},apad=whole_dur=${duration.toFixed(2)}[voice]`,
   `[voice]asplit=2[voiceA][voiceKey]`,
-  `[1:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:${duration.toFixed(2)},volume=0.30,afade=t=in:st=0:d=2,afade=t=out:st=${Math.max(0, duration - 3.5).toFixed(2)}:d=3.5[music]`,
+  `[1:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:${duration.toFixed(2)},volume=0.12,afade=t=in:st=0:d=2,afade=t=out:st=${Math.max(0, duration - 3.5).toFixed(2)}:d=3.5[music]`,
   `[music][voiceKey]sidechaincompress=threshold=0.02:ratio=9:attack=30:release=600:makeup=1[ducked]`,
-  `[ducked][voiceA]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`,
+  `[ducked][voiceA]amix=inputs=2:normalize=0,alimiter=limit=0.89:level=false[aout]`,
 ].join(';');
 args.push('-filter_complex', filter, '-map', '[vout]', '-map', '[aout]', '-t', duration.toFixed(2),
   '-c:v', 'libx264', '-preset', 'slow', '-crf', '19', '-maxrate', '3M', '-bufsize', '6M', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
