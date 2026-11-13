@@ -1,0 +1,17 @@
+{
+  "name": "erp-demo-video",
+  "private": true,
+  "type": "module",
+  "description": "Records the HigherSquare 360 client demo videos (web and mobile). See README.md.",
+  "scripts": {
+    "voice": "node voice.mjs",
+    "web": "node record-web.mjs",
+    "mobile": "node record-mobile.mjs",
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "ffmpeg-static": "5.2.0",
+    "msedge-tts": "2.1.0",
+    "playwright": "1.48.2"
+  }
+}

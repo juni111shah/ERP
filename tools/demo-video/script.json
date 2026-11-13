@@ -1,0 +1,35 @@
+{
+  "voice": "en-US-AndrewMultilingualNeural",
+  "rate": "+0%",
+  "web": {
+    "scenes": [
+      { "id": "w01-intro", "label": "HigherSquare 360", "vo": "Meet HigherSquare 360: one system to run your finance, sales, purchasing, inventory and people, with industry modules you switch on when you need them." },
+      { "id": "w02-pricing", "label": "Pricing and plans", "vo": "It all starts on our website. Plans are clear and up front: choose monthly or annual billing, see exactly which modules and how many users each plan includes, and preview the web and mobile apps before you sign up." },
+      { "id": "w03-register", "label": "Create your workspace", "vo": "Signing up takes a minute. Pick a plan, enter your business name, industry, country and currency, and choose your workspace address. The workspace is set up for you, ready for your country." },
+      { "id": "w04-first-login", "label": "Your new workspace", "vo": "Sign in, and your new workspace is ready to use straight away." },
+      { "id": "w05-bridge", "label": "A few months later", "vo": "Now let's step into a company that has been running on HigherSquare 360 for a few months." },
+      { "id": "w06-dashboard", "label": "Dashboard", "vo": "The dashboard shows the whole business at a glance: sales, cash, what customers owe you and what you owe suppliers, with alerts for anything that needs attention. Search finds any customer, item or document in a second." },
+      { "id": "w07-sales", "label": "Sales: quote to invoice", "vo": "Sales flows from quote, to order, to invoice. Here we raise an invoice: pick the customer, add the items, and tax is worked out for you. Post it, and the accounts are updated automatically. Every document prints cleanly, with your branding." },
+      { "id": "w08-receivables", "label": "Receipts and customer balances", "vo": "When the customer pays, record the receipt against the invoice. Their balance and statement update immediately." },
+      { "id": "w09-purchasing", "label": "Purchasing and inventory", "vo": "Purchasing follows the same path: requisition, purchase order, goods receipt and supplier bill. Stock moves with every receipt and every sale, warehouse by warehouse." },
+      { "id": "w10-finance", "label": "Finance and reports", "vo": "Finance is built in, not bolted on. Every transaction lands in the general ledger, so your profit and loss, balance sheet and trial balance are always up to date. Set budgets and compare them with actuals." },
+      { "id": "w11-approvals", "label": "Approvals", "vo": "Approvals keep you in control. Purchases, payments and leave can wait for the right person's sign-off." },
+      { "id": "w12-hr", "label": "HR and payroll", "vo": "HR and payroll live in the same place: employee records, attendance, leave, and a monthly payroll that posts straight to the books." },
+      { "id": "w13-industry", "label": "Industry modules", "vo": "Then switch on the modules your industry needs. Real estate manages properties, leases and rent. Projects track tasks, time and billing. The point of sale terminal sells at the counter. CRM follows every lead and opportunity. Manufacturing plans materials and work orders. And there is more: services, retail, distribution and fixed assets." },
+      { "id": "w14-control", "label": "Control and security", "vo": "You decide which modules are on, who can see what, and how people sign in, with two-factor security. And the whole app also works in Arabic, right to left." },
+      { "id": "w15-outro", "label": "HigherSquare 360", "vo": "HigherSquare 360. Your whole business, in one place. Start your free trial today." }
+    ]
+  },
+  "mobile": {
+    "scenes": [
+      { "id": "m01-intro", "label": "HigherSquare 360 mobile", "vo": "And your business goes wherever you go, with the HigherSquare 360 app." },
+      { "id": "m02-signin", "label": "Secure sign-in", "vo": "Sign in securely, with two-factor if you use it, and choose your workspace." },
+      { "id": "m03-overview", "label": "Overview", "vo": "The overview shows the same live numbers as the web dashboard." },
+      { "id": "m04-documents", "label": "Invoices, receipts, customers", "vo": "Look up any invoice, receipt or customer in seconds, right from your phone." },
+      { "id": "m05-approvals", "label": "Approvals on the go", "vo": "Approve requests on the go, so nothing waits for you to get back to your desk." },
+      { "id": "m06-myhr", "label": "My HR", "vo": "Employees can check their leave balance, request time off and see their payslips." },
+      { "id": "m07-more", "label": "Every module, one tap away", "vo": "Notifications keep you up to date, and every module you use is one tap away." },
+      { "id": "m08-outro", "label": "HigherSquare 360", "vo": "HigherSquare 360. On the web, and in your pocket." }
+    ]
+  }
+}
