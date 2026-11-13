@@ -28,6 +28,10 @@ node tools/seed-demo.mjs http://localhost:5080/api/v1 || echo "seed-demo failed"
 node docs/demo-data/1-payroll-leave-approvals-settings.mjs || echo "demo-data 1 failed"
 node docs/demo-data/2-credit-notes-attachments-idempotency.mjs || echo "demo-data 2 failed"
 node tools/demo-video/ci/open-signup.mjs || echo "open-signup failed"
+# No "demo" on screen: rename the seeded workspaces, people and memos in place (see rebrand.sql), inside the SQL container.
+SQLC=$(docker ps -q --filter "ancestor=mcr.microsoft.com/mssql/server:2022-latest" | head -1); [ -n "$SQLC" ] || SQLC=$(docker ps -q | head -1)
+docker cp tools/demo-video/ci/rebrand.sql "$SQLC":/tmp/rebrand.sql
+docker exec "$SQLC" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SQL_PASSWORD" -d ERP_DemoVideo -W -s '|' -i /tmp/rebrand.sql || echo "rebrand failed"
 # The web app, exactly as in development: ng serve on :4200 with /api proxied to the API.
 if [ "${SKIP_WEB:-0}" != "1" ]; then
   (cd frontend && nohup npx ng serve --proxy-config proxy.conf.json --port 4200 > "$ROOT/web.log" 2>&1 &)

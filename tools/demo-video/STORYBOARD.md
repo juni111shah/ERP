@@ -11,7 +11,9 @@ The first brief said 5 + 2 minutes. Covering every module, from the pricing page
 
 **Style:** animated title cards in brand colours (green `#4FA077`, teal `#2A8A93`, navy `#1F3A44`), section labels that slide in, a soft cursor with click ripples, a spotlight on key numbers, burned-in captions. Voice-over: Microsoft neural voice *Andrew* (US English). Music: "Upbeat Corporate" by AtlasAudio (Pixabay), about 12 dB under the voice and lower still while the voice speaks.
 
-**Data:** the registration creates a brand-new workspace live ("Crescent Trading Co"). A new workspace is empty, so the module tour then moves to the seeded **Demo Workspace**, which has months of documents posted through the product's own workflows. All companies and people in the demo data are invented.
+**Data:** the registration creates a brand-new Qatari workspace live ("Pearl Coast Trading", country Qatar, currency QAR). A new workspace is empty, so the module tour then moves to the seeded Qatari company **Al Rayyan Trading**, which has months of documents posted through the product's own workflows. The word "demo" never appears on screen: `ci/rebrand.sql` renames the seeded workspaces, sign-in keys, e-mail addresses, people and memos before recording. All companies and people are invented.
+
+**Logo:** the web app, the title cards and the phone stage all use the same vector mark as the phone app (`frontend/public/highersquare-mark.svg`, a copy of `mobile/assets/brand/hs360-mark.svg`).
 
 The spoken words are in [script.json](script.json). Each line below is one narration beat; it starts when its action starts on screen.
 
@@ -25,9 +27,9 @@ The spoken words are in [script.json](script.json). Each line below is one narra
 | | Mobile app section | You can even preview the mobile app before you sign up. |
 | Registration | Choose the Business plan | Signing up takes about a minute. Pick a plan, here the Business plan, with a fourteen-day free trial. |
 | | Business name; workspace code fills in | Enter your business name, and your workspace address is filled in and checked for you. |
-| | Industry and country | Choose your industry and country. The currency, taxes and chart of accounts are set up to match. |
+| | Industry (Wholesale) and country (Qatar) | Choose your industry and country. The currency, taxes and chart of accounts are set up to match. |
 | | Contact, password, terms, "Your workspace is ready" | Add your name, work email and a password, accept the terms, and create your workspace. |
-| First sign-in | Sign in, the new dashboard ("Welcome, Ayesha Khan") | Your workspace is ready straight away. Sign in, and you land on your own dashboard, ready for your first customers, products and invoices. |
+| First sign-in | Sign in, the new dashboard ("Welcome, Mariam Al Kuwari") | Your workspace is ready straight away. Sign in, and you land on your own dashboard, ready for your first customers, products and invoices. |
 | Bridge | Title card "A few months later" | Now let's step into a company that has been running on HigherSquare 360 for a few months. |
 | Dashboard | Executive highlights | The dashboard shows the whole business at a glance. The executive highlights show portfolio value, receivables, and your net result for the period. |
 | | Charts, alerts | Charts compare what you billed with what you collected, and age what customers still owe. Alerts flag anything that needs your attention. |

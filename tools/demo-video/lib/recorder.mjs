@@ -22,7 +22,7 @@ function jpegSize(b) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const logoSvg = readFileSync(here('../../frontend/public/highersquare-logo.svg'), 'utf8');
-const emblemPng = readFileSync(here('../../frontend/public/highersquare-emblem.png')).toString('base64');
+const emblemPng = readFileSync(here('../../frontend/public/highersquare-mark.svg')).toString('base64');
 
 /** CSS + script injected into every page: cursor, ripple, title card and lower-third layers. */
 const overlayInit = ({ emblem }) => {
@@ -65,10 +65,10 @@ const overlayInit = ({ emblem }) => {
     layer.id = 'demo-layer';
     layer.setAttribute('data-no-i18n', '');
     layer.setAttribute('translate', 'no');
-    layer.innerHTML = `<div id="demo-spot"></div><div id="demo-l3"><img src="data:image/png;base64,${emblem}"><span></span></div>
+    layer.innerHTML = `<div id="demo-spot"></div><div id="demo-l3"><img src="data:image/svg+xml;base64,${emblem}"><span></span></div>
       <div id="demo-card"><div class="orb" style="width:420px;height:420px;left:-120px;top:-80px"></div>
       <div class="orb" style="width:300px;height:300px;right:-60px;bottom:-40px;animation-delay:-4s"></div>
-      <img class="emb" src="data:image/png;base64,${emblem}"><div class="kick"></div><h1></h1><div class="bar"></div><p></p></div>
+      <img class="emb" src="data:image/svg+xml;base64,${emblem}"><div class="kick"></div><h1></h1><div class="bar"></div><p></p></div>
       <svg id="demo-cursor" viewBox="0 0 28 28"><path d="M3 2 L3 22 L8.5 17 L12.5 26 L16 24.5 L12 15.8 L19.5 15.8 Z" fill="#fff" stroke="#1F3A44" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
     document.body.appendChild(layer);
     const cur = layer.querySelector('#demo-cursor');

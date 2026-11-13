@@ -4,7 +4,7 @@ Records the two HigherSquare 360 demo videos from the running app: a neural voic
 
 | Output | What it shows |
 |---|---|
-| `HigherSquare360-Web-Demo.mp4` (1920x1080) | Pricing page, registration of a new workspace, first sign-in, then every module of the Demo workspace |
+| `HigherSquare360-Web-Demo.mp4` (1920x1080) | Pricing page, registration of a new workspace, first sign-in, then every module of the seeded workspace (Al Rayyan Trading) |
 | `HigherSquare360-Mobile-Demo.mp4` (1920x1080, phone in a branded frame) | The Flutter app on an Android phone: intro tour, sign-in, overview, documents, approvals, My HR, modules |
 
 [STORYBOARD.md](STORYBOARD.md) lists the scenes. The spoken words are in [script.json](script.json), split into beats: each beat starts when its action starts on screen and never before the previous line has finished, so voice and picture stay together. Edit a line, record again, rebuild.
@@ -48,6 +48,14 @@ Fill the demo data and open sign-up (the founder must otherwise approve each reg
 ```bash
 node tools/seed-demo.mjs http://localhost:5080/api/v1 && node docs/demo-data/1-payroll-leave-approvals-settings.mjs && node docs/demo-data/2-credit-notes-attachments-idempotency.mjs && node tools/demo-video/ci/open-signup.mjs
 ```
+
+Then remove the word "demo" from what the camera sees (workspace names, sign-in keys, e-mails, people, memos):
+
+```bash
+sqlcmd -S .SQLEXPRESS -E -d ERP_DemoVideo -i tools/demo-video/ci/rebrand.sql
+```
+
+After this, sign in as `admin@alrayyan.qa` (workspace `alrayyan`) or `owner@alrayyan.qa` (`lusail`).
 
 Then in `tools/demo-video`:
 

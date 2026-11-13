@@ -37,12 +37,12 @@ await step('intro', async () => {
 await dump('login');
 
 await step('sign in', async () => {
-  await signIn('admin@demo.local', 'DevOnly#2026');
+  await signIn('admin@alrayyan.qa', 'DevOnly#2026');
   await dump('login-filled');
   await tapText(/^Sign in$/);
   await sleep(5000);
   await dump('after-sign-in');
-  const ws = await find(/Demo Workspace/i, { timeout: 3000 });
+  const ws = await find(/Al Rayyan Trading/i, { timeout: 3000 });
   if (ws) { await tap(ws.x, ws.y); await sleep(4000); await dump('after-workspace'); }
   for (let i = 0; i < 8; i++) {
     const skip = await find(/^(Skip|Next|Got it|Done|Close|Finish|Not now)/i, { timeout: 1200 });

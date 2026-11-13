@@ -98,10 +98,10 @@ clips.push({ id: 'm02-signin', file: await phoneScene('m02-signin', async () => 
   await sleep(1200);
   for (let i = 0; i < 2; i++) await tapNode(await find(/^Next$/, { timeout: 2500 }), 2000);
   await tapNode(await find(/^Skip$/, { timeout: 2000 }), 1500);
-  await signIn('admin@demo.local', 'DevOnly#2026');
+  await signIn('admin@alrayyan.qa', 'DevOnly#2026');
   await sleep(400);
   await tapText(/^Sign in$/, { after: 3000 });
-  await tapNode(await find(/^Demo Workspace/, { timeout: 6000 }), 3000);
+  await tapNode(await find(/^Al Rayyan Trading/, { timeout: 6000 }), 3000);
   // First-run tips: show one step, then skip the rest.
   await tapNode(await find(/^Next$/, { timeout: 2500 }), 1800);
   await tapNode(await find(/^Skip$/, { timeout: 1500 }), 1500);

@@ -1,4 +1,4 @@
-// Records the web walkthrough: pricing page, registration of a new workspace, then every module in the seeded Demo workspace.
+// Records the web walkthrough: pricing page, registration of a new workspace (Qatar), then every module in the seeded workspace (renamed Al Rayyan Trading by ci/rebrand.sql).
 // The narration is split into beats (script.json); a beat starts when its action starts on screen and never before the previous
 // beat has finished speaking, so picture and voice stay together. Scene starts are written to work/rec/web.marks.json.
 // Usage: node record-web.mjs [baseUrl]   (default http://localhost:4200, the web app with /api proxied to the API)
@@ -11,7 +11,6 @@ const script = JSON.parse(readFileSync(here('script.json'), 'utf8'));
 const voice = JSON.parse(readFileSync(here('work/voice/durations.json'), 'utf8'));
 const VO_LEAD = 0.6, GAP = 0.35, TAIL = 0.9;
 const PASSWORD = 'DevOnly#2026';
-const runTag = Date.now().toString(36).slice(-5);
 const CUSTOMER = 'Apex';
 
 const r = new WebRecorder('web');
@@ -100,7 +99,7 @@ await sleep(1500);
 await r.start();
 
 await scene('w01-intro', async () => {
-  await r.card({ kick: 'Client demo', title: 'HigherSquare <span>360</span>', sub: 'One ERP for your whole business' });
+  await r.card({ kick: 'Product tour', title: 'HigherSquare <span>360</span>', sub: 'One ERP for your whole business' });
   await sleep(4000);
 });
 await r.uncard();
@@ -118,7 +117,7 @@ await scene('w02-pricing', async () => {
   await sleep(1500);
 });
 
-const newEmail = `ayesha.${runTag}@crescent.example.test`;
+const newEmail = 'mariam@pearlcoast.qa';   // CI starts from an empty database each run
 await scene('w03-register', async () => {
   await page.evaluate(() => scrollTo({ top: 0, behavior: 'smooth' })); await sleep(800);
   await r.click(tid('pricing-top-start'));
@@ -127,18 +126,18 @@ await scene('w03-register', async () => {
   await r.click(tid('plan-choose-business'));
   await sleep(700);
   await beat('w03b-business');
-  await r.type(tid('register-business'), 'Crescent Trading Co', { delay: 45 });
+  await r.type(tid('register-business'), 'Pearl Coast Trading', { delay: 45 });
   await sleep(900);   // the workspace code fills itself in and is checked
   await r.spotlight(tid('register-code'), 1200);
   await beat('w03c-country');
   await pick('register-industry', 'Wholesale');
-  await pick('register-country', 'Pakistan');
-  await safely('currency', async () => { if (!(await tid('register-currency').innerText()).match(/[A-Z]{3}/)) await pick('register-currency', 'PKR'); });
+  await pick('register-country', 'Qatar');
+  await safely('currency', async () => { if (!(await tid('register-currency').innerText()).match(/[A-Z]{3}/)) await pick('register-currency', 'QAR'); });
   await beat('w03d-contact');
-  await r.type(tid('register-name'), 'Ayesha Khan', { delay: 35 });
+  await r.type(tid('register-name'), 'Mariam Al Kuwari', { delay: 35 });
   await r.type(tid('register-email'), newEmail, { delay: 8 });
-  await r.type(tid('register-phone'), '+92 300 1234567', { delay: 18 });
-  await r.type(tid('register-password'), 'Crescent#2026demo', { delay: 16 });
+  await r.type(tid('register-phone'), '+974 5512 3456', { delay: 18 });
+  await r.type(tid('register-password'), 'PearlCoast#2026', { delay: 16 });
   await r.click(tid('register-terms'), { pause: 100, ms: 450 });
   await r.click(tid('register-submit'));
   await sleep(2200);
@@ -151,15 +150,15 @@ await scene('w04-first-login', async () => {
   else await open('/auth/login');
   await sleep(600);
   await r.type(tid('login-email'), newEmail, { delay: 12 });
-  await r.type(tid('login-password'), 'Crescent#2026demo', { delay: 14 });
+  await r.type(tid('login-password'), 'PearlCoast#2026', { delay: 14 });
   await r.click(page.getByRole('button', { name: /^sign in$/i }).first());
   // The first sign-in to a brand-new workspace can take a while on a small server: hold the picture until the dashboard is there.
   r.freeze();
-  await page.getByText(/Welcome, Ayesha Khan/).first().waitFor({ timeout: 30000 }).catch(() => {});
+  await page.getByText(/Welcome, Mariam Al Kuwari/).first().waitFor({ timeout: 30000 }).catch(() => {});
   await settle(); await sleep(800);
   await r.unfreeze(300);
   await safely('new kpis', async () => { await r.spotlight(tid('kpi-grid'), 2000); });
-  await r.hover(page.getByText(/Welcome, Ayesha Khan/).first(), 700).catch(() => {});
+  await r.hover(page.getByText(/Welcome, Mariam Al Kuwari/).first(), 700).catch(() => {});
   await sleep(1500);
 });
 
@@ -167,12 +166,12 @@ const bridgeCard = { kick: 'A few months later', title: 'A workspace in <span>fu
 await scene('w05-bridge', async () => {
   await r.card(bridgeCard);
   await sleep(1600);
-  // Behind the (frozen) card: sign out and into the Demo workspace.
+  // Behind the (frozen) card: sign out and into the seeded workspace.
   r.freeze();
   await page.context().clearCookies();
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await open('/auth/login');
-  await quietSignIn('admin@demo.local', 'demo');
+  await quietSignIn('admin@alrayyan.qa', 'alrayyan');
   await r.card(bridgeCard);
   await r.unfreeze(1300);
 });

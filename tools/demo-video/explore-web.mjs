@@ -89,7 +89,7 @@ async function signIn(page, email, wsCode) {
   await page.waitForLoadState('networkidle').catch(() => {});
 }
 
-for (const [email, ws, tag] of [['admin@demo.local', 'demo', 'demo'], ['owner@demo.local', 'demo-re', 're']]) {
+for (const [email, ws, tag] of [['admin@alrayyan.qa', 'alrayyan', 'demo'], ['owner@alrayyan.qa', 'lusail', 're']]) {
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   const page = await ctx.newPage();
   watch(page);
