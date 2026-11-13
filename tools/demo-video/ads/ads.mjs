@@ -1,12 +1,12 @@
 // Renders the short social ads in ads.json: voice-over (Microsoft neural voice), footage clips cut from the recorded walkthroughs,
 // every frame of the animated stage (stage.html) captured in headless Chrome, sound effects, music, and the final mix.
 //   node ads/ads.mjs                 all ads
-//   node ads/ads.mjs <ad id> ...     only these
+//   node ads/ads.mjs <part of an ad id> ...   only the matching ads, e.g. Pocket or Square
 //   STILLS=1.2,5,9 node ads/ads.mjs  only still frames at these seconds (work/ads/stills), for checking layouts
 // Footage comes from WEB_SRC (default work/ci-web: raw-web.mp4 + web.marks.json) and MOBILE_SRC (default work/ci-mobile).
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { mkdir, readFile, writeFile, rm, rename, readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
@@ -89,7 +89,7 @@ for (const [name, c] of Object.entries(conf.clips)) {
       src = path.join(MOB, 'raw-mobile.mp4'); ss = m.t + c.offset; vf = `fps=${FPS},crop=426:946:300:66,scale=852:1892:flags=lanczos`; w = 852; h = 1892;
     }
   }
-  const stamp = `${src}|${ss}|${c.dur}|${vf}`;
+  const stamp = `${src}|${statSync(src).size}|${ss}|${c.dur}|${vf}`;
   const stampFile = path.join(dir, 'stamp.txt');
   if (!(existsSync(stampFile) && (await readFile(stampFile, 'utf8')) === stamp)) {
     await rm(dir, { recursive: true, force: true }); await mkdir(dir, { recursive: true });
@@ -135,8 +135,9 @@ async function openStage(ad) {
   return { page, info };
 }
 
-for (const ad of conf.ads) {
-  if (only.length && !only.includes(ad.id)) continue;
+const ads = conf.campaigns.flatMap((c) => (c.formats ?? Object.keys(conf.formats)).map((f) => ({ id: `HigherSquare360-Ad${c.id}-${f}`, cut: c.cut, ...conf.formats[f] })));
+for (const ad of ads) {
+  if (only.length && !only.some((o) => ad.id.includes(o))) continue;
   const { page, info } = await openStage(ad);
   if (stills) {
     const dir = path.join(WORK, 'stills'); await mkdir(dir, { recursive: true });
@@ -173,7 +174,7 @@ for (const ad of conf.ads) {
   for (const s of cuts[ad.cut]) {
     inputs.push('-i', s.voFile);
     const ms = Math.round((t + s.voAt) * 1000);
-    filters.push(`[${idx}:a]aresample=44100,aformat=channel_layouts=stereo,adelay=${ms}|${ms},volume=1.5[v${idx}]`); vo.push(`[v${idx}]`); idx++;
+    filters.push(`[${idx}:a]aresample=44100,aformat=channel_layouts=stereo,adelay=${ms}|${ms},volume=2.2[v${idx}]`); vo.push(`[v${idx}]`); idx++;
     t += s.dur;
   }
   for (const e of info.events) {

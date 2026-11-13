@@ -77,3 +77,84 @@ The spoken words are in [script.json](script.json). Each line below is one narra
 | HR on the go | Employees and payroll runs, opened through the app's search | HR travels with you too: look up any employee, and review each month's payroll run, right from your phone. |
 | Every module | Notifications, the More menu | Every module you use is one tap away, from real estate and projects to point of sale and manufacturing. |
 | Closing | Title card | HigherSquare 360. On the web, and in your pocket. |
+
+## Social ads
+
+Five ad ideas, each in 9:16 (Reels, Stories, TikTok, Shorts), 1:1 (feed) and 16:9 (YouTube, LinkedIn), plus a 15-second vertical bumper. Same voice, music and brand as the walkthroughs; every screen in them is the real product from the recordings. Files: `out/ads/HigherSquare360-Ad<idea>-<Vertical|Square|Landscape>.mp4`.
+
+### Ad 1: Spreadsheets
+
+Problem and solution: from spreadsheets to one system.
+
+| Scene | On screen | Voice-over |
+|---|---|---|
+| hook | Kinetic text: "Still running your business on spreadsheets?" | Still running your business on spreadsheets? |
+| brand | Logo builds itself; "One system for your whole business" | Meet HigherSquare 360. One system for your whole business. |
+| feature | Browser: "Invoices in seconds", Numbered, Posted to the ledger, Ready to email | Create and send invoices in seconds, |
+| feature | Browser: "Your business, live", key figures pop out | and see every number live, on one dashboard. |
+| trio | "All connected": Purchasing, Stock, Payroll side by side | Purchasing, stock and payroll, all connected. |
+| phone | Phone: "Approve from anywhere", notification "Approval request", "Approved" | Approve anything, right from your phone. |
+| feature | Browser: "English / العربية" | In English, or Arabic. |
+| cta | "Start your free trial", 14 days free · Ready in a minute, button "Get started" | Start your free fourteen-day trial today. |
+
+### Ad 2: Get Paid Faster
+
+Invoicing, automatic posting and receivables.
+
+| Scene | On screen | Voice-over |
+|---|---|---|
+| hook | Kinetic text: "Still chasing customers to get paid?" | Still chasing customers to get paid? |
+| feature | Browser: "An invoice in seconds" | Raise a professional invoice in seconds. |
+| feature | Browser: "Posted for you", Numbered, Posted to the ledger, Ready to print or email | Issue it, and it is numbered and posted to your books, automatically. |
+| feature | Browser: "Know who owes you" | Record every receipt, and see exactly who still owes you. |
+| phone | Phone: "Check it anywhere", notification "Invoice details" | And check any invoice from your phone. |
+| cta | "Start your free trial", 14 days free · Ready in a minute, button "Get started" | Get paid faster with HigherSquare 360. Start your free trial. |
+
+### Ad 3: In Your Pocket
+
+The phone app: overview, approvals, documents, modules.
+
+| Scene | On screen | Voice-over |
+|---|---|---|
+| hook | Kinetic text: "Away from your desk?" | Away from your desk? |
+| phone | Phone: "Live on your phone", notification "Live overview" | Your sales, cash and receivables are live on your phone. |
+| phone | Phone: "Approve in a tap", notification "Approval request", "Approved" | Approve requests with a tap, |
+| phone | Phone: "Find it in seconds" | look up any invoice or customer in seconds, |
+| phone | Phone: "One tap away" | and keep every module one tap away. |
+| cta | "Start your free trial", 14 days free · Ready in a minute, button "Get started" | HigherSquare 360, in your pocket. Start your free trial. |
+
+### Ad 4: Ready for Qatar
+
+Qatar sign-up, QAR, Arabic, the live dashboard.
+
+| Scene | On screen | Voice-over |
+|---|---|---|
+| hook | Kinetic text: "Running a business in Qatar?" | Running a business in Qatar? |
+| brand | Logo builds itself; "Ready for business in Qatar" | HigherSquare 360 is ready for you. |
+| feature | Browser: "Set up for Qatar", Qatari riyal (QAR), Chart of accounts, Ready in a minute | Sign up, choose Qatar, and your currency and chart of accounts are set up for you. |
+| feature | Browser: "English / العربية" | Work in English, or in Arabic, right to left. |
+| feature | Browser: "Every riyal, live", key figures pop out | And see every riyal live, on one dashboard. |
+| cta | "Start your free trial", 14 days free · Ready in a minute, button "Get started" | HigherSquare 360. Start your free trial today. |
+
+### Ad 5: Every Department
+
+All departments and industry modules in one system.
+
+| Scene | On screen | Voice-over |
+|---|---|---|
+| hook | Kinetic text: "Too many apps to run one business?" | Too many apps to run one business? |
+| brand | Logo builds itself; "Everything together, in one place" | HigherSquare 360 brings it all together. |
+| grid | "Every department, one system": Finance, Sales, Purchasing, Inventory, HR, Payroll tiles | Finance, sales, purchasing, inventory, HR and payroll, |
+| flash | Quick cuts: Real estate, Projects, Point of sale, CRM, Manufacturing | plus real estate, projects, point of sale, CRM and manufacturing. |
+| cta | "Start your free trial", 14 days free · Ready in a minute, button "Get started" | Switch on just what you need. Start your free trial. |
+
+### Ad 6: Bumper 15s
+
+A 15-second reminder.
+
+| Scene | On screen | Voice-over |
+|---|---|---|
+| brand | Logo builds itself; "Your whole business, in one place" | Your whole business, in one place. |
+| flash | Quick cuts: Invoices, Stock, Payroll, Approvals | Invoices, stock, payroll, approvals, |
+| phone | Phone: "In your pocket", notification "Live overview" | on the web, and on your phone. |
+| cta | "Start your free trial", 14 days free · Ready in a minute, button "Get started" | HigherSquare 360. Start your free trial. |

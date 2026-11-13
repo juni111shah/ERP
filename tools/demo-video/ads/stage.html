@@ -63,6 +63,9 @@
   #flashw { position: absolute; inset: 0; background: #fff; display: none; }
   .sheet { position: absolute; left: 50%; top: 50%; transform-style: preserve-3d; }
   .cell { position: absolute; border: 1px solid rgba(160,220,200,.22); color: rgba(200,240,225,.35); font: 500 1.6vmin 'Inter', monospace; display: flex; align-items: center; padding-left: .8vmin; overflow: hidden; white-space: nowrap; }
+  .tile { position: absolute; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1.6vmin; border-radius: 3vmin; background: linear-gradient(160deg, rgba(24,58,66,.95), rgba(14,36,42,.95)); border: 1px solid rgba(127,224,168,.25); font-weight: 800; }
+  .tile .ic { width: 9vmin; height: 9vmin; border-radius: 2.4vmin; background: linear-gradient(135deg, #5DBE8A, #2A8A93); display: grid; place-items: center; box-shadow: 0 1.2vmin 3vmin rgba(42,138,147,.45); }
+  .tile .ic svg { width: 58%; height: 58%; }
   .word { position: absolute; left: 0; right: 0; text-align: center; font-weight: 900; letter-spacing: -.03em; text-shadow: 0 1vmin 3vmin rgba(0,0,0,.55); }
 </style>
 </head>

@@ -80,3 +80,26 @@ To start clean, drop the database: `sqlcmd -S .\SQLEXPRESS -E -Q "DROP DATABASE 
 - `explore-web.mjs` / `explore-mobile.mjs` save a screenshot and control list of every screen, to write or fix the recording scripts.
 
 Everything generated lives in `work/` and `out/`, which are not committed.
+
+## Social ads
+
+Five short ad ideas, cut from the same recordings, for paid social: kinetic headlines, the product in 3D browser and phone frames with camera moves, pop-out callouts, a module grid, quick-cut montages, swipe and circle transitions, sound effects, a punchier music mix (the voice ducks the music) and their own voice-over. Each idea comes in three sizes, plus a 15-second bumper. The scripts are in [STORYBOARD.md](STORYBOARD.md#social-ads).
+
+| Idea | Hook | Length |
+|---|---|---|
+| 1 Spreadsheets | Still running your business on spreadsheets? | 29 s |
+| 2 Get Paid Faster | Still chasing customers to get paid? | 24 s |
+| 3 In Your Pocket | Away from your desk? | 22 s |
+| 4 Ready for Qatar | Running a business in Qatar? | 23 s |
+| 5 Every Department | Too many apps to run one business? | 21 s |
+| 6 Bumper (vertical only) | Your whole business, in one place | 14 s |
+
+Sizes (`out/ads/HigherSquare360-Ad<idea>-<size>.mp4`): `Vertical` 1080x1920 for Reels, Stories, TikTok and YouTube Shorts; `Square` 1080x1080 for the Facebook and Instagram feed and LinkedIn; `Landscape` 1920x1080 for YouTube, LinkedIn and the website.
+
+Everything is in [ads/](ads): the scenes, words and footage moments in [ads.json](ads/ads.json), the animation in [stage.js](ads/stage.js) (every element is a pure function of time, so each frame is captured exactly in headless Chrome), and the pipeline in [ads.mjs](ads/ads.mjs). After fetching the CI output (see above, both `work/ci-web` and `work/ci-mobile`):
+
+```bash
+cd tools/demo-video && node ads/ads.mjs
+```
+
+`node ads/ads.mjs Pocket` renders the ads whose name contains "Pocket" (`Square` renders every square one); `STILLS=2,9.5 node ads/ads.mjs` writes still frames to `work/ads/stills` for checking a layout. Each ad renders in about a minute. Audio is normalised to -14 LUFS, the level Facebook, Instagram and YouTube play at. On Reels and Stories the platform's own buttons cover roughly the bottom fifth of the picture, so the vertical layouts keep their text above it.

@@ -4,7 +4,7 @@
   "music": {
     "file": "assets/music.mp3",
     "start": 33,
-    "volume": 0.42
+    "volume": 0.3
   },
   "clips": {
     "invoice": {
@@ -16,7 +16,7 @@
     "issued": {
       "src": "web",
       "mark": "w07d-issue",
-      "offset": 2.5,
+      "offset": 3.5,
       "dur": 5
     },
     "dashboard": {
@@ -47,25 +47,89 @@
       "src": "web",
       "mark": "w14d-arabic",
       "offset": 8.5,
-      "dur": 7
+      "dur": 4.5
     },
     "m-overview": {
       "src": "mobile",
       "scene": "m03-overview",
       "offset": 1.5,
-      "dur": 9
+      "dur": 10,
+      "recOffset": 3
     },
     "m-approvals": {
       "src": "mobile",
       "scene": "m05-approvals",
       "offset": 6,
-      "dur": 7
+      "dur": 6.5,
+      "recOffset": 14
     },
     "grn": {
       "src": "web",
       "mark": "w09c-receive",
+      "offset": 5,
+      "dur": 5
+    },
+    "register": {
+      "src": "web",
+      "mark": "w03b-business",
+      "offset": 0.3,
+      "dur": 15
+    },
+    "receipts": {
+      "src": "web",
+      "mark": "w08-receivables",
       "offset": 1.5,
       "dur": 6
+    },
+    "customer": {
+      "src": "web",
+      "mark": "w08b-customer",
+      "offset": 5.5,
+      "dur": 6
+    },
+    "realestate": {
+      "src": "web",
+      "mark": "w13b-realestate",
+      "offset": 1.5,
+      "dur": 6
+    },
+    "projects": {
+      "src": "web",
+      "mark": "w13c-projects",
+      "offset": 5,
+      "dur": 4
+    },
+    "pos": {
+      "src": "web",
+      "mark": "w13d-pos",
+      "offset": 5.5,
+      "dur": 3.5
+    },
+    "crm": {
+      "src": "web",
+      "mark": "w13e-crm",
+      "offset": 5,
+      "dur": 3.5
+    },
+    "mfg": {
+      "src": "web",
+      "mark": "w13f-manufacturing",
+      "offset": 5.5,
+      "dur": 4
+    },
+    "m-invoice": {
+      "src": "mobile",
+      "scene": "m04-documents",
+      "offset": 3,
+      "dur": 7,
+      "recOffset": 7.8
+    },
+    "m-more": {
+      "src": "mobile",
+      "scene": "m07-more",
+      "offset": 4,
+      "dur": 12,
+      "recOffset": 9.5
     }
   },
   "cuts": {
@@ -332,36 +396,497 @@
         "sub": "14 days free · Ready in a minute",
         "button": "Get started"
       }
+    ],
+    "paid": [
+      {
+        "type": "hook",
+        "vo": "Still chasing customers to get paid?",
+        "min": 3,
+        "lines": [
+          "Still chasing",
+          "customers to",
+          "*get paid?*"
+        ],
+        "sheet": false,
+        "strike": false
+      },
+      {
+        "type": "feature",
+        "vo": "Raise a professional invoice in seconds.",
+        "min": 3.4,
+        "in": "zoom",
+        "kicker": "Invoicing",
+        "title": "An invoice in *seconds*",
+        "clip": "invoice",
+        "speed": 5.5,
+        "from": [
+          0.76,
+          0.3,
+          1.9
+        ],
+        "to": [
+          0.79,
+          0.36,
+          2.25
+        ],
+        "fromV": [
+          0.775,
+          0.3,
+          1.65
+        ],
+        "toV": [
+          0.78,
+          0.36,
+          1.8
+        ]
+      },
+      {
+        "type": "feature",
+        "vo": "Issue it, and it is numbered and posted to your books, automatically.",
+        "min": 4,
+        "in": "wipe",
+        "kicker": "Automatic",
+        "title": "Posted *for you*",
+        "clip": "issued",
+        "speed": 1,
+        "from": [
+          0.55,
+          0.3,
+          1.3
+        ],
+        "to": [
+          0.55,
+          0.33,
+          1.55
+        ],
+        "chips": [
+          [
+            1,
+            "Numbered"
+          ],
+          [
+            1.6,
+            "Posted to the ledger"
+          ],
+          [
+            2.2,
+            "Ready to print or email"
+          ]
+        ]
+      },
+      {
+        "type": "feature",
+        "vo": "Record every receipt, and see exactly who still owes you.",
+        "min": 3.6,
+        "in": "rise",
+        "kicker": "Receivables",
+        "title": "Know who *owes you*",
+        "clip": "customer",
+        "speed": 1.3,
+        "from": [
+          0.55,
+          0.3,
+          1.45
+        ],
+        "to": [
+          0.58,
+          0.33,
+          1.6
+        ]
+      },
+      {
+        "type": "phone",
+        "vo": "And check any invoice from your phone.",
+        "min": 3.2,
+        "in": "circle",
+        "kicker": "Mobile app",
+        "title": "Check it *anywhere*",
+        "clip": "m-invoice",
+        "speed": 1,
+        "note": {
+          "at": 0.7,
+          "head": "Invoice details",
+          "body": "Status, lines and what is still owed"
+        }
+      },
+      {
+        "type": "cta",
+        "vo": "Get paid faster with HigherSquare 360. Start your free trial.",
+        "min": 3.8,
+        "in": "zoom",
+        "title": "Start your *free trial*",
+        "sub": "14 days free · Ready in a minute",
+        "button": "Get started"
+      }
+    ],
+    "pocket": [
+      {
+        "type": "hook",
+        "vo": "Away from your desk?",
+        "min": 2.4,
+        "lines": [
+          "Away from",
+          "your *desk?*"
+        ],
+        "sheet": false,
+        "strike": false
+      },
+      {
+        "type": "phone",
+        "vo": "Your sales, cash and receivables are live on your phone.",
+        "min": 3.8,
+        "in": "zoom",
+        "kicker": "Overview",
+        "title": "Live on your *phone*",
+        "clip": "m-overview",
+        "speed": 1.4,
+        "note": {
+          "at": 0.8,
+          "head": "Live overview",
+          "body": "Sales, cash and receivables"
+        }
+      },
+      {
+        "type": "phone",
+        "vo": "Approve requests with a tap,",
+        "min": 3.2,
+        "in": "circle",
+        "kicker": "Approvals",
+        "title": "Approve in a *tap*",
+        "clip": "m-approvals",
+        "speed": 1.2,
+        "note": {
+          "at": 0.5,
+          "head": "Approval request",
+          "body": "Annual software licence renewal"
+        },
+        "done": {
+          "at": 1.7,
+          "text": "Approved"
+        }
+      },
+      {
+        "type": "phone",
+        "vo": "look up any invoice or customer in seconds,",
+        "min": 3.2,
+        "in": "wipe",
+        "kicker": "Documents",
+        "title": "Find it in *seconds*",
+        "clip": "m-invoice",
+        "speed": 1
+      },
+      {
+        "type": "phone",
+        "vo": "and keep every module one tap away.",
+        "min": 3,
+        "in": "rise",
+        "kicker": "Every module",
+        "title": "One tap *away*",
+        "clip": "m-more",
+        "speed": 1.1
+      },
+      {
+        "type": "cta",
+        "vo": "HigherSquare 360, in your pocket. Start your free trial.",
+        "min": 3.8,
+        "in": "zoom",
+        "title": "Start your *free trial*",
+        "sub": "14 days free · Ready in a minute",
+        "button": "Get started"
+      }
+    ],
+    "qatar": [
+      {
+        "type": "hook",
+        "vo": "Running a business in Qatar?",
+        "min": 2.8,
+        "lines": [
+          "Running a business",
+          "in *Qatar?*"
+        ],
+        "sheet": false,
+        "strike": false
+      },
+      {
+        "type": "brand",
+        "vo": "HigherSquare 360 is ready for you.",
+        "min": 3.4,
+        "in": "zoom",
+        "fast": true,
+        "tagline": "Ready for business in Qatar"
+      },
+      {
+        "type": "feature",
+        "vo": "Sign up, choose Qatar, and your currency and chart of accounts are set up for you.",
+        "min": 4.6,
+        "in": "rise",
+        "kicker": "Sign up",
+        "title": "Set up for *Qatar*",
+        "clip": "register",
+        "speed": 3.2,
+        "from": [
+          0.5,
+          0.35,
+          1.25
+        ],
+        "to": [
+          0.5,
+          0.42,
+          1.45
+        ],
+        "chips": [
+          [
+            1.4,
+            "Qatari riyal (QAR)"
+          ],
+          [
+            2,
+            "Chart of accounts"
+          ],
+          [
+            2.6,
+            "Ready in a minute"
+          ]
+        ]
+      },
+      {
+        "type": "feature",
+        "vo": "Work in English, or in Arabic, right to left.",
+        "min": 3.2,
+        "in": "wipe",
+        "kicker": "Bilingual",
+        "title": "English",
+        "alt": "العربية",
+        "altAt": 1.1,
+        "clip": "arabic",
+        "speed": 1,
+        "from": [
+          0.55,
+          0.42,
+          1.15
+        ],
+        "to": [
+          0.6,
+          0.4,
+          1.35
+        ]
+      },
+      {
+        "type": "feature",
+        "vo": "And see every riyal live, on one dashboard.",
+        "min": 3.4,
+        "in": "rise",
+        "kicker": "Dashboard",
+        "title": "Every riyal, *live*",
+        "clip": "dashboard",
+        "speed": 1.6,
+        "from": [
+          0.56,
+          0.42,
+          1.12
+        ],
+        "to": [
+          0.58,
+          0.36,
+          1.35
+        ],
+        "pop": {
+          "at": 1,
+          "rect": [
+            0.148,
+            0.212,
+            0.835,
+            0.105
+          ],
+          "rectV": [
+            0.567,
+            0.212,
+            0.415,
+            0.105
+          ]
+        }
+      },
+      {
+        "type": "cta",
+        "vo": "HigherSquare 360. Start your free trial today.",
+        "min": 3.8,
+        "in": "zoom",
+        "title": "Start your *free trial*",
+        "sub": "14 days free · Ready in a minute",
+        "button": "Get started"
+      }
+    ],
+    "modules": [
+      {
+        "type": "hook",
+        "vo": "Too many apps to run one business?",
+        "min": 3,
+        "lines": [
+          "Too many apps",
+          "to run",
+          "*one business?*"
+        ]
+      },
+      {
+        "type": "brand",
+        "vo": "HigherSquare 360 brings it all together.",
+        "min": 3.4,
+        "in": "zoom",
+        "fast": true,
+        "tagline": "Everything together, in one place"
+      },
+      {
+        "type": "grid",
+        "vo": "Finance, sales, purchasing, inventory, HR and payroll,",
+        "min": 4,
+        "in": "rise",
+        "title": "Every department, *one system*",
+        "tiles": [
+          [
+            "Finance",
+            "coin"
+          ],
+          [
+            "Sales",
+            "trend"
+          ],
+          [
+            "Purchasing",
+            "cart"
+          ],
+          [
+            "Inventory",
+            "box"
+          ],
+          [
+            "HR",
+            "people"
+          ],
+          [
+            "Payroll",
+            "wallet"
+          ]
+        ]
+      },
+      {
+        "type": "flash",
+        "vo": "plus real estate, projects, point of sale, CRM and manufacturing.",
+        "min": 4.2,
+        "in": "zoom",
+        "beats": [
+          {
+            "word": "Real estate",
+            "clip": "realestate",
+            "speed": 1.5,
+            "focus": [
+              0.55,
+              0.42,
+              1.35
+            ]
+          },
+          {
+            "word": "Projects",
+            "clip": "projects",
+            "speed": 1.5,
+            "focus": [
+              0.55,
+              0.45,
+              1.25
+            ]
+          },
+          {
+            "word": "Point of sale",
+            "clip": "pos",
+            "speed": 1.5,
+            "focus": [
+              0.55,
+              0.45,
+              1.2
+            ]
+          },
+          {
+            "word": "CRM",
+            "clip": "crm",
+            "speed": 1.5,
+            "focus": [
+              0.55,
+              0.45,
+              1.25
+            ]
+          },
+          {
+            "word": "Manufacturing",
+            "clip": "mfg",
+            "speed": 1.5,
+            "focus": [
+              0.55,
+              0.42,
+              1.35
+            ]
+          }
+        ]
+      },
+      {
+        "type": "cta",
+        "vo": "Switch on just what you need. Start your free trial.",
+        "min": 3.8,
+        "in": "zoom",
+        "title": "Start your *free trial*",
+        "sub": "14 days free · Ready in a minute",
+        "button": "Get started"
+      }
     ]
   },
-  "ads": [
+  "campaigns": [
     {
-      "id": "HigherSquare360-Ad-30s-Vertical",
+      "id": "1-Spreadsheets",
       "cut": "main",
+      "idea": "Problem and solution: from spreadsheets to one system"
+    },
+    {
+      "id": "2-Get-Paid-Faster",
+      "cut": "paid",
+      "idea": "Invoicing, automatic posting and receivables"
+    },
+    {
+      "id": "3-In-Your-Pocket",
+      "cut": "pocket",
+      "idea": "The phone app: overview, approvals, documents, modules"
+    },
+    {
+      "id": "4-Ready-for-Qatar",
+      "cut": "qatar",
+      "idea": "Qatar sign-up, QAR, Arabic, the live dashboard"
+    },
+    {
+      "id": "5-Every-Department",
+      "cut": "modules",
+      "idea": "All departments and industry modules in one system"
+    },
+    {
+      "id": "6-Bumper-15s",
+      "cut": "short",
+      "idea": "A 15-second reminder",
+      "formats": [
+        "Vertical"
+      ]
+    }
+  ],
+  "formats": {
+    "Vertical": {
       "w": 1080,
       "h": 1920,
       "use": "Reels, Stories, TikTok, YouTube Shorts"
     },
-    {
-      "id": "HigherSquare360-Ad-30s-Square",
-      "cut": "main",
+    "Square": {
       "w": 1080,
       "h": 1080,
       "use": "Facebook and Instagram feed, LinkedIn"
     },
-    {
-      "id": "HigherSquare360-Ad-30s-Landscape",
-      "cut": "main",
+    "Landscape": {
       "w": 1920,
       "h": 1080,
       "use": "YouTube, LinkedIn, website"
-    },
-    {
-      "id": "HigherSquare360-Ad-15s-Vertical",
-      "cut": "short",
-      "w": 1080,
-      "h": 1920,
-      "use": "Reels and Stories bumper"
     }
-  ]
+  }
 }

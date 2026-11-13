@@ -49,13 +49,13 @@
     const pd = eBack(s(0.12, 0.5));
     disc.setAttribute('transform', `translate(50 50) scale(${pd}) translate(-50 -50)`);
     const pr = eInOut(s(0.25, 0.95));
-    for (const a of svg.querySelectorAll('.m-a1, .m-a2')) { a.style.strokeDasharray = '1 1'; a.style.strokeDashoffset = 1 - pr; a.style.opacity = pr > 0 ? 1 : 0; }
+    for (const a of svg.querySelectorAll('.m-a1, .m-a2')) { a.style.strokeDasharray = '1 1'; a.style.strokeDashoffset = 1 - pr; a.style.opacity = clamp(pr * 12); }
     svg.querySelectorAll('.m-b').forEach((b, i) => {
       const p = eBack(s(0.5 + i * 0.08, 0.85 + i * 0.08));
       b.setAttribute('transform', `translate(0 90) scale(1 ${p}) translate(0 -90)`);
     });
     const pl = eInOut(s(0.85, 1.3));
-    const line = svg.querySelector('.m-line'); line.style.strokeDasharray = '1 1'; line.style.strokeDashoffset = 1 - pl; line.style.opacity = pl > 0 ? 1 : 0;
+    const line = svg.querySelector('.m-line'); line.style.strokeDasharray = '1 1'; line.style.strokeDashoffset = 1 - pl; line.style.opacity = clamp(pl * 12);
     svg.querySelectorAll('.m-d').forEach((d, i) => {
       const p = eBack(s(0.85 + i * 0.1, 1.1 + i * 0.1));
       const cx = d.getAttribute('cx'), cy = d.getAttribute('cy');
@@ -128,6 +128,7 @@
   const builders = {
     hook(s, box) {
       const sheet = el('div', 'sheet', box);
+      if (s.sheet === false) sheet.style.display = 'none';
       const cw = U * 16, ch = U * 5.2, cols = 9, rows = 22;
       const junk = ['=SUM(B2:B9)', '#REF!', '1,250.00', '??', '=VLOOKUP(', '#N/A', 'Q3 final v7', 'TOTAL', '3,420', '=B4*1.05', 'stock?', '#DIV/0!', 'invoice_old', '12/11', 'CHECK'];
       s.cells = [];
@@ -142,11 +143,12 @@
       const txt = el('div', 'title', box);
       css(txt, { left: 0, right: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', fontSize: U * pick(10.5, 9.4, 8.4), lineHeight: 1.08, position: 'absolute' });
       s.ws = [];
-      for (const line of s.lines) { const l = el('div', '', txt); s.ws.push(...words(l, line, 'bad')); }
+      const good = s.strike === false;
+      for (const line of s.lines) { const l = el('div', '', txt); s.ws.push(...words(l, line, good ? 'hl' : 'bad')); }
       s.bad = s.ws.find((w) => w.classList.contains('bad'));
-      if (s.bad) { s.strike = el('span', 'strike', s.bad); }
+      if (s.bad) { s.strike = el('span', 'strike', s.bad); ev(s.start + 1.75, 'scratch'); }
       ev(s.start + 0.05, 'whoosh');
-      ev(s.start + 1.75, 'scratch');
+      if (s.sheet === false) { s.ringsH = [0, 1, 2].map(() => { const r = el('div', 'ring', box); const d = U * 60; css(r, { width: d, height: d, left: W / 2 - d / 2, top: H / 2 - d / 2 }); box.insertBefore(r, box.firstChild); return r; }); }
     },
     brand(s, box) {
       const k = s.fast ? 0.7 : 1; s.k = k;
@@ -233,6 +235,7 @@
       s.cw = cw; s.ch = ch;
     },
     phone(s, box) {
+      s.flip = scenes.filter((x) => x.type === 'phone').indexOf(s) % 2 === 1 ? -1 : 1;
       const pw = pick(W * 0.5, W * 0.33, W * 0.19);
       const bez = U * 1.5;
       const c = cfg.clips[s.clip];
@@ -284,15 +287,31 @@
           const scr = el('div', 'screen', p); css(scr, { left: bez, top: bez, width: sw, height: sh });
           img = footage(scr, b.clip); frame = { el: p, bw: sw, bh: sh };
         } else {
-          const dev = browser(g, W * pick(0.9, 0.86, 0.7), A === 'v' ? 4 / 3 : 16 / 9);
-          css(dev.d, { left: (W - dev.w) / 2, top: pick(H * 0.3, H * 0.34, H * 0.26) });
+          const dev = browser(g, W * pick(0.9, 0.84, 0.64), A === 'v' ? 4 / 3 : 16 / 9);
+          css(dev.d, { left: (W - dev.w) / 2, top: pick(H * 0.3, H * 0.33, H * 0.24) });
           img = footage(dev.scr, b.clip); frame = { el: dev.d, bw: dev.w, bh: dev.h };
         }
-        const word = el('div', 'word', g, b.word); css(word, { top: pick(H * 0.14, H * 0.08, H * 0.04), fontSize: U * pick(15, 12, 10.5) });
+        const word = el('div', 'word', g, b.word); css(word, { top: pick(H * 0.14, H * 0.08, H * 0.04), fontSize: Math.min(U * pick(15, 12, 10.5), (W * 0.9) / (b.word.length * 0.6)) });
         if (i > 0) ev(s.start + s.enter + i * bl, 'hit');
         return { g, img, frame, word, b, i };
       });
       ev(s.start + s.enter, 'hit');
+    },
+    grid(s, box) {
+      const ICONS = {"coin":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M15 9.5c-.6-1-1.7-1.5-3-1.5-1.7 0-3 .9-3 2.2 0 2.9 6 1.5 6 4.4 0 1.3-1.3 2.4-3 2.4-1.4 0-2.6-.6-3.1-1.6M12 6v2M12 16.5v1.5\"/>","trend":"<path d=\"M3 17l6-6 4 4 8-8\"/><path d=\"M15 7h6v6\"/>","cart":"<circle cx=\"9\" cy=\"20\" r=\"1.5\"/><circle cx=\"18\" cy=\"20\" r=\"1.5\"/><path d=\"M2 3h3l2.5 12h11L21 7H6\"/>","box":"<path d=\"M12 2l9 5v10l-9 5-9-5V7z\"/><path d=\"M3 7l9 5 9-5M12 12v10\"/>","people":"<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5\"/><circle cx=\"17\" cy=\"9\" r=\"2.5\"/><path d=\"M16 14.6c2.6.2 4.6 2 5.3 4.9\"/>","wallet":"<rect x=\"3\" y=\"6\" width=\"18\" height=\"13\" rx=\"2.5\"/><path d=\"M3 10h18M16.5 14.5h1.5\"/>"};
+      const title = el('div', 'title', box); css(title, { position: 'absolute', left: U * 5, right: U * 5, top: pick(H * 0.115, H * 0.08, H * 0.1), textAlign: 'center', fontSize: U * pick(9, 7.2, 6.4) });
+      s.ws = words(title, s.title);
+      const n = s.tiles.length, cols = A === 'v' ? 2 : 3, rows = Math.ceil(n / cols);
+      const gap = U * pick(4, 3.4, 2.8);
+      const tw = pick((W - U * 12 - gap) / 2, (W - U * 14 - gap * 2) / 3, W * 0.2), th = tw * pick(0.62, 0.66, 0.55);
+      const gx = (W - (cols * tw + (cols - 1) * gap)) / 2, gy = pick(H * 0.3, H * 0.36, H * 0.38);
+      s.tileEls = s.tiles.map(([label, icon], i) => {
+        const t = el('div', 'tile', box, `<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[icon] || ''}</svg></span><b>${label}</b>`);
+        const x = gx + (i % cols) * (tw + gap), y = gy + Math.floor(i / cols) * (th + gap);
+        css(t, { left: x, top: y, width: tw, height: th, fontSize: U * pick(4.6, 3.6, 2.9) });
+        ev(s.start + s.enter + 0.3 + i * 0.5, 'pop');
+        return { t, i };
+      });
     },
     cta(s, box) {
       const size = U * pick(26, 20, 19);
@@ -335,6 +354,7 @@
         cell.style.opacity = 1 - p;
       }
       poseWords(s.ws, lt, 0.1, 0.11, 0.55);
+      if (s.ringsH) s.ringsH.forEach((r, i) => { const p = ((lt * 0.45 + i / 3) % 1); r.style.transform = `scale(${lerp(0.3, 2.2, p)})`; r.style.opacity = (1 - p) * 0.35 * seg(lt, 0, 0.5); });
       if (s.strike) {
         const p = eOut(seg(lt, 1.7, 2.05));
         s.strike.style.width = p * 104 + '%';
@@ -436,7 +456,7 @@
     phone(s, lt) {
       const p = eOut(seg(lt, 0, 1.0));
       const fl = Math.sin(lt * 1.1) * U * 0.8;
-      s.phoneEl.style.transform = `perspective(${U * 200}px) translateY(${(1 - p) * U * 45 + fl}px) rotateY(${lerp(-30, -7, p) + Math.sin(lt * 0.8) * 2}deg) rotateX(${lerp(18, 4, p)}deg) rotateZ(${lerp(8, 2, p)}deg)`;
+      s.phoneEl.style.transform = `perspective(${U * 200}px) translateY(${(1 - p) * U * 45 + fl}px) rotateY(${(lerp(-30, -7, p) + Math.sin(lt * 0.8) * 2) * s.flip}deg) rotateX(${lerp(18, 4, p)}deg) rotateZ(${lerp(8, 2, p) * s.flip}deg)`;
       s.phoneEl.style.opacity = seg(lt, 0, 0.3);
       const c = cfg.clips[s.clip];
       poseFootage(s.img, Math.max(0, lt - 0.1) * s.speed, [0.5, 0.5, 1], s.sw, s.sh);
@@ -476,6 +496,17 @@
         poseFootage(it.img, l * it.b.speed, it.b.phone ? [0.5, 0.5, 1] : [f[0], f[1], f[2] * (1 + l * 0.05)], it.frame.bw, it.frame.bh);
         const q = eBack(seg(l, 0.02, 0.32));
         it.word.style.transform = `scale(${lerp(1.6, 1, q)})`; it.word.style.opacity = seg(l, 0, 0.1);
+      }
+    },
+    grid(s, lt) {
+      poseWords(s.ws, lt, 0.05);
+      for (const { t, i } of s.tileEls) {
+        const a = 0.3 + i * 0.5, p = eBack(seg(lt, a, a + 0.55));
+        t.style.transform = `perspective(${U * 150}px) rotateX(${(1 - p) * 70}deg) scale(${lerp(0.5, 1, p)}) translateY(${Math.sin(lt * 1.4 + i) * U * 0.4}px)`;
+        t.style.opacity = seg(lt, a, a + 0.2);
+        const g = seg(lt, a, a + 1.2);
+        t.style.borderColor = `rgba(127,224,168,${0.25 + 0.65 * (1 - g) * (g > 0 ? 1 : 0)})`;
+        t.style.boxShadow = `0 2vmin 5vmin rgba(0,0,0,.35), 0 0 ${U * 5 * (1 - g) * (g > 0 ? 1 : 0)}px rgba(127,224,168,.6)`;
       }
     },
     cta(s, lt) {
@@ -568,7 +599,7 @@
         const nin = next.in || 'cut';
         if (nin === 'wipe' || nin === 'circle') { if (t >= next.start + T / 2) visible = false; }
         else if (nin === 'cut') { if (t >= next.start) visible = false; }
-        else { exitP = seg(t, next.start, next.start + T); if (exitP >= 1) visible = false; }
+        else { exitP = seg(t, next.start, next.start + T * 0.7); if (exitP >= 1) visible = false; }
       }
       if (i === scenes.length - 1 && t > cfg.total) visible = true;
       s.box.style.display = visible ? 'block' : 'none';
@@ -581,7 +612,7 @@
       if (s.in === 'zoom' && i > 0) { const e = eOut(seg(t, s.start + 0.1, s.start + T)); tf += `scale(${lerp(1.3, 1, e)}) `; op *= e; fl = e < 1 ? `blur(${(1 - e) * 16}px)` : ''; }
       // exit
       if (exitP > 0) {
-        const e = eIn(exitP);
+        const e = eOut(exitP);
         if (next.in === 'rise') { tf += `translateY(${-e * H * 0.22}px) scale(${1 - e * 0.06}) `; op *= 1 - e; }
         else { tf += `scale(${1 + e * 0.12}) `; op *= 1 - e; fl = `blur(${e * 14}px)`; }
       }
@@ -605,7 +636,8 @@
     }
     // corner lockup
     const b = scenes.find((s) => s.type === 'brand'), c = scenes.find((s) => s.type === 'cta');
-    const cOn = b && c ? seg(t, b.start + b.dur + 0.2, b.start + b.dur + 0.6) * (1 - seg(t, c.start, c.start + 0.3)) : 0;
+    const from = b ? b.start + b.dur + 0.2 : scenes[1] ? scenes[1].start + 0.3 : 1e9;
+    const cOn = c ? seg(t, from, from + 0.4) * (1 - seg(t, c.start, c.start + 0.3)) : 0;
     corner.style.opacity = cOn; corner.style.transform = `translateY(${(1 - cOn) * -U * 2}px)`;
     await Promise.all(pending);
     return true;
