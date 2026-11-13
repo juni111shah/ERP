@@ -14,7 +14,8 @@ const settings = {
 const music = process.env.MUSIC ?? here('assets/music.mp3');
 const VO_LEAD = 0.6;   // seconds between a scene starting on screen and its voice-over starting
 
-if (!existsSync(music)) throw new Error(`Music file missing: ${music} (see README.md)`);
+const hasMusic = existsSync(music);
+if (!hasMusic) console.warn(`No music file at ${music}; building with voice only (see README.md).`);
 mkdirSync(here('out'), { recursive: true });
 mkdirSync(here('work/build'), { recursive: true });
 
@@ -32,7 +33,7 @@ const assFile = here(`work/build/${which}.ass`);
 writeFileSync(assFile, buildAss(placed.map((p) => ({ start: p.start, duration: p.duration, text: p.vo })), settings.caption));
 
 // Inputs: 0 video, 1 music (looped), 2.. voice clips.
-const args = ['-i', here(settings.video), '-stream_loop', '-1', '-i', music];
+const args = ['-i', here(settings.video), ...(hasMusic ? ['-stream_loop', '-1', '-i', music] : ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo'])];
 placed.forEach((p) => args.push('-i', here(`work/voice/${p.id}.mp3`)));
 const fadeOut = Math.max(0, duration - 1.2);
 const voiceChains = placed.map((p, i) => `[${i + 2}:a]aresample=48000,aformat=channel_layouts=stereo,volume=1.35,adelay=${Math.round(p.start * 1000)}|${Math.round(p.start * 1000)}[v${i}]`);
@@ -49,7 +50,7 @@ const filter = [
   `[ducked][voiceA]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`,
 ].join(';');
 args.push('-filter_complex', filter, '-map', '[vout]', '-map', '[aout]', '-t', duration.toFixed(2),
-  '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
+  '-c:v', 'libx264', '-preset', 'slow', '-crf', '19', '-maxrate', '3M', '-bufsize', '6M', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
   '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', here(settings.out));
 console.log(`Building ${settings.out} (${duration.toFixed(1)} s, ${placed.length} voice clips)...`);
 await run(args);
