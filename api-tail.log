@@ -1,0 +1,400 @@
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+[22:28:13 ERR] An unhandled exception has occurred while executing the request.
+ERP.Domain.Common.DomainException: Approvers can never approve their own requests.
+   at ERP.Domain.Platform.ApprovalRequest.Decide(Guid deciderId, Boolean approve, String comment, DateTime now) in /home/runner/work/ERP/ERP/backend/src/ERP.Domain/Platform/Platform.cs:line 119
+   at ERP.Application.Workflow.ApprovalService.DecideAsync(Guid requestId, Boolean approve, String comment, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/WorkflowServices.cs:line 65
+   at ERP.Application.Workflow.DecideApprovalHandler.Handle(DecideApprovalCommand command, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/Approvals/Commands/DecideApproval/DecideApprovalHandler.cs:line 9
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Common/ConcurrencyRetry.cs:line 30
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Behaviors/Behaviors.cs:line 15
+   at lambda_method32304(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 44
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.StatusCodePagesMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[22:28:13 ERR] HTTP POST /api/v1/approvals/2908b03e-3610-4d22-9b9b-b66b18136d68/reject responded 500 in 5.8976 ms
+ERP.Domain.Common.DomainException: Approvers can never approve their own requests.
+   at ERP.Domain.Platform.ApprovalRequest.Decide(Guid deciderId, Boolean approve, String comment, DateTime now) in /home/runner/work/ERP/ERP/backend/src/ERP.Domain/Platform/Platform.cs:line 119
+   at ERP.Application.Workflow.ApprovalService.DecideAsync(Guid requestId, Boolean approve, String comment, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/WorkflowServices.cs:line 65
+   at ERP.Application.Workflow.DecideApprovalHandler.Handle(DecideApprovalCommand command, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/Approvals/Commands/DecideApproval/DecideApprovalHandler.cs:line 9
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Common/ConcurrencyRetry.cs:line 30
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Behaviors/Behaviors.cs:line 15
+   at lambda_method32361(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 44
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+[22:28:13 ERR] An unhandled exception has occurred while executing the request.
+ERP.Domain.Common.DomainException: Approvers can never approve their own requests.
+   at ERP.Domain.Platform.ApprovalRequest.Decide(Guid deciderId, Boolean approve, String comment, DateTime now) in /home/runner/work/ERP/ERP/backend/src/ERP.Domain/Platform/Platform.cs:line 119
+   at ERP.Application.Workflow.ApprovalService.DecideAsync(Guid requestId, Boolean approve, String comment, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/WorkflowServices.cs:line 65
+   at ERP.Application.Workflow.DecideApprovalHandler.Handle(DecideApprovalCommand command, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/Approvals/Commands/DecideApproval/DecideApprovalHandler.cs:line 9
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Common/ConcurrencyRetry.cs:line 30
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Behaviors/Behaviors.cs:line 15
+   at lambda_method32361(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 44
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.StatusCodePagesMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[22:28:13 INF] HTTP PUT /api/v1/settings responded 204 in 58.3759 ms
+[22:28:13 INF] HTTP POST /api/v1/auth/login responded 200 in 56.1971 ms
+[22:28:13 INF] HTTP POST /api/v1/auth/select-workspace responded 200 in 6.2125 ms
+[22:28:13 INF] HTTP GET /api/v1/me responded 200 in 9.1405 ms
+[22:28:13 INF] HTTP GET /api/v1/m/hr/payroll responded 200 in 3.6275 ms
+[22:28:13 INF] HTTP GET /api/v1/m/hr/payroll/4d7c0402-a25d-4014-97c5-b66b18021169 responded 200 in 3.6101 ms
+[22:28:13 INF] HTTP POST /api/v1/m/hr/payroll/4d7c0402-a25d-4014-97c5-b66b18021169/post responded 200 in 31.1623 ms
+[22:28:13 INF] HTTP GET /api/v1/m/hr/leave responded 200 in 4.1577 ms
+[22:28:13 INF] HTTP POST /api/v1/m/hr/leave/1dee7327-2b9b-459d-92cd-b66b1805aa36/approve responded 200 in 21.3153 ms
+[22:28:13 INF] HTTP POST /api/v1/m/hr/leave/c079c321-e4de-49bd-a546-b66b1805aa35/approve responded 200 in 12.6538 ms
+[22:28:13 INF] HTTP POST /api/v1/approvals responded 201 in 4.7752 ms
+[22:28:13 INF] HTTP POST /api/v1/approvals responded 201 in 4.4802 ms
+[22:28:13 INF] HTTP POST /api/v1/approvals responded 201 in 4.4411 ms
+[22:28:13 ERR] HTTP POST /api/v1/approvals/66fb61f2-5fbb-4798-a3a0-b66b1813def8/approve responded 500 in 2.9005 ms
+ERP.Domain.Common.DomainException: Approvers can never approve their own requests.
+   at ERP.Domain.Platform.ApprovalRequest.Decide(Guid deciderId, Boolean approve, String comment, DateTime now) in /home/runner/work/ERP/ERP/backend/src/ERP.Domain/Platform/Platform.cs:line 119
+   at ERP.Application.Workflow.ApprovalService.DecideAsync(Guid requestId, Boolean approve, String comment, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/WorkflowServices.cs:line 65
+   at ERP.Application.Workflow.DecideApprovalHandler.Handle(DecideApprovalCommand command, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/Approvals/Commands/DecideApproval/DecideApprovalHandler.cs:line 9
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Common/ConcurrencyRetry.cs:line 30
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Behaviors/Behaviors.cs:line 15
+   at lambda_method32304(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 44
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+[22:28:13 ERR] An unhandled exception has occurred while executing the request.
+ERP.Domain.Common.DomainException: Approvers can never approve their own requests.
+   at ERP.Domain.Platform.ApprovalRequest.Decide(Guid deciderId, Boolean approve, String comment, DateTime now) in /home/runner/work/ERP/ERP/backend/src/ERP.Domain/Platform/Platform.cs:line 119
+   at ERP.Application.Workflow.ApprovalService.DecideAsync(Guid requestId, Boolean approve, String comment, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/WorkflowServices.cs:line 65
+   at ERP.Application.Workflow.DecideApprovalHandler.Handle(DecideApprovalCommand command, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/Approvals/Commands/DecideApproval/DecideApprovalHandler.cs:line 9
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Common/ConcurrencyRetry.cs:line 30
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Behaviors/Behaviors.cs:line 15
+   at lambda_method32304(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 44
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.StatusCodePagesMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[22:28:13 ERR] HTTP POST /api/v1/approvals/b55bffb7-24f5-4a6c-9e5a-b66b1813e13d/reject responded 500 in 2.0659 ms
+ERP.Domain.Common.DomainException: Approvers can never approve their own requests.
+   at ERP.Domain.Platform.ApprovalRequest.Decide(Guid deciderId, Boolean approve, String comment, DateTime now) in /home/runner/work/ERP/ERP/backend/src/ERP.Domain/Platform/Platform.cs:line 119
+   at ERP.Application.Workflow.ApprovalService.DecideAsync(Guid requestId, Boolean approve, String comment, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/WorkflowServices.cs:line 65
+   at ERP.Application.Workflow.DecideApprovalHandler.Handle(DecideApprovalCommand command, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/Approvals/Commands/DecideApproval/DecideApprovalHandler.cs:line 9
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Common/ConcurrencyRetry.cs:line 30
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Behaviors/Behaviors.cs:line 15
+   at lambda_method32361(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 44
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+[22:28:13 ERR] An unhandled exception has occurred while executing the request.
+ERP.Domain.Common.DomainException: Approvers can never approve their own requests.
+   at ERP.Domain.Platform.ApprovalRequest.Decide(Guid deciderId, Boolean approve, String comment, DateTime now) in /home/runner/work/ERP/ERP/backend/src/ERP.Domain/Platform/Platform.cs:line 119
+   at ERP.Application.Workflow.ApprovalService.DecideAsync(Guid requestId, Boolean approve, String comment, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/WorkflowServices.cs:line 65
+   at ERP.Application.Workflow.DecideApprovalHandler.Handle(DecideApprovalCommand command, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Workflow/Approvals/Commands/DecideApproval/DecideApprovalHandler.cs:line 9
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Common/ConcurrencyRetry.cs:line 30
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Behaviors/Behaviors.cs:line 15
+   at lambda_method32361(Closure, Object)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.AwaitableObjectResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeInnerFilterAsync>g__Awaited|13_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 44
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.StatusCodePagesMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[22:28:13 INF] HTTP PUT /api/v1/settings responded 204 in 8.7752 ms
+[22:28:13 INF] HTTP POST /api/v1/auth/login responded 200 in 89.8897 ms
+[22:28:13 INF] HTTP POST /api/v1/auth/select-workspace responded 200 in 10.8640 ms
+[22:28:13 INF] HTTP GET /api/v1/finance/invoices responded 200 in 34.0089 ms
+[22:28:13 INF] HTTP POST /api/v1/finance/invoices/3711f998-e667-4fc5-9cce-b66b17eaf94d/credit-note responded 201 in 122.9747 ms
+[22:28:13 INF] HTTP POST /api/v1/finance/invoices/e7f85ed7-95ae-4b76-ae00-b66b18146455/issue responded 200 in 33.9533 ms
+[22:28:13 INF] HTTP POST /api/v1/finance/invoices/e7f85ed7-95ae-4b76-ae00-b66b18146455/apply-credit responded 200 in 55.4931 ms
+[22:28:14 INF] HTTP POST /api/v1/attachments responded 201 in 81.1176 ms
+[22:28:14 INF] HTTP POST /api/v1/approvals responded 201 in 41.4972 ms
+[22:28:14 ERR] Failed executing DbCommand (2ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?' (Size = 100), @p2='?' (DbType = DateTime2), @p3='?' (Size = 100), @p4='?' (DbType = Guid), @p5='?' (Size = 64), @p6='?' (Size = 4000), @p7='?' (Size = 300), @p8='?' (DbType = Int32), @p9='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+SET IMPLICIT_TRANSACTIONS OFF;
+SET NOCOUNT ON;
+INSERT INTO [IdempotencyRecords] ([Id], [ContentType], [CreatedAt], [Key], [OrgId], [RequestHash], [ResponseBody], [Route], [StatusCode], [UserId])
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9);
+[22:28:14 ERR] An exception occurred in the database while saving changes for context type 'ERP.Infrastructure.Persistence.AppDbContext'.
+Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+ ---> Microsoft.Data.SqlClient.SqlException (0x80131904): Cannot insert duplicate key row in object 'dbo.IdempotencyRecords' with unique index 'IX_IdempotencyRecords_OrgId_UserId_Route_Key'. The duplicate key value is (07767a37-5b99-4beb-b702-b66b17e78559, ff39bc44-4f9f-4604-a2d6-b66b17e7abd8, /api/v1/approvals, demo-seed-demo-1).
+The statement has been terminated.
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+ClientConnectionId:996123a4-30c1-4a69-95d3-270bb10b2a9f
+Error Number:2601,State:1,Class:14
+   --- End of inner exception stack trace ---
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.<>c__DisplayClass30_0`2.<<ExecuteAsync>b__0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+ ---> Microsoft.Data.SqlClient.SqlException (0x80131904): Cannot insert duplicate key row in object 'dbo.IdempotencyRecords' with unique index 'IX_IdempotencyRecords_OrgId_UserId_Route_Key'. The duplicate key value is (07767a37-5b99-4beb-b702-b66b17e78559, ff39bc44-4f9f-4604-a2d6-b66b17e7abd8, /api/v1/approvals, demo-seed-demo-1).
+The statement has been terminated.
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+ClientConnectionId:996123a4-30c1-4a69-95d3-270bb10b2a9f
+Error Number:2601,State:1,Class:14
+   --- End of inner exception stack trace ---
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.<>c__DisplayClass30_0`2.<<ExecuteAsync>b__0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+[22:28:14 INF] HTTP POST /api/v1/approvals responded 201 in 30.2737 ms
+[22:28:14 INF] HTTP POST /api/v1/auth/select-workspace responded 200 in 6.5699 ms
+[22:28:14 INF] HTTP GET /api/v1/finance/invoices responded 200 in 3.8054 ms
+[22:28:14 INF] HTTP POST /api/v1/finance/invoices/91d52cf5-8604-4956-9459-b66b180e2f1f/credit-note responded 201 in 13.0067 ms
+[22:28:14 INF] HTTP POST /api/v1/finance/invoices/bc1e6b90-f54d-4b64-8954-b66b1814e6a0/issue responded 200 in 25.6032 ms
+[22:28:14 INF] HTTP POST /api/v1/finance/invoices/bc1e6b90-f54d-4b64-8954-b66b1814e6a0/apply-credit responded 200 in 7.7117 ms
+[22:28:14 INF] HTTP POST /api/v1/attachments responded 201 in 7.7860 ms
+[22:28:14 INF] HTTP POST /api/v1/approvals responded 201 in 10.2403 ms
+[22:28:14 ERR] Failed executing DbCommand (1ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?' (Size = 100), @p2='?' (DbType = DateTime2), @p3='?' (Size = 100), @p4='?' (DbType = Guid), @p5='?' (Size = 64), @p6='?' (Size = 4000), @p7='?' (Size = 300), @p8='?' (DbType = Int32), @p9='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+SET IMPLICIT_TRANSACTIONS OFF;
+SET NOCOUNT ON;
+INSERT INTO [IdempotencyRecords] ([Id], [ContentType], [CreatedAt], [Key], [OrgId], [RequestHash], [ResponseBody], [Route], [StatusCode], [UserId])
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9);
+[22:28:14 ERR] An exception occurred in the database while saving changes for context type 'ERP.Infrastructure.Persistence.AppDbContext'.
+Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+ ---> Microsoft.Data.SqlClient.SqlException (0x80131904): Cannot insert duplicate key row in object 'dbo.IdempotencyRecords' with unique index 'IX_IdempotencyRecords_OrgId_UserId_Route_Key'. The duplicate key value is (bb8d28c4-05c3-4f43-8118-b66b17e92325, ff39bc44-4f9f-4604-a2d6-b66b17e7abd8, /api/v1/approvals, demo-seed-demo-re-1).
+The statement has been terminated.
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+ClientConnectionId:996123a4-30c1-4a69-95d3-270bb10b2a9f
+Error Number:2601,State:1,Class:14
+   --- End of inner exception stack trace ---
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.<>c__DisplayClass30_0`2.<<ExecuteAsync>b__0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+ ---> Microsoft.Data.SqlClient.SqlException (0x80131904): Cannot insert duplicate key row in object 'dbo.IdempotencyRecords' with unique index 'IX_IdempotencyRecords_OrgId_UserId_Route_Key'. The duplicate key value is (bb8d28c4-05c3-4f43-8118-b66b17e92325, ff39bc44-4f9f-4604-a2d6-b66b17e7abd8, /api/v1/approvals, demo-seed-demo-re-1).
+The statement has been terminated.
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+ClientConnectionId:996123a4-30c1-4a69-95d3-270bb10b2a9f
+Error Number:2601,State:1,Class:14
+   --- End of inner exception stack trace ---
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.<>c__DisplayClass30_0`2.<<ExecuteAsync>b__0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+[22:28:14 INF] HTTP POST /api/v1/approvals responded 201 in 4.7430 ms
+[22:28:14 INF] HTTP POST /api/v1/auth/login responded 200 in 85.0955 ms
+[22:28:14 INF] HTTP GET /api/v1/platform-admin/settings responded 200 in 30.6731 ms
+[22:28:14 INF] HTTP PUT /api/v1/platform-admin/settings responded 200 in 57.5814 ms
+[22:28:14 INF] HTTP GET /api/v1/platform-admin/settings responded 200 in 3.3131 ms
+[22:28:19 INF] HTTP POST /api/v1/auth/login responded 200 in 62.6584 ms
+[22:28:35 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:28:36 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:36:28 INF] HTTP POST /api/v1/auth/login responded 200 in 2300.0288 ms
+[22:36:32 INF] HTTP POST /api/v1/auth/select-workspace responded 200 in 348.2366 ms
+[22:36:33 INF] HTTP GET /api/v1/finance/invoices responded 200 in 431.5374 ms
+[22:36:33 INF] HTTP GET /api/v1/me responded 200 in 458.0567 ms
+[22:36:33 INF] HTTP GET /api/v1/parties responded 200 in 469.2264 ms
+[22:36:33 INF] HTTP GET /api/v1/finance/receipts responded 200 in 618.4652 ms
+[22:36:33 INF] HTTP GET /api/v1/notifications responded 200 in 632.1916 ms
+[22:36:33 INF] HTTP GET /api/v1/navigation/menu responded 200 in 709.1083 ms
+[22:36:36 INF] HTTP GET /api/v1/dashboard responded 200 in 3709.1071 ms
+[22:37:25 INF] HTTP GET /api/v1/finance/invoices/8b3e7ec7-3b2c-4403-9d43-b66b17eaf94a responded 200 in 127.2452 ms
+[22:37:26 INF] HTTP GET /api/v1/finance/invoices/8b3e7ec7-3b2c-4403-9d43-b66b17eaf94a/allocations responded 200 in 142.7623 ms
+[22:37:46 INF] HTTP GET /api/v1/parties/036f149c-cf1e-4efd-8373-b66b17ea65e5 responded 200 in 71.0027 ms
+[22:37:47 INF] HTTP GET /api/v1/finance/reports/customer-statement responded 200 in 444.4508 ms
+[22:38:03 INF] HTTP GET /api/v1/approvals responded 200 in 118.4987 ms
+[22:38:07 INF] HTTP GET /api/v1/approvals responded 200 in 141.3718 ms
+[22:38:38 INF] HTTP GET /api/v1/m/hr/employees responded 200 in 260.4611 ms
+[22:38:58 INF] HTTP GET /api/v1/m/hr/payroll responded 200 in 56.5375 ms
+[22:39:02 INF] HTTP GET /api/v1/m/hr/payroll/fd215274-0100-4b4e-867f-b66b17ef26b1 responded 200 in 76.7424 ms
+[22:39:27 INF] HTTP GET /api/v1/navigation/menu responded 200 in 40.4662 ms
+[22:39:37 INF] HTTP GET /api/v1/m/realestate/properties responded 200 in 107.2442 ms

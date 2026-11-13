@@ -1,0 +1,27 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Cap,Segoe UI Semibold,38,&H00FFFFFF,&H00FFFFFF,&H38263A44,&H00000000,0,0,0,0,100,100,0,0,3,14,0,3,1000,110,70,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.90,0:00:06.13,Cap,,0,0,0,,{\fad(120,120)}And your business goes wherever you go, with the HigherSquare 360 app.
+Dialogue: 0,0:00:07.77,0:00:10.20,Cap,,0,0,0,,{\fad(120,120)}A short tour shows what the app can do.
+Dialogue: 0,0:00:10.25,0:00:15.30,Cap,,0,0,0,,{\fad(120,120)}Then sign in securely, with two-factor if you use it, and choose your workspace.
+Dialogue: 0,0:00:26.70,0:00:30.71,Cap,,0,0,0,,{\fad(120,120)}The overview shows the same live numbers as the web dashboard:
+Dialogue: 0,0:00:30.76,0:00:34.45,Cap,,0,0,0,,{\fad(120,120)}sales, cash, receivables and alerts, right on your phone.
+Dialogue: 0,0:00:39.00,0:00:42.87,Cap,,0,0,0,,{\fad(120,120)}Look up any invoice, receipt or customer in seconds.
+Dialogue: 0,0:00:42.92,0:00:48.07,Cap,,0,0,0,,{\fad(120,120)}Open an invoice to see every line, its status and what is still owed.
+Dialogue: 0,0:00:52.63,0:00:57.14,Cap,,0,0,0,,{\fad(120,120)}Approve requests on the go, so nothing waits for you to get back to your desk.
+Dialogue: 0,0:01:01.70,0:01:03.34,Cap,,0,0,0,,{\fad(120,120)}HR travels with you too:
+Dialogue: 0,0:01:03.39,0:01:09.04,Cap,,0,0,0,,{\fad(120,120)}look up any employee, and review each month's payroll run, right from your phone.
+Dialogue: 0,0:01:19.27,0:01:25.21,Cap,,0,0,0,,{\fad(120,120)}Every module you use is one tap away, from real estate and projects to point of sale
+Dialogue: 0,0:01:25.26,0:01:26.49,Cap,,0,0,0,,{\fad(120,120)}and manufacturing.
+Dialogue: 0,0:01:31.34,0:01:32.90,Cap,,0,0,0,,{\fad(120,120)}HigherSquare 360.
+Dialogue: 0,0:01:32.95,0:01:35.83,Cap,,0,0,0,,{\fad(120,120)}On the web, and in your pocket.

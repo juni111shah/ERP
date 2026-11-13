@@ -1,0 +1,34 @@
+{
+  "m01-intro": {
+    "seconds": 5.28,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|And your business goes wherever you go, with the HigherSquare 360 app."
+  },
+  "m02-signin": {
+    "seconds": 7.58,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|A short tour shows what the app can do. Then sign in securely, with two-factor if you use it, and choose your workspace."
+  },
+  "m03-overview": {
+    "seconds": 7.8,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|The overview shows the same live numbers as the web dashboard: sales, cash, receivables and alerts, right on your phone."
+  },
+  "m04-documents": {
+    "seconds": 9.12,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Look up any invoice, receipt or customer in seconds. Open an invoice to see every line, its status and what is still owed."
+  },
+  "m05-approvals": {
+    "seconds": 4.56,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Approve requests on the go, so nothing waits for you to get back to your desk."
+  },
+  "m06-myhr": {
+    "seconds": 7.39,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|HR travels with you too: look up any employee, and review each month's payroll run, right from your phone."
+  },
+  "m07-more": {
+    "seconds": 7.27,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Every module you use is one tap away, from real estate and projects to point of sale and manufacturing."
+  },
+  "m08-outro": {
+    "seconds": 4.54,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|HigherSquare 360. On the web, and in your pocket."
+  }
+}

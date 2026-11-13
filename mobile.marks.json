@@ -1,0 +1,45 @@
+{
+  "duration": 96.87,
+  "marks": [
+    {
+      "id": "m01-intro",
+      "t": 0,
+      "lead": 0.9
+    },
+    {
+      "id": "m02-signin",
+      "t": 7.17,
+      "lead": 0.6
+    },
+    {
+      "id": "m03-overview",
+      "t": 26.1,
+      "lead": 0.6
+    },
+    {
+      "id": "m04-documents",
+      "t": 38.4,
+      "lead": 0.6
+    },
+    {
+      "id": "m05-approvals",
+      "t": 52.03,
+      "lead": 0.6
+    },
+    {
+      "id": "m06-myhr",
+      "t": 61.1,
+      "lead": 0.6
+    },
+    {
+      "id": "m07-more",
+      "t": 78.67,
+      "lead": 0.6
+    },
+    {
+      "id": "m08-outro",
+      "t": 90.44,
+      "lead": 0.9
+    }
+  ]
+}
