@@ -102,10 +102,28 @@ for (const [email, ws, tag] of [['admin@demo.local', 'demo', 'demo'], ['owner@de
       await page.waitForTimeout(300);
     }
     await dump(page, tag + '-sidebar-open');
-    const hrefs = [...new Set(await page.$eval('[data-testid="sidebar"] a[href], nav a[href], aside a[href]', (as) => as.map((a) => a.getAttribute('href')).filter((h) => h && h.startsWith('/') && !h.startsWith('//'))))];
-    writeFileSync(`${out}/${tag}-links.txt`, hrefs.join('\n'));
-    const limit = tag === 'demo' ? 140 : 30;
-    for (const h of hrefs.slice(0, limit)) await step(h, async () => { await page.goto(BASE + h, { waitUntil: 'networkidle', timeout: 20000 }).catch(() => {}); await dump(page, tag + h); });
+    // The sidebar is an accordion of groups whose entries are <li data-testid="nav-..."> items: open each group, click each item.
+    if (tag === 'demo') {
+      const groups = await page.$$eval('[data-testid^="nav-group-"]', (gs) => gs.map((g) => g.getAttribute('data-testid')));
+      const urls = [];
+      const openGroup = async (g) => { const gb = page.getByTestId(g); if ((await gb.getAttribute('aria-expanded')) !== 'true') { await gb.click(); await page.waitForTimeout(400); } };
+      for (const g of groups) await step(g, async () => {
+        await openGroup(g);
+        const items = await page.$$eval('[data-testid="sidebar"] li[data-testid^="nav-"]', (ls) => ls.filter((l) => l.offsetParent).map((l) => [l.getAttribute('data-testid'), l.innerText.trim().replace(/\s+/g, ' ')]));
+        for (const [id, text] of items) {
+          if (urls.some((u) => u.startsWith(id + '\t'))) continue;
+          await step(id, async () => {
+            if (!(await page.getByTestId(id).isVisible())) await openGroup(g);
+            await page.getByTestId(id).click({ timeout: 5000 });
+            await page.waitForLoadState('networkidle').catch(() => {});
+            const u = new URL(page.url());
+            urls.push(`${id}\t${g}\t${text}\t${u.pathname}${u.search}`);
+            writeFileSync(`${out}/${tag}-links.txt`, urls.join('\n'));
+            await dump(page, `${tag}-${id}`);
+          });
+        }
+      });
+    }
     for (const h of ['/approvals', '/account/security', '/admin/modules', '/finance/reports', '/pos/terminal', '/hr/payroll'])
       await step(h, async () => { await page.goto(BASE + h, { waitUntil: 'networkidle' }).catch(() => {}); await dump(page, tag + '-extra' + h); });
   });
