@@ -49,13 +49,17 @@ export async function find(re, { timeout = 8000, cls } = {}) {
 export async function fields() { return (await nodes()).filter((n) => n.cls.includes('EditText')).sort((p, q) => p.y - q.y); }
 /** Signs in on the app's sign-in screen. */
 export async function signIn(email, password) {
-  let f = await fields();
-  for (let i = 0; i < 10 && f.length < 2; i++) { await sleep(700); f = await fields(); }
-  if (f.length < 2) throw new Error('No sign-in fields');
-  await tap(f[0].x, f[0].y); await sleep(400);
-  if (f[0].text) { await shell('input keyevent KEYCODE_MOVE_END'); await shell('input keyevent ' + Array(f[0].text.length + 2).fill(67).join(' ')); }
-  await type(email); await sleep(300);
-  await tap(f[1].x, f[1].y); await sleep(400); await type(password); await sleep(300);
+  // The password field is not always in the accessibility tree; its "Show password" eye button is, on the same row.
+  let eye = await find(/^Show password$/, { timeout: 10000 });
+  if (!eye) throw new Error('No sign-in screen');
+  const emailField = (await fields()).filter((f) => f.y < eye.y).pop();
+  if (!emailField) throw new Error('No email field');
+  await tap(emailField.x, emailField.y); await sleep(500);
+  if (emailField.text) { await shell('input keyevent KEYCODE_MOVE_END'); await shell('input keyevent ' + Array(emailField.text.length + 2).fill(67).join(' ')); }
+  await type(email); await sleep(400);
+  eye = await find(/^Show password$/, { timeout: 4000 }) ?? eye;   // the keyboard may have moved the layout
+  await tap(Math.max(200, eye.x - 450), eye.y); await sleep(500);
+  await type(password); await sleep(400);
 }
 
 export async function tap(x, y) { await shell(`input tap ${Math.round(x)} ${Math.round(y)}`); }
