@@ -34,12 +34,12 @@ const overlayInit = ({ emblem }) => {
       #demo-cursor{position:fixed;left:0;top:0;width:28px;height:28px;transform:translate(-4px,-3px);transition:opacity .3s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
       .demo-ripple{position:fixed;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:3px solid #4FA077;background:rgba(79,160,119,.25);animation:demo-rip .6s ease-out forwards}
       @keyframes demo-rip{to{transform:scale(4.2);opacity:0}}
-      #demo-l3{position:fixed;left:48px;top:40px;display:flex;align-items:center;gap:14px;padding:12px 26px 12px 14px;border-radius:999px;
+      #demo-l3{direction:ltr;position:fixed;left:40px;bottom:140px;display:flex;align-items:center;gap:14px;padding:12px 26px 12px 14px;border-radius:999px;
         background:rgba(31,58,68,.92);color:#fff;font-size:24px;font-weight:600;letter-spacing:.2px;box-shadow:0 10px 30px rgba(0,0,0,.25);
         transform:translateX(-130%);transition:transform .7s cubic-bezier(.2,.9,.2,1)}
       #demo-l3.on{transform:none}
       #demo-l3 img{width:34px;height:34px;border-radius:8px}
-      #demo-card{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0;transition:opacity .6s ease;
+      #demo-card{direction:ltr;position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0;transition:opacity .6s ease;
         background:radial-gradient(1200px 700px at 30% 20%,#2A8A93 0%,transparent 60%),radial-gradient(900px 600px at 80% 90%,#4FA077 0%,transparent 55%),#1F3A44;color:#fff;overflow:hidden}
       #demo-card.on{opacity:1}
       #demo-card .orb{position:absolute;border-radius:50%;filter:blur(2px);opacity:.18;background:#fff;animation:demo-float 9s ease-in-out infinite}
@@ -47,10 +47,10 @@ const overlayInit = ({ emblem }) => {
       #demo-card .emb{width:150px;height:150px;border-radius:34px;box-shadow:0 20px 60px rgba(0,0,0,.35);opacity:0;transform:scale(.6) rotate(-8deg)}
       #demo-card.on .emb{animation:demo-pop .9s .15s cubic-bezier(.2,1.4,.3,1) forwards}
       @keyframes demo-pop{to{opacity:1;transform:none}}
-      #demo-card h1{margin:0;font-size:76px;font-weight:800;letter-spacing:-1px;opacity:0;transform:translateY(30px)}
-      #demo-card h1 span{color:#7FE0A8}
-      #demo-card p{margin:0;font-size:32px;font-weight:500;color:#D7EFE5;opacity:0;transform:translateY(24px)}
-      #demo-card .kick{font-size:20px;letter-spacing:6px;text-transform:uppercase;color:#9FD8C0;opacity:0}
+      #demo-card h1{margin:0;font-size:76px;font-weight:800;letter-spacing:-1px;opacity:0;transform:translateY(30px);color:#fff!important;font-family:'Inter','Segoe UI',system-ui,sans-serif!important;line-height:1.1;text-align:center}
+      #demo-card h1 span{color:#7FE0A8!important}
+      #demo-card p{margin:0;font-size:32px;font-weight:500;color:#D7EFE5!important;font-family:'Inter','Segoe UI',system-ui,sans-serif!important;opacity:0;transform:translateY(24px)}
+      #demo-card .kick{font-size:20px;letter-spacing:6px;text-transform:uppercase;color:#9FD8C0!important;opacity:0}
       #demo-card.on h1{animation:demo-up .8s .45s cubic-bezier(.2,.9,.2,1) forwards}
       #demo-card.on p{animation:demo-up .8s .75s cubic-bezier(.2,.9,.2,1) forwards}
       #demo-card.on .kick{animation:demo-up .8s .2s ease forwards}
