@@ -54,7 +54,8 @@ await step('register', async () => {
   await pick('register-country', 'Pakistan', 'register-country-open');
   if (!(await p1.getByTestId('register-currency').innerText()).match(/[A-Z]{3}/)) await pick('register-currency', 'PKR', 'register-currency-open');
   await p1.getByTestId('register-name').fill('Ayesha Khan');
-  await p1.getByTestId('register-email').fill(`ayesha.${Date.now()}@crescent.example.test`);
+  const newEmail = `ayesha.${Date.now()}@crescent.example.test`;
+  await p1.getByTestId('register-email').fill(newEmail);
   await p1.getByTestId('register-phone').fill('+92 300 1234567');
   await p1.getByTestId('register-password').fill('Crescent#2026demo');
   await p1.getByTestId('register-terms').click();
@@ -62,6 +63,17 @@ await step('register', async () => {
   await p1.getByTestId('register-submit').click();
   await p1.waitForTimeout(4000);
   await dump(p1, 'register-result');
+  // First sign-in to the brand-new workspace.
+  const signin = p1.getByTestId('register-result-signin');
+  if (await signin.count()) await signin.click(); else await p1.goto(BASE + '/auth/login');
+  await p1.waitForTimeout(1500);
+  await p1.getByTestId('login-email').fill(newEmail);
+  await p1.getByTestId('login-password').fill('Crescent#2026demo');
+  await p1.getByTestId('login-password').press('Enter');
+  await p1.waitForTimeout(5000);
+  await dump(p1, 'new-workspace-first');
+  await p1.waitForTimeout(3000);
+  await dump(p1, 'new-workspace-later');
 });
 await step('login page', async () => { await p1.goto(BASE + '/auth/login', { waitUntil: 'networkidle' }); await dump(p1, 'login'); });
 await ctx1.close();
