@@ -1,0 +1,367 @@
+{
+  "voice": "en-US-AndrewMultilingualNeural",
+  "rate": "+6%",
+  "music": {
+    "file": "assets/music.mp3",
+    "start": 33,
+    "volume": 0.42
+  },
+  "clips": {
+    "invoice": {
+      "src": "web",
+      "mark": "w07c-new",
+      "offset": 1,
+      "dur": 21
+    },
+    "issued": {
+      "src": "web",
+      "mark": "w07d-issue",
+      "offset": 2.5,
+      "dur": 5
+    },
+    "dashboard": {
+      "src": "web",
+      "mark": "w06-dashboard",
+      "offset": 5,
+      "dur": 9
+    },
+    "po": {
+      "src": "web",
+      "mark": "w09b-po",
+      "offset": 2.5,
+      "dur": 6
+    },
+    "stock": {
+      "src": "web",
+      "mark": "w09d-stock",
+      "offset": 5.5,
+      "dur": 7
+    },
+    "payroll": {
+      "src": "web",
+      "mark": "w12c-payroll",
+      "offset": 5,
+      "dur": 7
+    },
+    "arabic": {
+      "src": "web",
+      "mark": "w14d-arabic",
+      "offset": 8.5,
+      "dur": 7
+    },
+    "m-overview": {
+      "src": "mobile",
+      "scene": "m03-overview",
+      "offset": 1.5,
+      "dur": 9
+    },
+    "m-approvals": {
+      "src": "mobile",
+      "scene": "m05-approvals",
+      "offset": 6,
+      "dur": 7
+    },
+    "grn": {
+      "src": "web",
+      "mark": "w09c-receive",
+      "offset": 1.5,
+      "dur": 6
+    }
+  },
+  "cuts": {
+    "main": [
+      {
+        "type": "hook",
+        "vo": "Still running your business on spreadsheets?",
+        "min": 3.2,
+        "lines": [
+          "Still running",
+          "your business on",
+          "*spreadsheets?*"
+        ]
+      },
+      {
+        "type": "brand",
+        "vo": "Meet HigherSquare 360. One system for your whole business.",
+        "min": 4.4,
+        "in": "zoom",
+        "tagline": "One system for your whole business"
+      },
+      {
+        "type": "feature",
+        "vo": "Create and send invoices in seconds,",
+        "min": 3.6,
+        "in": "rise",
+        "kicker": "Sales",
+        "title": "Invoices in *seconds*",
+        "clip": "invoice",
+        "speed": 5.5,
+        "from": [
+          0.76,
+          0.3,
+          1.9
+        ],
+        "to": [
+          0.79,
+          0.36,
+          2.25
+        ],
+        "chips": [
+          [
+            1.2,
+            "Numbered"
+          ],
+          [
+            1.8,
+            "Posted to the ledger"
+          ],
+          [
+            2.4,
+            "Ready to email"
+          ]
+        ],
+        "fromV": [
+          0.775,
+          0.3,
+          1.65
+        ],
+        "toV": [
+          0.78,
+          0.36,
+          1.8
+        ]
+      },
+      {
+        "type": "feature",
+        "vo": "and see every number live, on one dashboard.",
+        "min": 3.6,
+        "in": "wipe",
+        "kicker": "Dashboard",
+        "title": "Your business, *live*",
+        "clip": "dashboard",
+        "speed": 1.6,
+        "from": [
+          0.56,
+          0.42,
+          1.12
+        ],
+        "to": [
+          0.58,
+          0.36,
+          1.35
+        ],
+        "pop": {
+          "at": 1,
+          "rect": [
+            0.148,
+            0.212,
+            0.835,
+            0.105
+          ],
+          "rectV": [
+            0.567,
+            0.212,
+            0.415,
+            0.105
+          ]
+        }
+      },
+      {
+        "type": "trio",
+        "vo": "Purchasing, stock and payroll, all connected.",
+        "min": 3.6,
+        "in": "rise",
+        "title": "All *connected*",
+        "items": [
+          {
+            "label": "Purchasing",
+            "clip": "grn",
+            "speed": 1.2,
+            "focus": [
+              0.5,
+              0.4,
+              1.5
+            ]
+          },
+          {
+            "label": "Stock",
+            "clip": "stock",
+            "speed": 1.4,
+            "focus": [
+              0.55,
+              0.45,
+              1.5
+            ]
+          },
+          {
+            "label": "Payroll",
+            "clip": "payroll",
+            "speed": 1.4,
+            "focus": [
+              0.55,
+              0.42,
+              1.5
+            ]
+          }
+        ]
+      },
+      {
+        "type": "phone",
+        "vo": "Approve anything, right from your phone.",
+        "min": 3.4,
+        "in": "circle",
+        "kicker": "Mobile app",
+        "title": "Approve from *anywhere*",
+        "clip": "m-approvals",
+        "speed": 1.2,
+        "note": {
+          "at": 0.7,
+          "head": "Approval request",
+          "body": "Annual software licence renewal"
+        },
+        "done": {
+          "at": 2,
+          "text": "Approved"
+        }
+      },
+      {
+        "type": "feature",
+        "vo": "In English, or Arabic.",
+        "min": 2.6,
+        "in": "wipe",
+        "kicker": "Bilingual",
+        "title": "English",
+        "alt": "العربية",
+        "altAt": 0.9,
+        "clip": "arabic",
+        "speed": 1,
+        "from": [
+          0.55,
+          0.42,
+          1.15
+        ],
+        "to": [
+          0.6,
+          0.4,
+          1.35
+        ]
+      },
+      {
+        "type": "cta",
+        "vo": "Start your free fourteen-day trial today.",
+        "min": 3.8,
+        "in": "zoom",
+        "title": "Start your *free trial*",
+        "sub": "14 days free · Ready in a minute",
+        "button": "Get started"
+      }
+    ],
+    "short": [
+      {
+        "type": "brand",
+        "vo": "Your whole business, in one place.",
+        "min": 3,
+        "fast": true,
+        "tagline": "Your whole business, in one place"
+      },
+      {
+        "type": "flash",
+        "vo": "Invoices, stock, payroll, approvals,",
+        "min": 3.4,
+        "in": "zoom",
+        "beats": [
+          {
+            "word": "Invoices",
+            "clip": "invoice",
+            "speed": 6,
+            "focus": [
+              0.77,
+              0.32,
+              2
+            ]
+          },
+          {
+            "word": "Stock",
+            "clip": "stock",
+            "speed": 2,
+            "focus": [
+              0.55,
+              0.33,
+              1.6
+            ]
+          },
+          {
+            "word": "Payroll",
+            "clip": "payroll",
+            "speed": 2,
+            "focus": [
+              0.55,
+              0.33,
+              1.6
+            ]
+          },
+          {
+            "word": "Approvals",
+            "clip": "m-approvals",
+            "speed": 1.5,
+            "phone": true
+          }
+        ]
+      },
+      {
+        "type": "phone",
+        "vo": "on the web, and on your phone.",
+        "min": 2.8,
+        "in": "circle",
+        "kicker": "Web and mobile",
+        "title": "In your *pocket*",
+        "clip": "m-overview",
+        "speed": 1.6,
+        "note": {
+          "at": 0.5,
+          "head": "Live overview",
+          "body": "Sales, cash and receivables"
+        }
+      },
+      {
+        "type": "cta",
+        "vo": "HigherSquare 360. Start your free trial.",
+        "min": 3.4,
+        "in": "zoom",
+        "title": "Start your *free trial*",
+        "sub": "14 days free · Ready in a minute",
+        "button": "Get started"
+      }
+    ]
+  },
+  "ads": [
+    {
+      "id": "HigherSquare360-Ad-30s-Vertical",
+      "cut": "main",
+      "w": 1080,
+      "h": 1920,
+      "use": "Reels, Stories, TikTok, YouTube Shorts"
+    },
+    {
+      "id": "HigherSquare360-Ad-30s-Square",
+      "cut": "main",
+      "w": 1080,
+      "h": 1080,
+      "use": "Facebook and Instagram feed, LinkedIn"
+    },
+    {
+      "id": "HigherSquare360-Ad-30s-Landscape",
+      "cut": "main",
+      "w": 1920,
+      "h": 1080,
+      "use": "YouTube, LinkedIn, website"
+    },
+    {
+      "id": "HigherSquare360-Ad-15s-Vertical",
+      "cut": "short",
+      "w": 1080,
+      "h": 1920,
+      "use": "Reels and Stories bumper"
+    }
+  ]
+}

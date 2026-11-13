@@ -3,6 +3,8 @@
 -- and demo-flavoured names and memos are rewritten in place. The database is thrown away when the run ends.
 SET NOCOUNT ON;
 SET XACT_ABORT OFF;
+-- sqlcmd starts with QUOTED_IDENTIFIER off; filtered and computed-column indexes refuse updates without these.
+SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON; SET ANSI_PADDING ON; SET ANSI_WARNINGS ON; SET ARITHABORT ON; SET CONCAT_NULL_YIELDS_NULL ON; SET NUMERIC_ROUNDABORT OFF;
 
 UPDATE Organizations SET Code = 'alrayyan' WHERE Code = 'demo';
 UPDATE Organizations SET Code = 'lusail' WHERE Code = 'demo-re';

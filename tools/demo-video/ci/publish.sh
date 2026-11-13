@@ -17,6 +17,8 @@ if [ -f "$T/work/rec/$KIND.mp4" ]; then
   "$FFX" -hide_banner -loglevel error -y -i "$T/work/rec/$KIND.mp4" -c:v libx264 -preset medium -crf 17 -maxrate 4M -bufsize 8M -pix_fmt yuv420p -an "$PUB/raw-$KIND.mp4" || true
   [ -f "$PUB/raw-$KIND.mp4" ] && [ "$(stat -c %s "$PUB/raw-$KIND.mp4")" -ge 95000000 ] && rm -f "$PUB/raw-$KIND.mp4"
 fi
+# The phone's own full-resolution screen recordings (used by the social ads), made smaller.
+if [ "$KIND" = mobile ]; then mkdir -p "$PUB/rec"; for f in "$T"/work/rec/phone-*.mp4; do [ -f "$f" ] || continue; n=$(basename "$f" .mp4); "$FFX" -hide_banner -loglevel error -y -i "$f" -vf scale=720:-2 -c:v libx264 -preset medium -crf 20 -an "$PUB/rec/${n#phone-}.mp4" || true; done; fi
 tail -400 api.log > "$PUB/api-tail.log" 2>/dev/null || true
 FF="$T/node_modules/ffmpeg-static/ffmpeg"
 for f in "$T"/out/*.mp4; do

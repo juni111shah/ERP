@@ -31,7 +31,9 @@ node tools/demo-video/ci/open-signup.mjs || echo "open-signup failed"
 # No "demo" on screen: rename the seeded workspaces, people and memos in place (see rebrand.sql), inside the SQL container.
 SQLC=$(docker ps -q --filter "ancestor=mcr.microsoft.com/mssql/server:2022-latest" | head -1); [ -n "$SQLC" ] || SQLC=$(docker ps -q | head -1)
 docker cp tools/demo-video/ci/rebrand.sql "$SQLC":/tmp/rebrand.sql
-docker exec "$SQLC" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SQL_PASSWORD" -d ERP_DemoVideo -W -s '|' -i /tmp/rebrand.sql || echo "rebrand failed"
+docker exec "$SQLC" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$SQL_PASSWORD" -d ERP_DemoVideo -I -W -s '|' -i /tmp/rebrand.sql || echo "rebrand failed"
+# Stop here if the renamed sign-in does not work: a recording without it is wasted.
+node -e 'fetch("http://localhost:5080/api/v1/auth/login",{method:"POST",headers:{"content-type":"application/json","x-erp-client":"web"},body:JSON.stringify({email:"admin@alrayyan.qa",password:"DevOnly#2026"})}).then(async r=>{const t=await r.text();console.log("rebrand sign-in check:",r.status,t.slice(0,160));if(!r.ok)process.exit(1)})'
 # The web app, exactly as in development: ng serve on :4200 with /api proxied to the API.
 if [ "${SKIP_WEB:-0}" != "1" ]; then
   (cd frontend && nohup npx ng serve --proxy-config proxy.conf.json --port 4200 > "$ROOT/web.log" 2>&1 &)
