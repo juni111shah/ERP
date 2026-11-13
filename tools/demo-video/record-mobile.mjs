@@ -2,7 +2,7 @@
 // 1920x1080 stage with a phone bezel, animated side titles and title cards. Output: work/rec/mobile.mp4 + mobile.marks.json,
 // which build.mjs turns into the finished video with voice, music and captions.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { find, tap, tapText, back, swipe, sleep, shell, record, nodes, signIn } from './lib/adb.mjs';
+import { find, tap, tapText, type, swipe, sleep, shell, record, nodes, signIn } from './lib/adb.mjs';
 import { here, run, probeDuration } from './lib/media.mjs';
 import { renderStage, STAGE } from './lib/phone-stage.mjs';
 import { WebRecorder } from './lib/recorder.mjs';
@@ -131,13 +131,16 @@ clips.push({ id: 'm05-approvals', file: await phoneScene('m05-approvals', async 
 }) });
 
 clips.push({ id: 'm06-myhr', file: await phoneScene('m06-myhr', async () => {
+  // My HR through the app's search ("Search screens and actions").
   await ensureApp();
-  await tapText(/^More$/, { after: 1200 });
-  await tapNode(await scrollToFind(/^My HR$/, { tries: 12 }), 2200);
-  await tapNode(await find(/^My leave$/, { timeout: 1500 }), 1600);
-  await tapNode(await find(/^Payslips$/, { timeout: 1500 }), 2000);
-  await tapNode(await row(), 2000);
-  await appBack(); await appBack();
+  await tapText(/^Overview$/, { after: 1200 });
+  await tapNode(await find(/^Search$/, { timeout: 2500 }), 1400);
+  await type('My HR'); await sleep(1600);
+  const hit = (await nodes()).filter((x) => !x.cls.includes('EditText') && x.y > 330 && /^My HR/.test(`${x.text} ${x.desc}`.trim())).sort((p, q) => p.y - q.y)[0];
+  await tapNode(hit, 2400);
+  await tapNode(await find(/^My leave$/, { timeout: 1500 }), 1800);
+  await tapNode(await find(/^Payslips$/, { timeout: 1500 }), 2200);
+  await appBack();
 }) });
 
 clips.push({ id: 'm07-more', file: await phoneScene('m07-more', async () => {
