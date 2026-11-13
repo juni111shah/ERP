@@ -33,10 +33,13 @@ async function go(term, path) {
     const box = tid('sidebar-search-input');
     if (!(await box.isVisible())) throw new Error('no sidebar search');
     await r.type(box, term, { delay: 55 });
-    const hit = page.locator(`[data-testid="sidebar"] a[href="${path}"]`).first();
+    const exact = new RegExp('^\\s*' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*$', 'i');
+    const hit = page.locator('[data-testid="sidebar"] li[data-testid^="nav-"]:visible').filter({ hasText: exact }).first();
     await hit.waitFor({ timeout: 3000 });
     await r.click(hit);
     await box.fill('').catch(() => {});
+    const want = path.split('?')[0];
+    await page.waitForURL((u) => u.pathname.startsWith(want), { timeout: 4000 }).catch(() => page.goto(BASE + path, { waitUntil: 'networkidle' }));
   } catch {
     await page.goto(BASE + path, { waitUntil: 'networkidle' });
   }

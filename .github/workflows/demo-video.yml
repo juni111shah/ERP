@@ -1,6 +1,6 @@
 # Records the client demo videos (tools/demo-video) on Linux runners: SQL Server + the API with demo data + the web app in Chrome,
-# and the Flutter app on an Android emulator. tools/demo-video/ci-mode.txt picks "explore" (screenshots of every screen) or
-# "record" (the finished videos). Put [web-only] or [mobile-only] in the commit message to run one job. Results go to the branches demo-video-out-web / demo-video-out-mobile and to the run's artifacts.
+# and the Flutter app on an Android emulator. tools/demo-video/ci-mode.txt sets each job to "explore" (screenshots of every screen) or
+# "record" (the finished video), e.g. web=record / mobile=explore. Put [web-only] or [mobile-only] in the commit message to run one job. Results go to the branches demo-video-out-web / demo-video-out-mobile and to the run's artifacts.
 name: Demo video
 on:
   push:
@@ -48,7 +48,7 @@ jobs:
         working-directory: tools/demo-video
         run: |
           mkdir -p assets
-          if [ "$(tr -d '[:space:]' < ci-mode.txt)" = "record" ]; then
+          if grep -q '^web=record' ci-mode.txt; then
             node voice.mjs web
             node record-web.mjs http://localhost:4200
             node build.mjs web
@@ -121,7 +121,7 @@ jobs:
           script: bash tools/demo-video/ci/mobile.sh
       - name: Build video
         working-directory: tools/demo-video
-        run: if [ "$(tr -d '[:space:]' < ci-mode.txt)" = "record" ]; then node build.mjs mobile; fi
+        run: if grep -q '^mobile=record' ci-mode.txt; then node build.mjs mobile; fi
       - name: Publish
         if: always()
         env: { GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
