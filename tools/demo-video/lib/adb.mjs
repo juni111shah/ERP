@@ -49,10 +49,10 @@ export async function signIn(email, password) {
   let f = await fields();
   for (let i = 0; i < 10 && f.length < 2; i++) { await sleep(700); f = await fields(); }
   if (f.length < 2) throw new Error('No sign-in fields');
-  await tap(f[0].x, f[0].y); await sleep(400); await shell('input keyevent KEYCODE_MOVE_END'); for (let i = 0; i < 40; i++) await shell('input keyevent 67').catch(() => {});
+  await tap(f[0].x, f[0].y); await sleep(400);
+  if (f[0].text) { await shell('input keyevent KEYCODE_MOVE_END'); await shell('input keyevent ' + Array(f[0].text.length + 2).fill(67).join(' ')); }
   await type(email); await sleep(300);
   await tap(f[1].x, f[1].y); await sleep(400); await type(password); await sleep(300);
-  await hideKeyboard();
 }
 
 export async function tap(x, y) { await shell(`input tap ${Math.round(x)} ${Math.round(y)}`); }
@@ -63,7 +63,10 @@ export async function tapText(re, opts = {}) {
 export async function type(text) { await shell(`input text ${JSON.stringify(text.replace(/ /g, '%s'))}`); }
 export async function swipe(x1, y1, x2, y2, ms = 500) { await shell(`input swipe ${x1} ${y1} ${x2} ${y2} ${ms}`); }
 export async function back() { await shell('input keyevent 4'); await sleep(900); }
-export async function hideKeyboard() { await shell('input keyevent 111'); await sleep(300); }
+export async function hideKeyboard() {
+  const ime = await shell('dumpsys input_method').catch(() => '');
+  if (/mInputShown=true/.test(ime)) { await shell('input keyevent 4'); await sleep(500); }
+}
 export async function screencap(file) { const png = await adb('exec-out', 'screencap', '-p'); const { writeFileSync } = await import('node:fs'); writeFileSync(file, png); }
 
 /** Starts `adb shell screenrecord` into /sdcard/<name>.mp4 (at most 175 s). Returns stop(), which pulls the file to `localFile`. */
