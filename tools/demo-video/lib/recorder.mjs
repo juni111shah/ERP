@@ -96,7 +96,7 @@ export class WebRecorder {
     this.cdp = await this.context.newCDPSession(this.page);
     this.latest = null;
     this.cdp.on('Page.screencastFrame', ({ data, sessionId }) => {
-      this.latest = Buffer.from(data, 'base64');
+      if (!this.frozen) this.latest = Buffer.from(data, 'base64');
       this.cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
     });
     await this.cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: this.width, maxHeight: this.height, everyNthFrame: 1 });
@@ -107,6 +107,10 @@ export class WebRecorder {
       while (this.written < due) { this.enc.stdin.write(this.latest); this.written++; }
     }, 1000 / FPS / 2);
   }
+
+  /** While frozen the video keeps showing the last frame, so behind-the-scenes steps (sign-out, reloads) stay hidden. */
+  freeze() { this.frozen = true; }
+  async unfreeze(settleMs = 600) { await sleep(settleMs); this.frozen = false; await sleep(120); }
 
   /** Seconds since recording started. */
   now() { return (Date.now() - this.t0) / 1000; }

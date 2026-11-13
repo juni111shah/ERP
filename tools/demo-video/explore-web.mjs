@@ -31,6 +31,8 @@ async function step(name, fn) { try { await fn(); } catch (e) { console.log('FAI
 // ---- signed out: pricing and registration ----
 const ctx1 = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
 const p1 = await ctx1.newPage();
+const errors = []; const watch = (p) => p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 300)); }).on('pageerror', (er) => errors.push('pageerror: ' + er.message.slice(0, 300)));
+watch(p1);
 await step('pricing', async () => {
   await p1.goto(BASE + '/pricing', { waitUntil: 'networkidle' });
   await dump(p1, 'pricing-top');
@@ -73,6 +75,7 @@ async function signIn(page, email, wsCode) {
 for (const [email, ws, tag] of [['admin@demo.local', null, 'demo'], ['owner@demo.local', 'demo-re', 're']]) {
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   const page = await ctx.newPage();
+  watch(page);
   await step('sign in ' + tag, async () => {
     await signIn(page, email, ws);
     await dump(page, tag + '-home');
