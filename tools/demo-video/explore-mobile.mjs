@@ -1,7 +1,7 @@
 // Taps through the phone app on a running emulator and saves a screenshot plus the accessibility tree of every screen, so the
 // recording script can be written against what is really there. Output: work/explore-mobile/.
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { nodes, find, tap, tapText, type, back, hideKeyboard, screencap, swipe, sleep, describe, shell } from './lib/adb.mjs';
+import { nodes, find, tap, tapText, type, back, hideKeyboard, screencap, swipe, sleep, describe, shell, signIn } from './lib/adb.mjs';
 import { here, run } from './lib/media.mjs';
 
 const out = here('work/explore-mobile'); mkdirSync(out, { recursive: true });
@@ -28,7 +28,7 @@ await dump('launch');
 await step('intro', async () => {
   for (let i = 0; i < 10; i++) {
     if (await find(/Sign in to your workspace/, { timeout: 500 })) break;
-    const btn = await find(/^(Next|Continue|Get started|Start|Skip|Done)/i, { timeout: 2000 });
+    const btn = await find(/^(Next|Continue|Get started|Start|Done)/i, { timeout: 2000 }) ?? await find(/^Skip/i, { timeout: 500 });
     await dump('intro-' + i);
     if (!btn) { await swipe(900, 1300, 150, 1300, 300); continue; }
     await tap(btn.x, btn.y); await sleep(1200);
@@ -37,14 +37,13 @@ await step('intro', async () => {
 await dump('login');
 
 await step('sign in', async () => {
-  await tapText(/^Email/, { cls: 'EditText' }); await type('admin@demo.local'); await hideKeyboard();
-  await tapText(/^Password/, { cls: 'EditText' }); await type('DevOnly#2026'); await hideKeyboard();
+  await signIn('admin@demo.local', 'DevOnly#2026');
   await dump('login-filled');
   await tapText(/^Sign in$/);
   await sleep(5000);
   await dump('after-sign-in');
-  const ws = await find(/demo/i, { timeout: 1500 });
-  if (await find(/workspace/i, { timeout: 500 }) && ws) { await tap(ws.x, ws.y); await sleep(4000); await dump('after-workspace'); }
+  const ws = await find(/Demo Workspace/i, { timeout: 3000 });
+  if (ws) { await tap(ws.x, ws.y); await sleep(4000); await dump('after-workspace'); }
   for (let i = 0; i < 8; i++) {
     const skip = await find(/^(Skip|Next|Got it|Done|Close|Finish|Not now)/i, { timeout: 1200 });
     if (!skip) break; await tap(skip.x, skip.y); await sleep(1200); await dump('tour-' + i);

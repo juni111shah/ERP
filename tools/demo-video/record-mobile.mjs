@@ -2,7 +2,7 @@
 // 1920x1080 stage with a phone bezel, animated side titles and title cards. Output: work/rec/mobile.mp4 + mobile.marks.json,
 // which build.mjs turns into the finished video with voice, music and captions.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { find, tap, tapText, type, back, hideKeyboard, swipe, sleep, shell, record, nodes } from './lib/adb.mjs';
+import { find, tap, tapText, type, back, hideKeyboard, swipe, sleep, shell, record, nodes, signIn } from './lib/adb.mjs';
 import { here, run, probeDuration } from './lib/media.mjs';
 import { renderStage, STAGE } from './lib/phone-stage.mjs';
 import { WebRecorder } from './lib/recorder.mjs';
@@ -66,16 +66,14 @@ clips.push({ id: 'm01-intro', file: await cardClip('m01-intro', { kick: 'Mobile 
 clips.push({ id: 'm02-signin', file: await phoneScene('m02-signin', async () => {
   // The app's own animated intro, briefly, then sign in.
   await sleep(1500);
-  for (let i = 0; i < 6 && !(await find(/Sign in to your workspace/, { timeout: 400 })); i++) {
-    const skip = await find(/^Skip/i, { timeout: 600 });
-    if (i >= 1 && skip) { await tap(skip.x, skip.y); await sleep(1500); break; }
-    const next = await find(/^(Next|Continue|Get started)/i, { timeout: 800 });
-    if (next) { await tap(next.x, next.y); await sleep(1600); } else { await swipe(900, 1300, 150, 1300, 350); await sleep(1400); }
-  }
-  await tapText(/^Email/, { cls: 'EditText' }); await type('admin@demo.local'); await hideKeyboard();
-  await tapText(/^Password/, { cls: 'EditText' }); await type('DevOnly#2026'); await hideKeyboard();
+  // Two pages of the intro with Next, then Skip.
+  for (let i = 0; i < 2; i++) { const next = await find(/^Next/i, { timeout: 2000 }); if (next) { await tap(next.x, next.y); await sleep(2200); } }
+  const skip = await find(/^Skip/i, { timeout: 1500 }); if (skip) { await tap(skip.x, skip.y); await sleep(1800); }
+  await signIn('admin@demo.local', 'DevOnly#2026');
   await sleep(500);
-  await tapText(/^Sign in$/, { after: 4500 });
+  await tapText(/^Sign in$/, { after: 3500 });
+  const ws = await find(/Demo Workspace/i, { timeout: 4000 });
+  if (ws) { await sleep(800); await tap(ws.x, ws.y); await sleep(3500); }
   for (let i = 0; i < 6; i++) { const t = await find(/^(Skip|Got it|Done|Not now|Close)/i, { timeout: 1200 }); if (!t) break; await tap(t.x, t.y); await sleep(1000); }
 }) });
 

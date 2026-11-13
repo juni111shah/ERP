@@ -42,6 +42,19 @@ export async function find(re, { timeout = 8000, cls } = {}) {
   return null;
 }
 
+/** Text fields on screen, top to bottom (Flutter fields often carry no label for uiautomator). */
+export async function fields() { return (await nodes()).filter((n) => n.cls.includes('EditText')).sort((p, q) => p.y - q.y); }
+/** Signs in on the app's sign-in screen. */
+export async function signIn(email, password) {
+  let f = await fields();
+  for (let i = 0; i < 10 && f.length < 2; i++) { await sleep(700); f = await fields(); }
+  if (f.length < 2) throw new Error('No sign-in fields');
+  await tap(f[0].x, f[0].y); await sleep(400); await shell('input keyevent KEYCODE_MOVE_END'); for (let i = 0; i < 40; i++) await shell('input keyevent 67').catch(() => {});
+  await type(email); await sleep(300);
+  await tap(f[1].x, f[1].y); await sleep(400); await type(password); await sleep(300);
+  await hideKeyboard();
+}
+
 export async function tap(x, y) { await shell(`input tap ${Math.round(x)} ${Math.round(y)}`); }
 export async function tapText(re, opts = {}) {
   const n = await find(re, opts); if (!n) throw new Error(`Not on screen: ${re}`);

@@ -44,6 +44,24 @@ async function go(term, path) {
   await sleep(900);
 }
 
+/** Opens a searchable drop-down, types to filter it and picks the first match. */
+async function pick(testId, text) {
+  await r.click(tid(testId)); await page.keyboard.type(text, { delay: 70 }); await sleep(700);
+  await r.click(page.locator('.ant-select-item-option').first()); await sleep(500);
+}
+
+/** Signs in without on-screen theatrics (used while the video is frozen behind a title card). */
+async function quietSignIn(email, wsCode) {
+  await page.getByTestId('login-email').fill(email);
+  await page.getByTestId('login-password').fill(PASSWORD);
+  await page.getByTestId('login-password').press('Enter');
+  const ws = page.getByTestId('workspace-' + wsCode);
+  await ws.waitFor({ timeout: 10000 }).catch(() => {});
+  if (await ws.count()) await ws.click();
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await sleep(2500);
+}
+
 async function signIn(email, wsCode) {
   await r.type(tid('login-email'), email);
   await r.type(tid('login-password'), PASSWORD, { delay: 30 });
@@ -82,13 +100,17 @@ await scene('w03-register', async () => {
   await page.evaluate(() => scrollTo({ top: 0, behavior: 'smooth' })); await sleep(900);
   await r.click(tid('pricing-top-start'));
   await page.waitForLoadState('networkidle'); await sleep(1500);
-  await r.click(page.getByRole('button', { name: /^choose/i }).nth(1).or(page.getByRole('button', { name: /^choose/i }).first()).first());
+  const annual = tid('register-cycle-annual');
+  if (await annual.count()) { await r.click(annual); await sleep(900); await r.click(tid('register-cycle-monthly')); await sleep(500); }
+  await r.hover(tid('plan-card-business'), 700); await sleep(900);
+  await r.click(tid('plan-choose-business'));
   await sleep(1000);
   await r.type(tid('register-business'), 'Crescent Trading Co');
-  await sleep(700);
-  const code = tid('register-code');
-  await code.fill(''); await code.pressSequentially(`crescent-${runTag}`, { delay: 45 });
-  await sleep(600);
+  await sleep(1200);   // the workspace code fills itself in and is checked
+  await r.spotlight(tid('register-code'), 1300);
+  await pick('register-industry', 'Wholesale');
+  await pick('register-country', 'Pakistan');
+  if (!(await tid('register-currency').innerText()).match(/[A-Z]{3}/)) await pick('register-currency', 'PKR');
   await r.type(tid('register-name'), 'Ayesha Khan');
   await r.type(tid('register-email'), newEmail, { delay: 22 });
   await r.type(tid('register-phone'), '+92 300 1234567', { delay: 30 });
@@ -118,10 +140,7 @@ await scene('w05-bridge', async () => {
   await page.context().clearCookies();
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.goto(BASE + '/auth/login', { waitUntil: 'networkidle' });
-  await page.getByTestId('login-email').fill('admin@demo.local');
-  await page.getByTestId('login-password').fill(PASSWORD);
-  await page.getByTestId('login-password').press('Enter');
-  await page.waitForLoadState('networkidle').catch(() => {}); await sleep(2500);
+  await quietSignIn('admin@demo.local', 'demo');
   await r.card({ kick: 'A few months later', title: 'A workspace in <span>full swing</span>', sub: 'Real data, posted through the real workflows' });
   await r.unfreeze(1300);
 }, { label: false });
@@ -240,11 +259,7 @@ await scene('w13-industry', async () => {
   await page.context().clearCookies();
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.goto(BASE + '/auth/login', { waitUntil: 'networkidle' });
-  await page.getByTestId('login-email').fill('owner@demo.local');
-  await page.getByTestId('login-password').fill(PASSWORD);
-  await page.getByTestId('login-password').press('Enter');
-  const ws = page.getByTestId('workspace-demo-re'); await ws.waitFor({ timeout: 10000 }).catch(() => {}); if (await ws.count()) await ws.click();
-  await page.waitForLoadState('networkidle').catch(() => {});
+  await quietSignIn('admin@demo.local', 'demo-re');
   await page.goto(BASE + '/real-estate/properties', { waitUntil: 'networkidle' });
   await r.card({ kick: 'Industry modules', title: 'Switch on what <span>your industry</span> needs', sub: 'Real estate · Projects · POS · CRM · Manufacturing · and more' });
   await r.unfreeze(1000); await r.uncard();
@@ -256,10 +271,7 @@ await scene('w13-industry', async () => {
   await page.context().clearCookies();
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.goto(BASE + '/auth/login', { waitUntil: 'networkidle' });
-  await page.getByTestId('login-email').fill('admin@demo.local');
-  await page.getByTestId('login-password').fill(PASSWORD);
-  await page.getByTestId('login-password').press('Enter');
-  await page.waitForLoadState('networkidle').catch(() => {});
+  await quietSignIn('admin@demo.local', 'demo');
   await page.goto(BASE + '/projects/board', { waitUntil: 'networkidle' });
   await sleep(800);
   await r.unfreeze(400);
