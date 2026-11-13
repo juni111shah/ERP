@@ -8,6 +8,11 @@ adb shell settings put system show_touches 1
 adb shell settings put system screen_off_timeout 1800000
 adb shell svc power stayon true
 adb reverse tcp:5080 tcp:5080 || true
+# The launcher is not needed (the app is started directly) and on a slow CI emulator it raises "not responding" dialogs.
+adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
+adb shell pm disable-user --user 0 com.android.launcher3 || true
+adb shell settings put global window_animation_scale 1 || true
+sleep 45   # let the freshly booted emulator settle
 if grep -q '^mobile=record' ci-mode.txt; then
   node record-mobile.mjs
 else

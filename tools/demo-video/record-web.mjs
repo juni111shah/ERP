@@ -164,14 +164,22 @@ async function visit(term, path, { hold = 1600, rows = 3, scroll = 0 } = {}) {
 }
 
 await scene('w06-dashboard', async () => {
-  await sleep(2500);
-  const kpis = page.locator('erp-stat-card, .erp-stat-card').first();
-  if (await kpis.count()) await r.spotlight(page.locator('.erp-stat-grid').first(), 2200);
-  await r.scroll(700, 1500); await sleep(1500);
-  await r.scroll(700, 1500); await sleep(1200);
-  await r.scroll(-1400, 1200); await sleep(600);
-  const search = page.getByPlaceholder(/search/i).first();
-  if (await search.count()) { await r.type(search, 'Al Noor', { delay: 70 }); await sleep(2200); await page.keyboard.press('Escape'); }
+  await sleep(2000);
+  await r.spotlight(tid('kpi-grid'), 2400);
+  const ageing = page.getByRole('button', { name: /^Receivables ageing$/ }).first();
+  if (await ageing.count()) { await r.click(ageing); await sleep(1800); await r.click(page.getByRole('button', { name: /^Billed vs collected$/ }).first()); await sleep(1200); }
+  await r.hover(page.getByText('Alerts and to-dos').first(), 800); await sleep(1200);
+  await r.scroll(800, 1500); await sleep(1600);
+  await r.scroll(-800, 1100); await sleep(600);
+  const toggle = tid('global-search-toggle');
+  if (await toggle.count()) { await r.click(toggle); await sleep(400); }
+  const search = tid('global-search');
+  await page.keyboard.type('Al Noor', { delay: 90 }).catch(() => {});
+  await sleep(2400);
+  await r.hover(page.locator('[data-testid="search-hit"]').first(), 600).catch(() => {});
+  await sleep(1000);
+  await page.keyboard.press('Escape'); await sleep(500);
+  void search;
 });
 
 let invoiceNo = null;
@@ -255,34 +263,21 @@ await scene('w12-hr', async () => {
 });
 
 await scene('w13-industry', async () => {
-  // Real estate lives in its own workspace: switch to it behind a short title card.
   await r.card({ kick: 'Industry modules', title: 'Switch on what <span>your industry</span> needs', sub: 'Real estate · Projects · POS · CRM · Manufacturing · and more' });
-  await sleep(2200);
+  await sleep(2600);
   r.freeze();
-  await page.context().clearCookies();
-  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-  await page.goto(BASE + '/auth/login', { waitUntil: 'networkidle' });
-  await quietSignIn('admin@demo.local', 'demo-re');
   await page.goto(BASE + '/real-estate/properties', { waitUntil: 'networkidle' });
+  await sleep(1200);
   await r.card({ kick: 'Industry modules', title: 'Switch on what <span>your industry</span> needs', sub: 'Real estate · Projects · POS · CRM · Manufacturing · and more' });
-  await r.unfreeze(1000); await r.uncard();
+  await r.unfreeze(1200); await r.uncard();
   await r.lowerThird('Real estate', 3500);
   await skimRows(3);
   await visit('Leases', '/real-estate/leases', { hold: 1100, rows: 2 });
-  // Back to the general Demo workspace for the other modules.
-  r.freeze();
-  await page.context().clearCookies();
-  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-  await page.goto(BASE + '/auth/login', { waitUntil: 'networkidle' });
-  await quietSignIn('admin@demo.local', 'demo');
-  await page.goto(BASE + '/projects/board', { waitUntil: 'networkidle' });
-  await sleep(800);
-  await r.unfreeze(400);
-  await r.lowerThird('Projects', 3000); await sleep(2200);
+  await go('Board', '/projects/board'); await r.lowerThird('Projects', 3000); await sleep(2200);
   await visit('Timesheets', '/projects/timesheets', { hold: 1000, rows: 2 });
   await go('Terminal', '/pos/terminal'); await r.lowerThird('Point of sale', 3000); await sleep(1500);
-  const tiles = page.locator('button:visible, .tile:visible').filter({ hasText: /\d/ });
-  for (let i = 0; i < 2 && i < (await tiles.count()); i++) { await r.click(tiles.nth(i + 3)).catch(() => {}); await sleep(500); }
+  const tiles = page.locator('button:visible').filter({ hasText: /\d/ });
+  for (let i = 0; i < 2 && i + 3 < (await tiles.count()); i++) { await r.click(tiles.nth(i + 3)).catch(() => {}); await sleep(500); }
   await sleep(1200);
   await go('Opportunities', '/crm/opportunities'); await r.lowerThird('CRM', 3000); await sleep(2200);
   await go('Work orders', '/manufacturing/workorders'); await r.lowerThird('Manufacturing', 3000); await sleep(1500); await skimRows(2);

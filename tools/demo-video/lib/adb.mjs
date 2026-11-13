@@ -22,6 +22,9 @@ export async function nodes() {
         const [x1, y1, x2, y2] = b.slice(1).map(Number);
         list.push({ text: a.text ?? '', desc: a['content-desc'] ?? '', hint: a.hint ?? '', cls: a.class ?? '', clickable: a.clickable === 'true', scrollable: a.scrollable === 'true', x: (x1 + x2) >> 1, y: (y1 + y2) >> 1, w: x2 - x1, h: y2 - y1 });
       }
+      // A slow emulator can raise "X isn't responding": answer Wait and look again.
+      const anr = list.find((n) => /isn.t responding/i.test(n.text));
+      if (anr) { const w = list.find((n) => /^Wait$/i.test(n.text)); if (w) await shell(`input tap ${w.x} ${w.y}`); await sleep(1200); continue; }
       if (list.length) return list;
     } catch { /* uiautomator can fail while the screen is animating */ }
     await sleep(700);
