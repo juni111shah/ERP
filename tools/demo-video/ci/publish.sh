@@ -10,6 +10,13 @@ PUB=$(mktemp -d)
 cp -r "$T/work/explore-$KIND" "$PUB/" 2>/dev/null || true
 cp "$T"/work/rec/*.marks.json "$PUB/" 2>/dev/null || true
 cp "$T"/work/build/*.ass "$PUB/" 2>/dev/null || true
+# The exact voice clips and a high-quality copy of the raw recording, so the final mix (with music) can be built elsewhere.
+if [ -d "$T/work/voice" ]; then mkdir -p "$PUB/voice" && cp "$T"/work/voice/*.mp3 "$T"/work/voice/durations.json "$PUB/voice/" 2>/dev/null || true; fi
+FFX="$T/node_modules/ffmpeg-static/ffmpeg"
+if [ -f "$T/work/rec/$KIND.mp4" ]; then
+  "$FFX" -hide_banner -loglevel error -y -i "$T/work/rec/$KIND.mp4" -c:v libx264 -preset medium -crf 17 -maxrate 4M -bufsize 8M -pix_fmt yuv420p -an "$PUB/raw-$KIND.mp4" || true
+  [ -f "$PUB/raw-$KIND.mp4" ] && [ "$(stat -c %s "$PUB/raw-$KIND.mp4")" -ge 95000000 ] && rm -f "$PUB/raw-$KIND.mp4"
+fi
 tail -400 api.log > "$PUB/api-tail.log" 2>/dev/null || true
 FF="$T/node_modules/ffmpeg-static/ffmpeg"
 for f in "$T"/out/*.mp4; do
