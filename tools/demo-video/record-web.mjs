@@ -153,9 +153,14 @@ await scene('w04-first-login', async () => {
   await r.type(tid('login-email'), newEmail, { delay: 12 });
   await r.type(tid('login-password'), 'Crescent#2026demo', { delay: 14 });
   await r.click(page.getByRole('button', { name: /^sign in$/i }).first());
-  await settle(); await sleep(2500);
+  // The first sign-in to a brand-new workspace can take a while on a small server: hold the picture until the dashboard is there.
+  r.freeze();
+  await page.getByText(/Welcome, Ayesha Khan/).first().waitFor({ timeout: 30000 }).catch(() => {});
+  await settle(); await sleep(800);
+  await r.unfreeze(300);
+  await safely('new kpis', async () => { await r.spotlight(tid('kpi-grid'), 2000); });
   await r.hover(page.getByText(/Welcome, Ayesha Khan/).first(), 700).catch(() => {});
-  await sleep(1200);
+  await sleep(1500);
 });
 
 const bridgeCard = { kick: 'A few months later', title: 'A workspace in <span>full swing</span>', sub: 'Real data, posted through the real workflows' };

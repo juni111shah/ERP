@@ -63,6 +63,8 @@ const overlayInit = ({ emblem }) => {
     document.head.appendChild(style);
     const layer = document.createElement('div');
     layer.id = 'demo-layer';
+    layer.setAttribute('data-no-i18n', '');
+    layer.setAttribute('translate', 'no');
     layer.innerHTML = `<div id="demo-spot"></div><div id="demo-l3"><img src="data:image/png;base64,${emblem}"><span></span></div>
       <div id="demo-card"><div class="orb" style="width:420px;height:420px;left:-120px;top:-80px"></div>
       <div class="orb" style="width:300px;height:300px;right:-60px;bottom:-40px;animation-delay:-4s"></div>
