@@ -1,0 +1,177 @@
+{
+  "duration": 504.56666666666666,
+  "marks": [
+    {
+      "id": "w01-intro",
+      "t": 0
+    },
+    {
+      "id": "w02-pricing",
+      "t": 12.949
+    },
+    {
+      "id": "w02b-plans",
+      "t": 23.48
+    },
+    {
+      "id": "w02c-mobile",
+      "t": 35.355
+    },
+    {
+      "id": "w03-register",
+      "t": 40.207
+    },
+    {
+      "id": "w03b-business",
+      "t": 51.39
+    },
+    {
+      "id": "w03c-country",
+      "t": 57.24
+    },
+    {
+      "id": "w03d-contact",
+      "t": 66.056
+    },
+    {
+      "id": "w04-first-login",
+      "t": 84.288
+    },
+    {
+      "id": "w05-bridge",
+      "t": 115.409
+    },
+    {
+      "id": "w06-dashboard",
+      "t": 123.84
+    },
+    {
+      "id": "w06b-charts",
+      "t": 134.493
+    },
+    {
+      "id": "w06c-search",
+      "t": 150.32
+    },
+    {
+      "id": "w07-sales",
+      "t": 157.689
+    },
+    {
+      "id": "w07b-invoices",
+      "t": 172.205
+    },
+    {
+      "id": "w07c-new",
+      "t": 179.325
+    },
+    {
+      "id": "w07d-issue",
+      "t": 202.706
+    },
+    {
+      "id": "w08-receivables",
+      "t": 212.376
+    },
+    {
+      "id": "w08b-customer",
+      "t": 221.02
+    },
+    {
+      "id": "w09-purchasing",
+      "t": 237.243
+    },
+    {
+      "id": "w09b-po",
+      "t": 244.805
+    },
+    {
+      "id": "w09c-receive",
+      "t": 258.127
+    },
+    {
+      "id": "w09d-stock",
+      "t": 266.398
+    },
+    {
+      "id": "w10-finance",
+      "t": 277.848
+    },
+    {
+      "id": "w10b-reports",
+      "t": 293.416
+    },
+    {
+      "id": "w10c-budgets",
+      "t": 309.308
+    },
+    {
+      "id": "w11-approvals",
+      "t": 317.817
+    },
+    {
+      "id": "w11b-submit",
+      "t": 333.676
+    },
+    {
+      "id": "w12-hr",
+      "t": 341.07
+    },
+    {
+      "id": "w12b-leave",
+      "t": 351.904
+    },
+    {
+      "id": "w12c-payroll",
+      "t": 361.198
+    },
+    {
+      "id": "w13-industry",
+      "t": 377.84
+    },
+    {
+      "id": "w13b-realestate",
+      "t": 384.216
+    },
+    {
+      "id": "w13c-projects",
+      "t": 395.631
+    },
+    {
+      "id": "w13d-pos",
+      "t": 410.463
+    },
+    {
+      "id": "w13e-crm",
+      "t": 420.369
+    },
+    {
+      "id": "w13f-manufacturing",
+      "t": 427.417
+    },
+    {
+      "id": "w13g-more",
+      "t": 439.413
+    },
+    {
+      "id": "w14-control",
+      "t": 456.325
+    },
+    {
+      "id": "w14b-users",
+      "t": 466.437
+    },
+    {
+      "id": "w14c-security",
+      "t": 474.477
+    },
+    {
+      "id": "w14d-arabic",
+      "t": 479.748
+    },
+    {
+      "id": "w15-outro",
+      "t": 494.001
+    }
+  ]
+}

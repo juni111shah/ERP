@@ -1,0 +1,174 @@
+{
+  "w01-intro": {
+    "seconds": 10.44,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Meet HigherSquare 360: one system to run your finance, sales, purchasing, inventory and people, with industry modules you switch on when you need them."
+  },
+  "w02-pricing": {
+    "seconds": 9.43,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|It all starts on our website. HigherSquare 360 brings your finance, sales and teams into one place, so everyone works from the same numbers."
+  },
+  "w02b-plans": {
+    "seconds": 9.94,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Pricing is simple and up front. Choose monthly or annual billing, and see exactly how many users and which modules each plan includes."
+  },
+  "w02c-mobile": {
+    "seconds": 3,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|You can even preview the mobile app before you sign up."
+  },
+  "w03-register": {
+    "seconds": 6.55,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Signing up takes about a minute. Pick a plan, here the Business plan, with a fourteen-day free trial."
+  },
+  "w03b-business": {
+    "seconds": 4.9,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Enter your business name, and your workspace address is filled in and checked for you."
+  },
+  "w03c-country": {
+    "seconds": 6.24,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Choose your industry and country. The currency, taxes and chart of accounts are set up to match."
+  },
+  "w03d-contact": {
+    "seconds": 5.93,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Add your name, work email and a password, accept the terms, and create your workspace."
+  },
+  "w04-first-login": {
+    "seconds": 8.52,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Your workspace is ready straight away. Sign in, and you land on your own dashboard, ready for your first customers, products and invoices."
+  },
+  "w05-bridge": {
+    "seconds": 5.93,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Now let's step into a company that has been running on HigherSquare 360 for a few months."
+  },
+  "w06-dashboard": {
+    "seconds": 9.7,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|The dashboard shows the whole business at a glance. The executive highlights show portfolio value, receivables, and your net result for the period."
+  },
+  "w06b-charts": {
+    "seconds": 8.11,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Charts compare what you billed with what you collected, and age what customers still owe. Alerts flag anything that needs your attention."
+  },
+  "w06c-search": {
+    "seconds": 5.52,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|And global search finds any customer, item or document in a second."
+  },
+  "w07-sales": {
+    "seconds": 8.69,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Sales flows from quote, to sales order, to invoice, and each step carries over to the next, so nothing is typed twice."
+  },
+  "w07b-invoices": {
+    "seconds": 6.17,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|The invoices page shows what you invoiced this year, what is outstanding, and what is overdue."
+  },
+  "w07c-new": {
+    "seconds": 9.29,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Here we raise a new invoice. Pick the customer, describe the work, enter the quantity and price, and choose the tax. The totals are worked out for you."
+  },
+  "w07d-issue": {
+    "seconds": 7.82,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Save and issue it, and the invoice is numbered, posted to the general ledger, and ready to print or email with your branding."
+  },
+  "w08-receivables": {
+    "seconds": 5.66,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|When the customer pays, record the receipt, and see every receipt in one list."
+  },
+  "w08b-customer": {
+    "seconds": 7.63,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Open the customer to see their total sales, what they owe, their payment terms, and the full history of invoices and receipts."
+  },
+  "w09-purchasing": {
+    "seconds": 4.73,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Purchasing follows the same path. A requisition asks for what is needed."
+  },
+  "w09b-po": {
+    "seconds": 6.34,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|It becomes a purchase order to the supplier, with every line tracked from ordered, to received, to billed."
+  },
+  "w09c-receive": {
+    "seconds": 5.76,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Goods receipts bring the stock in, and supplier bills are matched and scheduled for payment."
+  },
+  "w09d-stock": {
+    "seconds": 9.6,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Stock on hand shows every item by warehouse, with quantity, average cost and value, updated by every receipt and every sale."
+  },
+  "w10-finance": {
+    "seconds": 9.82,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Finance is built in, not bolted on. Here is the chart of accounts, and the journals that every sale, purchase and payroll posts automatically."
+  },
+  "w10b-reports": {
+    "seconds": 7.9,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Reports are always up to date: the trial balance, the income statement and the balance sheet, for any period, in a click."
+  },
+  "w10c-budgets": {
+    "seconds": 3.96,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Set budgets for the year, and compare them with what actually happened."
+  },
+  "w11-approvals": {
+    "seconds": 6.84,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Approvals keep you in control. Anyone can request approval for a purchase, a payment or an expense,"
+  },
+  "w11b-submit": {
+    "seconds": 4.03,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|and it waits for the right person's sign-off, on the web or on their phone."
+  },
+  "w12-hr": {
+    "seconds": 7.3,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|HR and payroll live in the same place. Every employee has a record with their role, their department and their pay."
+  },
+  "w12b-leave": {
+    "seconds": 5.54,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Attendance and leave are tracked day by day, and leave requests go through approval."
+  },
+  "w12c-payroll": {
+    "seconds": 10.37,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Payroll runs every month in a few clicks. Each run shows gross pay, deductions and net pay for every employee, and posts straight to the books."
+  },
+  "w13-industry": {
+    "seconds": 3,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Then, switch on the modules your industry needs."
+  },
+  "w13b-realestate": {
+    "seconds": 6.1,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Real estate manages properties, units and occupancy, with leases and rent billing."
+  },
+  "w13c-projects": {
+    "seconds": 4.7,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Projects track tasks on a board, with timesheets and project billing."
+  },
+  "w13d-pos": {
+    "seconds": 4.99,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|The point of sale terminal sells at the counter, from your live product list and stock."
+  },
+  "w13e-crm": {
+    "seconds": 5.11,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|CRM follows every lead and opportunity through your sales pipeline."
+  },
+  "w13f-manufacturing": {
+    "seconds": 4.46,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Manufacturing plans bills of materials and work orders."
+  },
+  "w13g-more": {
+    "seconds": 7.61,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|And there is more: services and retainers, retail stores and price lists, and distribution routes with van sales."
+  },
+  "w14-control": {
+    "seconds": 3.24,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|You decide which modules are switched on for your business."
+  },
+  "w14b-users": {
+    "seconds": 3.29,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Users and roles control who can see and do what."
+  },
+  "w14c-security": {
+    "seconds": 4.32,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|Everyone can protect their sign-in with two-factor authentication."
+  },
+  "w14d-arabic": {
+    "seconds": 3.46,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|And the whole app also works in Arabic, right to left."
+  },
+  "w15-outro": {
+    "seconds": 7.54,
+    "fingerprint": "en-US-AndrewMultilingualNeural|+0%|HigherSquare 360. Your whole business, in one place. Start your free trial today."
+  }
+}

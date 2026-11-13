@@ -1,0 +1,97 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Cap,Segoe UI Semibold,40,&H00FFFFFF,&H00FFFFFF,&H38263A44,&H00000000,0,0,0,0,100,100,0,0,3,14,0,2,120,120,54,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.60,0:00:02.09,Cap,,0,0,0,,{\fad(120,120)}Meet HigherSquare 360:
+Dialogue: 0,0:00:02.14,0:00:07.49,Cap,,0,0,0,,{\fad(120,120)}one system to run your finance, sales, purchasing, inventory and people, with
+Dialogue: 0,0:00:07.54,0:00:10.99,Cap,,0,0,0,,{\fad(120,120)}industry modules you switch on when you need them.
+Dialogue: 0,0:00:13.55,0:00:15.48,Cap,,0,0,0,,{\fad(120,120)}It all starts on our website.
+Dialogue: 0,0:00:15.53,0:00:21.02,Cap,,0,0,0,,{\fad(120,120)}HigherSquare 360 brings your finance, sales and teams into one place, so everyone
+Dialogue: 0,0:00:21.07,0:00:22.93,Cap,,0,0,0,,{\fad(120,120)}works from the same numbers.
+Dialogue: 0,0:00:24.08,0:00:26.36,Cap,,0,0,0,,{\fad(120,120)}Pricing is simple and up front.
+Dialogue: 0,0:00:26.41,0:00:32.54,Cap,,0,0,0,,{\fad(120,120)}Choose monthly or annual billing, and see exactly how many users and which modules
+Dialogue: 0,0:00:32.59,0:00:33.97,Cap,,0,0,0,,{\fad(120,120)}each plan includes.
+Dialogue: 0,0:00:35.95,0:00:38.91,Cap,,0,0,0,,{\fad(120,120)}You can even preview the mobile app before you sign up.
+Dialogue: 0,0:00:40.81,0:00:42.85,Cap,,0,0,0,,{\fad(120,120)}Signing up takes about a minute.
+Dialogue: 0,0:00:42.90,0:00:47.31,Cap,,0,0,0,,{\fad(120,120)}Pick a plan, here the Business plan, with a fourteen-day free trial.
+Dialogue: 0,0:00:51.99,0:00:56.61,Cap,,0,0,0,,{\fad(120,120)}Enter your business name, and your workspace address is filled in and checked for
+Dialogue: 0,0:00:56.66,0:00:56.84,Cap,,0,0,0,,{\fad(120,120)}you.
+Dialogue: 0,0:00:57.84,0:00:59.96,Cap,,0,0,0,,{\fad(120,120)}Choose your industry and country.
+Dialogue: 0,0:01:00.01,0:01:04.03,Cap,,0,0,0,,{\fad(120,120)}The currency, taxes and chart of accounts are set up to match.
+Dialogue: 0,0:01:06.66,0:01:11.84,Cap,,0,0,0,,{\fad(120,120)}Add your name, work email and a password, accept the terms, and create your
+Dialogue: 0,0:01:11.89,0:01:12.54,Cap,,0,0,0,,{\fad(120,120)}workspace.
+Dialogue: 0,0:01:24.89,0:01:27.22,Cap,,0,0,0,,{\fad(120,120)}Your workspace is ready straight away.
+Dialogue: 0,0:01:27.27,0:01:31.98,Cap,,0,0,0,,{\fad(120,120)}Sign in, and you land on your own dashboard, ready for your first customers,
+Dialogue: 0,0:01:32.03,0:01:33.36,Cap,,0,0,0,,{\fad(120,120)}products and invoices.
+Dialogue: 0,0:01:56.01,0:02:01.42,Cap,,0,0,0,,{\fad(120,120)}Now let's step into a company that has been running on HigherSquare 360 for a few
+Dialogue: 0,0:02:01.47,0:02:01.89,Cap,,0,0,0,,{\fad(120,120)}months.
+Dialogue: 0,0:02:04.44,0:02:07.80,Cap,,0,0,0,,{\fad(120,120)}The dashboard shows the whole business at a glance.
+Dialogue: 0,0:02:07.85,0:02:13.35,Cap,,0,0,0,,{\fad(120,120)}The executive highlights show portfolio value, receivables, and your net result for
+Dialogue: 0,0:02:13.40,0:02:14.09,Cap,,0,0,0,,{\fad(120,120)}the period.
+Dialogue: 0,0:02:15.09,0:02:20.09,Cap,,0,0,0,,{\fad(120,120)}Charts compare what you billed with what you collected, and age what customers still
+Dialogue: 0,0:02:20.14,0:02:20.33,Cap,,0,0,0,,{\fad(120,120)}owe.
+Dialogue: 0,0:02:20.38,0:02:23.15,Cap,,0,0,0,,{\fad(120,120)}Alerts flag anything that needs your attention.
+Dialogue: 0,0:02:30.92,0:02:36.39,Cap,,0,0,0,,{\fad(120,120)}And global search finds any customer, item or document in a second.
+Dialogue: 0,0:02:38.29,0:02:44.26,Cap,,0,0,0,,{\fad(120,120)}Sales flows from quote, to sales order, to invoice, and each step carries over to
+Dialogue: 0,0:02:44.31,0:02:46.93,Cap,,0,0,0,,{\fad(120,120)}the next, so nothing is typed twice.
+Dialogue: 0,0:02:52.81,0:02:58.20,Cap,,0,0,0,,{\fad(120,120)}The invoices page shows what you invoiced this year, what is outstanding, and what
+Dialogue: 0,0:02:58.25,0:02:58.92,Cap,,0,0,0,,{\fad(120,120)}is overdue.
+Dialogue: 0,0:02:59.92,0:03:01.63,Cap,,0,0,0,,{\fad(120,120)}Here we raise a new invoice.
+Dialogue: 0,0:03:01.68,0:03:06.78,Cap,,0,0,0,,{\fad(120,120)}Pick the customer, describe the work, enter the quantity and price, and choose the
+Dialogue: 0,0:03:06.83,0:03:07.03,Cap,,0,0,0,,{\fad(120,120)}tax.
+Dialogue: 0,0:03:07.08,0:03:09.16,Cap,,0,0,0,,{\fad(120,120)}The totals are worked out for you.
+Dialogue: 0,0:03:23.31,0:03:28.36,Cap,,0,0,0,,{\fad(120,120)}Save and issue it, and the invoice is numbered, posted to the general ledger, and
+Dialogue: 0,0:03:28.41,0:03:31.08,Cap,,0,0,0,,{\fad(120,120)}ready to print or email with your branding.
+Dialogue: 0,0:03:32.98,0:03:38.59,Cap,,0,0,0,,{\fad(120,120)}When the customer pays, record the receipt, and see every receipt in one list.
+Dialogue: 0,0:03:41.62,0:03:46.64,Cap,,0,0,0,,{\fad(120,120)}Open the customer to see their total sales, what they owe, their payment terms, and
+Dialogue: 0,0:03:46.69,0:03:49.20,Cap,,0,0,0,,{\fad(120,120)}the full history of invoices and receipts.
+Dialogue: 0,0:03:57.84,0:03:59.99,Cap,,0,0,0,,{\fad(120,120)}Purchasing follows the same path.
+Dialogue: 0,0:04:00.04,0:04:02.52,Cap,,0,0,0,,{\fad(120,120)}A requisition asks for what is needed.
+Dialogue: 0,0:04:05.41,0:04:10.31,Cap,,0,0,0,,{\fad(120,120)}It becomes a purchase order to the supplier, with every line tracked from ordered,
+Dialogue: 0,0:04:10.36,0:04:11.69,Cap,,0,0,0,,{\fad(120,120)}to received, to billed.
+Dialogue: 0,0:04:18.73,0:04:23.93,Cap,,0,0,0,,{\fad(120,120)}Goods receipts bring the stock in, and supplier bills are matched and scheduled for
+Dialogue: 0,0:04:23.98,0:04:24.44,Cap,,0,0,0,,{\fad(120,120)}payment.
+Dialogue: 0,0:04:27.00,0:04:33.43,Cap,,0,0,0,,{\fad(120,120)}Stock on hand shows every item by warehouse, with quantity, average cost and value,
+Dialogue: 0,0:04:33.48,0:04:36.55,Cap,,0,0,0,,{\fad(120,120)}updated by every receipt and every sale.
+Dialogue: 0,0:04:38.45,0:04:40.85,Cap,,0,0,0,,{\fad(120,120)}Finance is built in, not bolted on.
+Dialogue: 0,0:04:40.90,0:04:46.25,Cap,,0,0,0,,{\fad(120,120)}Here is the chart of accounts, and the journals that every sale, purchase and
+Dialogue: 0,0:04:46.30,0:04:48.22,Cap,,0,0,0,,{\fad(120,120)}payroll posts automatically.
+Dialogue: 0,0:04:54.02,0:04:55.96,Cap,,0,0,0,,{\fad(120,120)}Reports are always up to date:
+Dialogue: 0,0:04:56.01,0:05:01.47,Cap,,0,0,0,,{\fad(120,120)}the trial balance, the income statement and the balance sheet, for any period, in a
+Dialogue: 0,0:05:01.52,0:05:01.87,Cap,,0,0,0,,{\fad(120,120)}click.
+Dialogue: 0,0:05:09.91,0:05:13.82,Cap,,0,0,0,,{\fad(120,120)}Set budgets for the year, and compare them with what actually happened.
+Dialogue: 0,0:05:18.42,0:05:20.46,Cap,,0,0,0,,{\fad(120,120)}Approvals keep you in control.
+Dialogue: 0,0:05:20.51,0:05:25.21,Cap,,0,0,0,,{\fad(120,120)}Anyone can request approval for a purchase, a payment or an expense,
+Dialogue: 0,0:05:34.28,0:05:38.26,Cap,,0,0,0,,{\fad(120,120)}and it waits for the right person's sign-off, on the web or on their phone.
+Dialogue: 0,0:05:41.67,0:05:44.05,Cap,,0,0,0,,{\fad(120,120)}HR and payroll live in the same place.
+Dialogue: 0,0:05:44.10,0:05:48.92,Cap,,0,0,0,,{\fad(120,120)}Every employee has a record with their role, their department and their pay.
+Dialogue: 0,0:05:52.50,0:05:57.99,Cap,,0,0,0,,{\fad(120,120)}Attendance and leave are tracked day by day, and leave requests go through approval.
+Dialogue: 0,0:06:01.80,0:06:04.76,Cap,,0,0,0,,{\fad(120,120)}Payroll runs every month in a few clicks.
+Dialogue: 0,0:06:04.81,0:06:10.50,Cap,,0,0,0,,{\fad(120,120)}Each run shows gross pay, deductions and net pay for every employee, and posts
+Dialogue: 0,0:06:10.55,0:06:12.12,Cap,,0,0,0,,{\fad(120,120)}straight to the books.
+Dialogue: 0,0:06:18.44,0:06:21.39,Cap,,0,0,0,,{\fad(120,120)}Then, switch on the modules your industry needs.
+Dialogue: 0,0:06:24.82,0:06:30.87,Cap,,0,0,0,,{\fad(120,120)}Real estate manages properties, units and occupancy, with leases and rent billing.
+Dialogue: 0,0:06:36.23,0:06:40.88,Cap,,0,0,0,,{\fad(120,120)}Projects track tasks on a board, with timesheets and project billing.
+Dialogue: 0,0:06:51.06,0:06:55.65,Cap,,0,0,0,,{\fad(120,120)}The point of sale terminal sells at the counter, from your live product list and
+Dialogue: 0,0:06:55.70,0:06:56.00,Cap,,0,0,0,,{\fad(120,120)}stock.
+Dialogue: 0,0:07:00.97,0:07:06.03,Cap,,0,0,0,,{\fad(120,120)}CRM follows every lead and opportunity through your sales pipeline.
+Dialogue: 0,0:07:08.02,0:07:12.43,Cap,,0,0,0,,{\fad(120,120)}Manufacturing plans bills of materials and work orders.
+Dialogue: 0,0:07:20.01,0:07:21.20,Cap,,0,0,0,,{\fad(120,120)}And there is more:
+Dialogue: 0,0:07:21.25,0:07:26.89,Cap,,0,0,0,,{\fad(120,120)}services and retainers, retail stores and price lists, and distribution routes with
+Dialogue: 0,0:07:26.94,0:07:27.57,Cap,,0,0,0,,{\fad(120,120)}van sales.
+Dialogue: 0,0:07:36.93,0:07:40.12,Cap,,0,0,0,,{\fad(120,120)}You decide which modules are switched on for your business.
+Dialogue: 0,0:07:47.04,0:07:50.28,Cap,,0,0,0,,{\fad(120,120)}Users and roles control who can see and do what.
+Dialogue: 0,0:07:55.08,0:07:59.35,Cap,,0,0,0,,{\fad(120,120)}Everyone can protect their sign-in with two-factor authentication.
+Dialogue: 0,0:08:00.35,0:08:03.76,Cap,,0,0,0,,{\fad(120,120)}And the whole app also works in Arabic, right to left.
+Dialogue: 0,0:08:14.60,0:08:16.17,Cap,,0,0,0,,{\fad(120,120)}HigherSquare 360.
+Dialogue: 0,0:08:16.22,0:08:19.42,Cap,,0,0,0,,{\fad(120,120)}Your whole business, in one place.
+Dialogue: 0,0:08:19.47,0:08:22.09,Cap,,0,0,0,,{\fad(120,120)}Start your free trial today.

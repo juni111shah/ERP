@@ -1,0 +1,400 @@
+ ---> Microsoft.Data.SqlClient.SqlException (0x80131904): Cannot insert duplicate key row in object 'dbo.IdempotencyRecords' with unique index 'IX_IdempotencyRecords_OrgId_UserId_Route_Key'. The duplicate key value is (c4823a17-c21a-4961-8a73-b66b17def31d, ac8bb17d-ce10-41a2-bf53-b66b17dd5c09, /api/v1/approvals, demo-seed-demo-re-1).
+The statement has been terminated.
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+ClientConnectionId:bebd32b9-0237-417e-be16-79f8868d10d8
+Error Number:2601,State:1,Class:14
+   --- End of inner exception stack trace ---
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.<>c__DisplayClass30_0`2.<<ExecuteAsync>b__0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+Microsoft.EntityFrameworkCore.DbUpdateException: An error occurred while saving the entity changes. See the inner exception for details.
+ ---> Microsoft.Data.SqlClient.SqlException (0x80131904): Cannot insert duplicate key row in object 'dbo.IdempotencyRecords' with unique index 'IX_IdempotencyRecords_OrgId_UserId_Route_Key'. The duplicate key value is (c4823a17-c21a-4961-8a73-b66b17def31d, ac8bb17d-ce10-41a2-bf53-b66b17dd5c09, /api/v1/approvals, demo-seed-demo-re-1).
+The statement has been terminated.
+   at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+ClientConnectionId:bebd32b9-0237-417e-be16-79f8868d10d8
+Error Number:2601,State:1,Class:14
+   --- End of inner exception stack trace ---
+   at Microsoft.EntityFrameworkCore.Update.ReaderModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Update.Internal.SqlServerModificationCommandBatch.ExecuteAsync(IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Update.Internal.BatchExecutor.ExecuteAsync(IEnumerable`1 commandBatches, IRelationalConnection connection, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(IList`1 entriesToSave, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.SaveChangesAsync(StateManager stateManager, Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.<>c__DisplayClass30_0`2.<<ExecuteAsync>b__0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteImplementationAsync[TState,TResult](Func`4 operation, Func`4 verifySucceeded, TState state, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+[22:28:09 INF] HTTP POST /api/v1/approvals responded 201 in 5.5290 ms
+[22:28:09 INF] HTTP POST /api/v1/auth/login responded 200 in 73.3356 ms
+[22:28:09 INF] HTTP GET /api/v1/platform-admin/settings responded 200 in 27.4257 ms
+[22:28:09 INF] HTTP PUT /api/v1/platform-admin/settings responded 200 in 62.6921 ms
+[22:28:09 INF] HTTP GET /api/v1/platform-admin/settings responded 200 in 3.9543 ms
+[22:28:14 INF] HTTP POST /api/v1/auth/login responded 200 in 72.8417 ms
+[22:28:29 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:28:30 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:31:31 ERR] HTTP POST /api/v1/auth/refresh responded 500 in 9.7381 ms
+ERP.Application.Auth.AuthException: Not signed in.
+   at ERP.Infrastructure.Auth.AuthService.RefreshAsync(String rawRefreshToken, String ip, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Infrastructure/Auth/AuthService.cs:line 298
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Common/ConcurrencyRetry.cs:line 30
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Behaviors/Behaviors.cs:line 15
+   at ERP.Api.Controllers.Auth.AuthController.Refresh(IOptions`1 o, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Controllers/Auth/AuthController.cs:line 89
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.TaskOfIActionResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 22
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+[22:31:31 ERR] An unhandled exception has occurred while executing the request.
+ERP.Application.Auth.AuthException: Not signed in.
+   at ERP.Infrastructure.Auth.AuthService.RefreshAsync(String rawRefreshToken, String ip, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Infrastructure/Auth/AuthService.cs:line 298
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Common/ConcurrencyRetry.cs:line 30
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Application/Behaviors/Behaviors.cs:line 15
+   at ERP.Api.Controllers.Auth.AuthController.Refresh(IOptions`1 o, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Controllers/Auth/AuthController.cs:line 89
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.TaskOfIActionResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 22
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.StatusCodePagesMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[22:31:32 INF] HTTP GET /api/v1/public/modules responded 200 in 114.2695 ms
+[22:31:32 INF] HTTP GET /api/v1/platform/industries responded 200 in 117.8525 ms
+[22:31:32 INF] HTTP GET /api/v1/public/signup-config responded 200 in 89.5861 ms
+[22:31:32 INF] HTTP GET /api/v1/platform/countries responded 200 in 117.4903 ms
+[22:31:32 INF] HTTP GET /api/v1/public/legal responded 200 in 90.6601 ms
+[22:31:32 INF] HTTP GET /api/v1/public/content responded 200 in 120.9412 ms
+[22:31:33 INF] HTTP GET /api/v1/public/assistant/status responded 200 in 10.1891 ms
+[22:32:25 INF] HTTP GET /api/v1/platform/industries responded 200 in 8.1433 ms
+[22:32:25 INF] HTTP GET /api/v1/platform/countries responded 200 in 6.3164 ms
+[22:32:25 INF] HTTP GET /api/v1/public/signup-config responded 200 in 9.1078 ms
+[22:32:25 INF] HTTP GET /api/v1/platform/currencies responded 200 in 28.8863 ms
+[22:32:25 INF] HTTP GET /api/v1/public/assistant/status responded 200 in 7.2146 ms
+[22:32:29 INF] HTTP GET /api/v1/public/sign-in-key-available responded 200 in 14.6280 ms
+[22:32:55 INF] HTTP POST /api/v1/public/signups responded 200 in 906.3226 ms
+[22:33:20 INF] HTTP POST /api/v1/auth/login responded 200 in 134.7702 ms
+[22:33:20 INF] HTTP GET /api/v1/me responded 200 in 35.4773 ms
+[22:33:23 INF] HTTP GET /api/v1/notifications responded 200 in 112.1939 ms
+[22:33:23 INF] HTTP GET /api/v1/navigation/menu responded 200 in 130.3091 ms
+[22:33:24 INF] HTTP GET /api/v1/dashboard responded 200 in 632.5319 ms
+[22:33:32 ERR] HTTP POST /api/v1/auth/refresh responded 500 in 2.6807 ms
+ERP.Application.Auth.AuthException: Not signed in.
+   at ERP.Infrastructure.Auth.AuthService.RefreshAsync(String rawRefreshToken, String ip, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Infrastructure/Auth/AuthService.cs:line 298
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct)
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct)
+   at ERP.Api.Controllers.Auth.AuthController.Refresh(IOptions`1 o, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Controllers/Auth/AuthController.cs:line 89
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.TaskOfIActionResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 22
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+[22:33:32 ERR] An unhandled exception has occurred while executing the request.
+ERP.Application.Auth.AuthException: Not signed in.
+   at ERP.Infrastructure.Auth.AuthService.RefreshAsync(String rawRefreshToken, String ip, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Infrastructure/Auth/AuthService.cs:line 298
+   at ERP.Application.Common.ConcurrencyRetryBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct)
+   at ERP.Application.Behaviors.ValidationBehavior`2.Handle(TRequest request, RequestHandlerDelegate`1 next, CancellationToken ct)
+   at ERP.Api.Controllers.Auth.AuthController.Refresh(IOptions`1 o, CancellationToken ct) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Controllers/Auth/AuthController.cs:line 89
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.TaskOfIActionResultExecutor.Execute(ActionContext actionContext, IActionResultTypeMapper mapper, ObjectMethodExecutor executor, Object controller, Object[] arguments)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeActionMethodAsync>g__Awaited|12_0(ControllerActionInvoker invoker, ValueTask`1 actionResultValueTask)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.<InvokeNextActionFilterAsync>g__Awaited|10_0(ControllerActionInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Rethrow(ActionExecutedContextSealed context)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.Next(State& next, Scope& scope, Object& state, Boolean& isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker.InvokeInnerFilterAsync()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeFilterPipelineAsync>g__Awaited|20_0(ResourceInvoker invoker, Task lastTask, State next, Scope scope, Object state, Boolean isCompleted)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker.<InvokeAsync>g__Awaited|17_0(ResourceInvoker invoker, Task task, IDisposable scope)
+   at ERP.Api.Infrastructure.IdempotencyMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IServiceScopeFactory scopes) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 86
+   at ERP.Api.Infrastructure.LegalEntityScopeMiddleware.InvokeAsync(HttpContext http, ICurrentUser user, IReadRepository`1 legalEntities) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/Middleware.cs:line 35
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at ERP.Api.Infrastructure.SubscriptionGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Infrastructure/SubscriptionGateMiddleware.cs:line 22
+   at ERP.Modularity.CapabilityGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Capabilities.cs:line 89
+   at ERP.Modularity.ModuleGateMiddleware.InvokeAsync(HttpContext http) in /home/runner/work/ERP/ERP/backend/src/ERP.Modularity/Modules.cs:line 161
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Program.<>c.<<<Main>$>b__0_13>d.MoveNext() in /home/runner/work/ERP/ERP/backend/src/ERP.Api/Program.cs:line 193
+--- End of stack trace from previous location ---
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at Microsoft.AspNetCore.Diagnostics.StatusCodePagesMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[22:33:33 INF] HTTP POST /api/v1/auth/login responded 200 in 280.3147 ms
+[22:33:34 INF] HTTP POST /api/v1/auth/select-workspace responded 200 in 29.4009 ms
+[22:33:34 INF] HTTP GET /api/v1/me responded 200 in 13.4238 ms
+[22:33:34 INF] HTTP GET /api/v1/notifications responded 200 in 113.9208 ms
+[22:33:34 INF] HTTP GET /api/v1/navigation/menu responded 200 in 142.4408 ms
+[22:33:36 INF] HTTP GET /api/v1/dashboard responded 200 in 1270.3256 ms
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:08 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 WRN] The query uses a row limiting operator ('Skip'/'Take') without an 'OrderBy' operator. This may lead to unpredictable results. If the 'Distinct' operator is used after 'OrderBy', then make sure to use the 'OrderBy' operator after 'Distinct' as the ordering would otherwise get erased.
+[22:34:09 INF] HTTP GET /api/v1/search responded 200 in 574.5238 ms
+[22:34:17 INF] HTTP GET /api/v1/parties responded 200 in 65.6597 ms
+[22:34:17 INF] HTTP GET /api/v1/legal-entities responded 200 in 77.9121 ms
+[22:34:17 INF] HTTP GET /api/v1/m/sales/quotes responded 200 in 203.6552 ms
+[22:34:17 INF] HTTP GET /api/v1/m/sales/kpis responded 200 in 206.6428 ms
+[22:34:17 INF] HTTP GET /api/v1/items responded 200 in 315.5606 ms
+[22:34:17 INF] HTTP GET /api/v1/finance/tax-codes responded 200 in 386.7209 ms
+[22:34:25 INF] HTTP GET /api/v1/finance/invoices responded 200 in 4.7972 ms
+[22:34:25 INF] HTTP GET /api/v1/legal-entities responded 200 in 13.9928 ms
+[22:34:25 INF] HTTP GET /api/v1/finance/tax-codes responded 200 in 15.7022 ms
+[22:34:26 INF] HTTP GET /api/v1/finance/invoices responded 200 in 97.3761 ms
+[22:34:26 INF] HTTP GET /api/v1/finance/invoices responded 200 in 159.7133 ms
+[22:34:26 INF] HTTP GET /api/v1/finance/invoices responded 200 in 162.1462 ms
+[22:34:34 INF] HTTP GET /api/v1/notifications responded 200 in 8.1963 ms
+[22:34:36 INF] HTTP GET /api/v1/parties responded 200 in 9.5303 ms
+[22:34:40 INF] HTTP GET /api/v1/parties responded 200 in 8.4168 ms
+[22:34:40 INF] HTTP GET /api/v1/parties responded 200 in 30.5502 ms
+[22:34:40 INF] HTTP GET /api/v1/parties responded 200 in 12.2248 ms
+[22:34:40 INF] HTTP GET /api/v1/parties responded 200 in 8.4556 ms
+[22:34:40 INF] HTTP GET /api/v1/parties responded 200 in 5.8335 ms
+[22:34:44 INF] HTTP GET /api/v1/parties responded 200 in 7.3623 ms
+[22:35:00 INF] HTTP POST /api/v1/finance/invoices responded 201 in 59.9633 ms
+[22:35:00 INF] HTTP POST /api/v1/finance/invoices/b04730c4-8b91-4806-8477-b66b1a8038c0/issue responded 200 in 40.5225 ms
+[22:35:00 INF] HTTP GET /api/v1/finance/invoices/b04730c4-8b91-4806-8477-b66b1a8038c0 responded 200 in 53.9293 ms
+[22:35:00 INF] HTTP GET /api/v1/finance/tax-codes responded 200 in 7.8585 ms
+[22:35:00 INF] HTTP GET /api/v1/print/invoice/b04730c4-8b91-4806-8477-b66b1a8038c0 responded 200 in 66.5337 ms
+[22:35:00 INF] HTTP GET /api/v1/attachments responded 200 in 129.2478 ms
+[22:35:00 INF] HTTP GET /api/v1/finance/invoices/b04730c4-8b91-4806-8477-b66b1a8038c0/allocations responded 200 in 235.0819 ms
+[22:35:00 INF] HTTP GET /api/v1/audit responded 200 in 414.7154 ms
+[22:35:00 INF] HTTP GET /api/v1/audit/record responded 200 in 346.8035 ms
+[22:35:00 INF] HTTP GET /api/v1/users responded 200 in 28.4469 ms
+[22:35:11 INF] HTTP GET /api/v1/legal-entities responded 200 in 20.0203 ms
+[22:35:11 INF] HTTP GET /api/v1/finance/accounts responded 200 in 26.3024 ms
+[22:35:11 INF] HTTP GET /api/v1/finance/receipts responded 200 in 90.3009 ms
+[22:35:11 INF] HTTP GET /api/v1/finance/receipts responded 200 in 104.2738 ms
+[22:35:20 INF] HTTP GET /api/v1/parties responded 200 in 46.6904 ms
+[22:35:20 INF] HTTP GET /api/v1/party-groups responded 200 in 79.0029 ms
+[22:35:20 INF] HTTP GET /api/v1/parties responded 200 in 63.5853 ms
+[22:35:20 INF] HTTP GET /api/v1/parties responded 200 in 74.0233 ms
+[22:35:20 INF] HTTP GET /api/v1/parties responded 200 in 92.1643 ms
+[22:35:20 INF] HTTP GET /api/v1/parties responded 200 in 100.2755 ms
+[22:35:23 INF] HTTP GET /api/v1/parties/a4565a5d-b3bc-4922-9e5e-b66b17e064c9 responded 200 in 36.3793 ms
+[22:35:23 INF] HTTP GET /api/v1/finance/invoices responded 200 in 16.0379 ms
+[22:35:23 INF] HTTP GET /api/v1/finance/receipts responded 200 in 73.7848 ms
+[22:35:23 INF] HTTP GET /api/v1/audit/record responded 200 in 38.5315 ms
+[22:35:23 INF] HTTP GET /api/v1/finance/invoices responded 200 in 119.2685 ms
+[22:35:34 INF] HTTP GET /api/v1/notifications responded 200 in 9.8096 ms
+[22:35:36 INF] HTTP GET /api/v1/legal-entities responded 200 in 8.4012 ms
+[22:35:36 INF] HTTP GET /api/v1/parties responded 200 in 10.6828 ms
+[22:35:36 INF] HTTP GET /api/v1/items responded 200 in 61.4014 ms
+[22:35:36 INF] HTTP GET /api/v1/m/purchasing/requisitions responded 200 in 85.7601 ms
+[22:35:44 INF] HTTP GET /api/v1/finance/tax-codes responded 200 in 6.0772 ms
+[22:35:44 INF] HTTP GET /api/v1/items responded 200 in 10.2426 ms
+[22:35:44 INF] HTTP GET /api/v1/parties responded 200 in 11.5966 ms
+[22:35:44 INF] HTTP GET /api/v1/legal-entities responded 200 in 13.7920 ms
+[22:35:44 INF] HTTP GET /api/v1/m/purchasing/orders responded 200 in 155.1434 ms
+[22:35:44 INF] HTTP GET /api/v1/m/purchasing/kpis responded 200 in 203.7760 ms
+[22:35:50 INF] HTTP GET /api/v1/m/inventory/warehouses responded 200 in 83.6527 ms
+[22:35:50 WRN] The query uses the 'Distinct' operator after applying an ordering. If there are any row limiting operation used before 'Distinct' and after ordering then ordering will be used for it. Ordering(s) will be erased after 'Distinct' and results afterwards would be unordered.
+[22:35:50 INF] HTTP GET /api/v1/m/purchasing/orders/1eb46661-be61-4a50-a2c3-b66b17ea8898 responded 200 in 151.2086 ms
+[22:35:57 INF] HTTP GET /api/v1/m/purchasing/receipts responded 200 in 53.2769 ms
+[22:36:05 INF] HTTP GET /api/v1/m/inventory/stock/low responded 200 in 17.2856 ms
+[22:36:05 INF] HTTP GET /api/v1/m/inventory/stock responded 200 in 32.2626 ms
+[22:36:18 INF] HTTP GET /api/v1/finance/coa-numbering responded 200 in 319.3566 ms
+[22:36:18 INF] HTTP GET /api/v1/finance/accounts/tree/categories responded 200 in 313.3288 ms
+[22:36:23 INF] HTTP GET /api/v1/legal-entities responded 200 in 11.1773 ms
+[22:36:23 INF] HTTP GET /api/v1/finance/accounts responded 200 in 15.7531 ms
+[22:36:23 INF] HTTP GET /api/v1/finance/journals responded 200 in 95.1959 ms
+[22:36:23 INF] HTTP GET /api/v1/finance/journals responded 200 in 96.8131 ms
+[22:36:23 INF] HTTP GET /api/v1/finance/journals responded 200 in 127.9234 ms
+[22:36:23 INF] HTTP GET /api/v1/finance/journals responded 200 in 118.0978 ms
+[22:36:28 INF] HTTP POST /api/v1/auth/refresh responded 200 in 47.2357 ms
+[22:36:28 INF] HTTP GET /api/v1/me responded 200 in 9.0412 ms
+[22:36:29 INF] HTTP GET /api/v1/navigation/menu responded 200 in 17.9643 ms
+[22:36:29 INF] HTTP GET /api/v1/notifications responded 200 in 20.5937 ms
+[22:36:29 INF] HTTP GET /api/v1/finance/accounts responded 200 in 14.9988 ms
+[22:36:29 INF] HTTP GET /api/v1/party-groups responded 200 in 13.2246 ms
+[22:36:29 INF] HTTP GET /api/v1/legal-entities responded 200 in 7.8457 ms
+[22:36:29 INF] HTTP GET /api/v1/business-units responded 200 in 85.8721 ms
+[22:36:29 INF] HTTP GET /api/v1/finance/reports/trial-balance responded 200 in 154.7810 ms
+[22:36:34 INF] HTTP GET /api/v1/finance/reports/income-statement responded 200 in 57.1635 ms
+[22:36:36 INF] HTTP GET /api/v1/finance/reports/income-statement responded 200 in 10.0094 ms
+[22:36:40 INF] HTTP GET /api/v1/finance/reports/balance-sheet responded 200 in 43.2756 ms
+[22:36:42 INF] HTTP GET /api/v1/finance/reports/balance-sheet responded 200 in 43.7276 ms
+[22:36:48 INF] HTTP GET /api/v1/finance/accounts responded 200 in 13.3292 ms
+[22:36:48 INF] HTTP GET /api/v1/legal-entities responded 200 in 22.9827 ms
+[22:36:48 INF] HTTP GET /api/v1/finance/budgets responded 200 in 75.5265 ms
+[22:36:56 INF] HTTP GET /api/v1/approvals responded 200 in 47.5453 ms
+[22:37:10 INF] HTTP POST /api/v1/approvals responded 201 in 7.8713 ms
+[22:37:10 INF] HTTP GET /api/v1/approvals responded 200 in 8.7996 ms
+[22:37:14 INF] HTTP GET /api/v1/approvals responded 200 in 78.7805 ms
+[22:37:20 INF] HTTP GET /api/v1/users responded 200 in 22.0653 ms
+[22:37:20 INF] HTTP GET /api/v1/legal-entities responded 200 in 36.4591 ms
+[22:37:20 INF] HTTP GET /api/v1/m/hr/positions responded 200 in 67.8023 ms
+[22:37:20 INF] HTTP GET /api/v1/m/hr/departments responded 200 in 107.3616 ms
+[22:37:20 INF] HTTP GET /api/v1/m/hr/employees responded 200 in 194.2220 ms
+[22:37:20 INF] HTTP GET /api/v1/m/hr/employees responded 200 in 194.7825 ms
+[22:37:29 INF] HTTP GET /api/v1/notifications responded 200 in 10.0908 ms
+[22:37:31 INF] HTTP GET /api/v1/m/hr/leave responded 200 in 18.1911 ms
+[22:37:31 INF] HTTP GET /api/v1/m/hr/employees responded 200 in 17.7065 ms
+[22:37:31 WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+[22:37:31 INF] HTTP GET /api/v1/m/hr/leave-types responded 200 in 83.6981 ms
+[22:37:40 INF] HTTP GET /api/v1/legal-entities responded 200 in 7.3262 ms
+[22:37:40 INF] HTTP GET /api/v1/m/hr/payroll responded 200 in 33.3267 ms
+[22:37:47 INF] HTTP GET /api/v1/m/hr/payroll/7df4dab0-8823-4a10-9c56-b66b17e56ac4 responded 200 in 8.9548 ms
+[22:37:47 INF] HTTP GET /api/v1/finance/accounts responded 200 in 10.7941 ms
+[22:37:47 INF] HTTP GET /api/v1/m/hr/payroll/7df4dab0-8823-4a10-9c56-b66b17e56ac4/statutory responded 200 in 42.4408 ms
+[22:37:55 INF] HTTP POST /api/v1/auth/refresh responded 200 in 16.9270 ms
+[22:37:55 INF] HTTP GET /api/v1/me responded 200 in 12.5872 ms
+[22:37:55 INF] HTTP GET /api/v1/notifications responded 200 in 5.7719 ms
+[22:37:55 INF] HTTP GET /api/v1/navigation/menu responded 200 in 8.2740 ms
+[22:37:56 INF] HTTP GET /api/v1/m/realestate/properties responded 200 in 50.0464 ms
+[22:38:06 INF] HTTP GET /api/v1/m/realestate/leases responded 200 in 177.7142 ms
+[22:38:15 INF] HTTP GET /api/v1/m/projects/tasks responded 200 in 216.4557 ms
+[22:38:15 INF] HTTP GET /api/v1/m/projects/projects responded 200 in 382.1930 ms
+[22:38:21 INF] HTTP GET /api/v1/m/projects/timesheets responded 200 in 85.3218 ms
+[22:38:21 INF] HTTP GET /api/v1/m/projects/config responded 200 in 87.6541 ms
+[22:38:29 INF] HTTP GET /api/v1/m/pos/terminal responded 200 in 128.3358 ms
+[22:38:30 INF] HTTP GET /api/v1/m/pos/terminal/session responded 200 in 38.4383 ms
+[22:38:30 WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+[22:38:30 INF] HTTP GET /api/v1/m/pos/terminal/held responded 200 in 149.4891 ms
+[22:38:30 INF] HTTP GET /api/v1/m/pos/terminal/catalog responded 200 in 242.0024 ms
+[22:38:39 INF] HTTP GET /api/v1/legal-entities responded 200 in 9.4225 ms
+[22:38:39 INF] HTTP GET /api/v1/m/crm/opportunities responded 200 in 127.3612 ms
+[22:38:39 INF] HTTP GET /api/v1/m/crm/opportunities responded 200 in 141.3934 ms
+[22:38:40 INF] HTTP GET /api/v1/m/crm/opportunities responded 200 in 17.6623 ms
+[22:38:40 INF] HTTP GET /api/v1/m/crm/opportunities/pipeline-summary responded 200 in 157.1798 ms
+[22:38:46 INF] HTTP GET /api/v1/items responded 200 in 8.6027 ms
+[22:38:46 INF] HTTP GET /api/v1/legal-entities responded 200 in 12.3047 ms
+[22:38:47 INF] HTTP GET /api/v1/m/manufacturing/boms responded 200 in 110.3137 ms
+[22:38:50 INF] HTTP POST /api/v1/auth/refresh responded 200 in 13.8512 ms
+[22:38:50 INF] HTTP GET /api/v1/me responded 200 in 13.3569 ms
+[22:38:50 INF] HTTP GET /api/v1/navigation/menu responded 200 in 7.0215 ms
+[22:38:50 INF] HTTP GET /api/v1/notifications responded 200 in 9.0553 ms
+[22:38:50 INF] HTTP GET /api/v1/m/inventory/warehouses responded 200 in 10.0233 ms
+[22:38:50 INF] HTTP GET /api/v1/legal-entities responded 200 in 11.1345 ms
+[22:38:50 INF] HTTP GET /api/v1/m/manufacturing/workorders responded 200 in 64.4651 ms
+[22:38:50 INF] HTTP GET /api/v1/m/manufacturing/boms responded 200 in 56.5968 ms
+[22:38:58 INF] HTTP GET /api/v1/legal-entities responded 200 in 12.4167 ms
+[22:38:58 INF] HTTP GET /api/v1/parties responded 200 in 24.9553 ms
+[22:38:58 INF] HTTP GET /api/v1/m/services/engagements responded 200 in 101.1793 ms
+[22:39:04 INF] HTTP GET /api/v1/legal-entities responded 200 in 9.7256 ms
+[22:39:04 INF] HTTP GET /api/v1/m/inventory/warehouses responded 200 in 14.4521 ms
+[22:39:04 INF] HTTP GET /api/v1/m/retail/stores responded 200 in 84.6362 ms
+[22:39:09 INF] HTTP GET /api/v1/m/inventory/warehouses responded 200 in 10.5426 ms
+[22:39:09 INF] HTTP GET /api/v1/parties responded 200 in 10.6904 ms
+[22:39:09 INF] HTTP GET /api/v1/legal-entities responded 200 in 17.8751 ms
+[22:39:09 INF] HTTP GET /api/v1/m/distribution/routes responded 200 in 121.5743 ms
+[22:39:15 INF] HTTP GET /api/v1/modules responded 200 in 25.3533 ms
+[22:39:25 INF] HTTP GET /api/v1/users responded 200 in 8.6585 ms
+[22:39:25 INF] HTTP GET /api/v1/roles responded 200 in 58.6260 ms
+[22:39:29 INF] HTTP POST /api/v1/auth/refresh responded 200 in 17.3462 ms
+[22:39:29 INF] HTTP GET /api/v1/me responded 200 in 10.9578 ms
+[22:39:30 INF] HTTP GET /api/v1/notifications responded 200 in 6.4726 ms
+[22:39:30 INF] HTTP GET /api/v1/navigation/menu responded 200 in 9.1683 ms
+[22:39:30 INF] HTTP GET /api/v1/auth/2fa responded 200 in 24.1993 ms
+[22:39:41 INF] HTTP POST /api/v1/auth/refresh responded 200 in 17.3164 ms
+[22:39:41 INF] HTTP GET /api/v1/me responded 200 in 10.2227 ms
+[22:39:41 INF] HTTP GET /api/v1/notifications responded 200 in 6.1207 ms
+[22:39:41 INF] HTTP GET /api/v1/navigation/menu responded 200 in 8.3189 ms
+[22:39:42 INF] HTTP GET /api/v1/dashboard responded 200 in 161.3778 ms
