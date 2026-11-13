@@ -1,25 +1,39 @@
 # Client demo videos
 
-Records the two HigherSquare 360 demo videos from the running app, with a neural voice-over, background music, animated title cards, a visible cursor and burned-in captions.
+Records the two HigherSquare 360 demo videos from the running app: a neural voice-over, background music, animated title cards, a visible cursor with click ripples, section labels and burned-in captions.
 
-| Output | Made by |
+| Output | What it shows |
 |---|---|
-| `out/HigherSquare360-Web-Demo.mp4` (1920x1080) | `record-web.mjs` drives Chrome through pricing, registration and every module |
-| `out/HigherSquare360-Mobile-Demo.mp4` (1920x1080, phone in a branded frame) | `record-mobile.mjs` drives the Flutter app on the Android emulator |
+| `HigherSquare360-Web-Demo.mp4` (1920x1080) | Pricing page, registration of a new workspace, first sign-in, then every module of the Demo workspace |
+| `HigherSquare360-Mobile-Demo.mp4` (1920x1080, phone in a branded frame) | The Flutter app on an Android phone: intro tour, sign-in, overview, documents, approvals, My HR, modules |
 
-The storyboard is in [STORYBOARD.md](STORYBOARD.md). The spoken words are in [script.json](script.json): edit a line there, run `voice` again and rebuild. The recording waits for each line to finish, so the picture and voice stay in step.
+[STORYBOARD.md](STORYBOARD.md) lists the scenes. The spoken words are in [script.json](script.json), split into beats: each beat starts when its action starts on screen and never before the previous line has finished, so voice and picture stay together. Edit a line, record again, rebuild.
 
-## What you need
+## Re-record on GitHub Actions (what was used)
 
-- Node 20 or later, .NET 8 SDK, SQL Server Express (`.\SQLEXPRESS`), Google Chrome.
-- For mobile: the Flutter SDK and the Android emulator `lifejet_pixel` (any phone AVD works; set `AVD`).
-- Windows **Smart App Control must be off**: it blocks the freshly built `ERP.Api.dll`.
-- Internet once for `npm install` and for the voice (only the script text goes to Microsoft's speech service).
-- `assets/music.mp3`: "Upbeat Corporate" by AtlasAudio, from Pixabay (https://pixabay.com/music/corporate-upbeat-corporate-617614/), free for commercial use under the Pixabay Content License. It is not committed, because the licence does not allow redistributing the track on its own. Download it again from that page, or set `MUSIC=<path>` to use another track.
+The dev PC's Windows Smart App Control blocks a freshly built `ERP.Api.dll`, so the recording runs on GitHub's Linux runners ([.github/workflows/demo-video.yml](../../.github/workflows/demo-video.yml)): SQL Server, the API with the demo seed and `ng serve` for the web job; the same API plus an Android emulator with the debug APK for the phone job.
 
-## Re-record
+1. Set the mode of each job in [ci-mode.txt](ci-mode.txt): `record` for the videos, `explore` for screenshots and a control list of every screen (useful after UI changes).
+2. Push to `claude/demo-video`. Put `[web-only]` or `[mobile-only]` in the commit message to run one job.
+3. Each job force-pushes its results to a branch: `demo-video-out-web` / `demo-video-out-mobile` (raw recording, voice clips, scene marks, preview frames). Fetch them:
 
-From the repository root, start the API on a throwaway database and the web app (two terminals):
+```bash
+git fetch origin demo-video-out-web && mkdir -p tools/demo-video/work/ci-web && git archive FETCH_HEAD | tar -x -C tools/demo-video/work/ci-web
+```
+
+4. Mix in the music and captions here (Pixabay does not serve the track to GitHub's runners):
+
+```bash
+cd tools/demo-video && npm install && SRC=work/ci-web node build.mjs web
+```
+
+The phone video is the same with `mobile` in place of `web`.
+
+## Re-record on this PC
+
+Needs Node 20+, the .NET 8 SDK, SQL Server Express (`.\SQLEXPRESS`), Google Chrome, and for the phone the Flutter SDK and the Android emulator `lifejet_pixel`. Smart App Control must be off (Windows Security > App & browser control).
+
+Start the API on a throwaway database and the web app (two terminals, repository root):
 
 ```bash
 cd backend/src/ERP.Api && ASPNETCORE_ENVIRONMENT=Development Database__AutoMigrate=true Seed__Enabled=true Seed__AdminPassword='DevOnly#2026' Seed__AdminEmail=admin@demo.local Seed__MultiWorkspaceEmail=owner@demo.local ASPNETCORE_URLS=http://0.0.0.0:5080 RateLimiting__LoginPerMinute=100000 ConnectionStrings__Default='Server=.\SQLEXPRESS;Database=ERP_DemoVideo;Integrated Security=true;TrustServerCertificate=true' dotnet run --no-launch-profile
@@ -29,46 +43,32 @@ cd backend/src/ERP.Api && ASPNETCORE_ENVIRONMENT=Development Database__AutoMigra
 cd frontend && npx ng serve --proxy-config proxy.conf.json --port 4200
 ```
 
-Fill the demo workspace once the API is up (see `docs/demo-data/README.md`):
+Fill the demo data and open sign-up (the founder must otherwise approve each registration):
 
 ```bash
-node tools/seed-demo.mjs http://localhost:5080/api/v1
+node tools/seed-demo.mjs http://localhost:5080/api/v1 && node docs/demo-data/1-payroll-leave-approvals-settings.mjs && node docs/demo-data/2-credit-notes-attachments-idempotency.mjs && node tools/demo-video/ci/open-signup.mjs
 ```
 
-Then, in `tools/demo-video`:
+Then in `tools/demo-video`:
 
 ```bash
-npm install
+npm install && node voice.mjs && node record-web.mjs && node build.mjs web
 ```
 
-```bash
-node voice.mjs
-```
+For the phone: start the emulator, install the app (`cd mobile && flutter build apk --debug && adb install -r build/app/outputs/flutter-apk/app-debug.apk`), then `node record-mobile.mjs && node build.mjs mobile`.
 
-```bash
-node record-web.mjs
-```
+To start clean, drop the database: `sqlcmd -S .\SQLEXPRESS -E -Q "DROP DATABASE ERP_DemoVideo"`.
 
-```bash
-node build.mjs web
-```
+## Music and voice
 
-For the phone video, start the emulator, install the app (`cd mobile && flutter build apk --debug && adb install -r build/app/outputs/flutter-apk/app-debug.apk`), then:
-
-```bash
-node record-mobile.mjs
-```
-
-```bash
-node build.mjs mobile
-```
-
-Registration creates a new workspace each run. `record-web.mjs` uses a unique workspace code per run, so a re-run never clashes. To start completely clean, drop the database: `sqlcmd -S .\SQLEXPRESS -E -Q "DROP DATABASE ERP_DemoVideo"`.
+- Music: "Upbeat Corporate" by AtlasAudio from Pixabay (https://pixabay.com/music/corporate-upbeat-corporate-617614/), free for commercial use under the Pixabay Content License. It goes in `assets/music.mp3` and is not committed, because the licence does not allow redistributing the track on its own. `MUSIC=<path>` uses another track.
+- Voice: Microsoft neural voice `en-US-AndrewMultilingualNeural` through the free Edge speech service (`msedge-tts`). Only the script text is sent. Change `voice` in `script.json` for another voice (for example `en-US-AvaMultilingualNeural` or `en-GB-RyanNeural`).
 
 ## How it works
 
-- `lib/recorder.mjs` drives headless Chrome with Playwright and captures it over the DevTools screencast (JPEG frames, quality 92), encoding live to H.264 at a steady 30 fps. It injects the cursor, click ripples, lower-thirds and title cards into the page, and writes the time each scene starts to `work/rec/<name>.marks.json`.
-- `record-mobile.mjs` records the emulator with `adb screenrecord`, one clip per scene, and taps through the app with `adb shell input`, finding buttons by their accessibility labels (`uiautomator dump`).
-- `build.mjs` places each voice clip at its scene mark, loops the music under the voice and ducks it when the voice speaks, burns in the captions (`work/build/*.ass`) and fades in and out.
+- `lib/recorder.mjs` drives headless Chrome with Playwright and captures it over the DevTools screencast (JPEG frames, quality 92), encoding live to H.264 at a steady 30 fps. It injects the cursor, click ripples, section labels, a spotlight and the title cards into the page, and can freeze the picture while it signs in behind a title card.
+- `record-web.mjs` plays the web story; `record-mobile.mjs` records the emulator with `adb screenrecord` (one clip per scene), taps through the app by accessibility labels (`lib/adb.mjs`), and lays the clips into a phone bezel on a branded stage (`lib/phone-stage.mjs`) with animated side titles.
+- `build.mjs` places each voice clip at its mark, loops the music under the voice and ducks it while the voice speaks, burns in the captions and fades in and out.
+- `explore-web.mjs` / `explore-mobile.mjs` save a screenshot and control list of every screen, to write or fix the recording scripts.
 
 Everything generated lives in `work/` and `out/`, which are not committed.

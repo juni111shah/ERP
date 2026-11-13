@@ -17,6 +17,9 @@ const CUSTOMER = 'Apex';
 const r = new WebRecorder('web');
 const page = await r.launch();
 const tid = (id) => page.getByTestId(id);
+/** Lets the page settle after a navigation, without waiting forever for a network that never goes quiet. */
+const settle = (ms = 2500) => page.waitForLoadState('networkidle', { timeout: ms }).catch(() => {});
+const open = async (path) => { await page.goto(BASE + path, { waitUntil: 'domcontentloaded' }); await settle(3500); };
 const entry = (id) => { const s = script.web.scenes.find((x) => x.id === id); if (!s) throw new Error('Not in script.json: ' + id); return s; };
 
 // ---------- narration timing ----------
@@ -54,11 +57,11 @@ async function go(term, path) {
     await r.click(hit, { pause: 150, ms: 500 });
     await box.fill('').catch(() => {});
     const want = path.split('?')[0];
-    await page.waitForURL((u) => u.pathname.startsWith(want), { timeout: 4000 }).catch(() => page.goto(BASE + path, { waitUntil: 'networkidle' }));
+    await page.waitForURL((u) => u.pathname.startsWith(want), { timeout: 4000 }).catch(() => open(path));
   } catch {
-    await page.goto(BASE + path, { waitUntil: 'networkidle' });
+    await open(path);
   }
-  await page.waitForLoadState('networkidle').catch(() => {});
+  await settle();
   await sleep(700);
 }
 /** Glides over the first few rows of the main table, so the eye follows real data. */
@@ -87,12 +90,12 @@ async function quietSignIn(email, wsCode) {
   const ws = tid('workspace-' + wsCode);
   await ws.waitFor({ timeout: 10000 }).catch(() => {});
   if (await ws.count()) await ws.click();
-  await page.waitForLoadState('networkidle').catch(() => {});
+  await settle();
   await sleep(2500);
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-await page.goto(BASE + '/pricing', { waitUntil: 'networkidle' });
+await open('/pricing');
 await sleep(1500);
 await r.start();
 
@@ -119,7 +122,7 @@ const newEmail = `ayesha.${runTag}@crescent.example.test`;
 await scene('w03-register', async () => {
   await page.evaluate(() => scrollTo({ top: 0, behavior: 'smooth' })); await sleep(800);
   await r.click(tid('pricing-top-start'));
-  await page.waitForLoadState('networkidle'); await sleep(1200);
+  await settle(); await sleep(1200);
   await r.hover(tid('plan-card-business'), 600); await sleep(800);
   await r.click(tid('plan-choose-business'));
   await sleep(700);
@@ -133,7 +136,7 @@ await scene('w03-register', async () => {
   await safely('currency', async () => { if (!(await tid('register-currency').innerText()).match(/[A-Z]{3}/)) await pick('register-currency', 'PKR'); });
   await beat('w03d-contact');
   await r.type(tid('register-name'), 'Ayesha Khan', { delay: 35 });
-  await r.type(tid('register-email'), newEmail, { delay: 14 });
+  await r.type(tid('register-email'), newEmail, { delay: 8 });
   await r.type(tid('register-phone'), '+92 300 1234567', { delay: 18 });
   await r.type(tid('register-password'), 'Crescent#2026demo', { delay: 16 });
   await r.click(tid('register-terms'), { pause: 100, ms: 450 });
@@ -144,13 +147,13 @@ await scene('w03-register', async () => {
 
 await scene('w04-first-login', async () => {
   const signin = tid('register-result-signin');
-  if (await signin.count()) { await r.click(signin); await page.waitForLoadState('networkidle'); }
-  else await page.goto(BASE + '/auth/login', { waitUntil: 'networkidle' });
+  if (await signin.count()) { await r.click(signin); await settle(); }
+  else await open('/auth/login');
   await sleep(600);
   await r.type(tid('login-email'), newEmail, { delay: 12 });
   await r.type(tid('login-password'), 'Crescent#2026demo', { delay: 14 });
   await r.click(page.getByRole('button', { name: /^sign in$/i }).first());
-  await page.waitForLoadState('networkidle').catch(() => {}); await sleep(2500);
+  await settle(); await sleep(2500);
   await r.hover(page.getByText(/Welcome, Ayesha Khan/).first(), 700).catch(() => {});
   await sleep(1200);
 });
@@ -163,7 +166,7 @@ await scene('w05-bridge', async () => {
   r.freeze();
   await page.context().clearCookies();
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-  await page.goto(BASE + '/auth/login', { waitUntil: 'networkidle' });
+  await open('/auth/login');
   await quietSignIn('admin@demo.local', 'demo');
   await r.card(bridgeCard);
   await r.unfreeze(1300);
@@ -195,7 +198,6 @@ await scene('w06-dashboard', async () => {
 
 await scene('w07-sales', async () => {
   await visit('Quotes', '/sales/quotes', { hold: 1000, rows: 2 });
-  await visit('Sales orders', '/sales/orders', { hold: 900, rows: 2 });
   await go('Invoices', '/finance/invoices');
   await beat('w07b-invoices');
   await r.spotlight(tid('invoice-stats'), 2200);
@@ -242,7 +244,6 @@ await scene('w09-purchasing', async () => {
   await safely('po', async () => { await r.click(page.locator('tbody tr:visible').first()); await sleep(2600); });
   await beat('w09c-receive');
   await visit('Goods receipts', '/purchasing/receipts', { hold: 900, rows: 2 });
-  await visit('Bills', '/finance/bills', { hold: 900, rows: 2 });
   await beat('w09d-stock');
   await visit('Stock on hand', '/inventory/stock', { hold: 1000, rows: 4 });
 });
@@ -251,11 +252,11 @@ await scene('w10-finance', async () => {
   await visit('Chart of accounts', '/finance/accounts', { hold: 1000, rows: 0 });
   await visit('Journals', '/finance/journals', { hold: 900, rows: 3 });
   await beat('w10b-reports');
-  await page.goto(BASE + '/finance/reports', { waitUntil: 'networkidle' }); await sleep(1300);
+  await open('/finance/reports'); await sleep(1300);
   await safely('tb', async () => { await r.hover(tid('tb-table'), 600); });
   for (const name of ['Income statement', 'Balance sheet']) {
     await safely(name, async () => {
-      await r.click(page.getByRole('button', { name, exact: true }).first()); await sleep(600);
+      await r.click(page.locator('button:visible').filter({ hasText: new RegExp('^\\s*' + name + '\\s*$') }).first()); await sleep(600);
       const run = tid('rep-run'); if (await run.isVisible().catch(() => false)) await r.click(run, { pause: 100, ms: 450 });
       await sleep(1800);
     });
@@ -274,14 +275,13 @@ await scene('w11-approvals', async () => {
     await r.click(amount, { pause: 100, ms: 450 }); await amount.pressSequentially('85000', { delay: 70 });
     await beat('w11b-submit');
     await r.click(page.locator('.ant-drawer:visible').getByRole('button', { name: /^Submit$/ }).first()); await sleep(1600);
-    await r.click(page.getByText(/^My requests$/).first()); await sleep(1800);
+    await r.click(page.locator(':is(a,button,div,span,label):visible').filter({ hasText: /^\s*My requests\s*$/ }).last()); await sleep(1800);
   });
 });
 
 await scene('w12-hr', async () => {
   await visit('Employees', '/hr/employees', { hold: 1000, rows: 4 });
   await beat('w12b-leave');
-  await visit('Attendance', '/hr/attendance', { hold: 900, rows: 2 });
   await visit('Leave requests', '/hr/leave', { hold: 800, rows: 3 });
   await beat('w12c-payroll');
   await go('Payroll', '/hr/payroll'); await sleep(900);
@@ -294,7 +294,7 @@ await scene('w13-industry', async () => {
   await r.card(industryCard);
   await sleep(2400);
   r.freeze();
-  await page.goto(BASE + '/real-estate/properties', { waitUntil: 'networkidle' });
+  await open('/real-estate/properties');
   await sleep(1000);
   await r.card(industryCard);
   await r.unfreeze(1000); await r.uncard();
@@ -312,26 +312,25 @@ await scene('w13-industry', async () => {
   await go('Sales pipeline', '/crm/opportunities'); await r.lowerThird('CRM', 3000); await sleep(1800);
   await beat('w13f-manufacturing');
   await go('Bills of materials', '/manufacturing/boms'); await r.lowerThird('Manufacturing', 3000); await sleep(900); await skimRows(2);
-  await page.goto(BASE + '/manufacturing/workorders', { waitUntil: 'networkidle' }); await sleep(1100); await skimRows(2);
+  await open('/manufacturing/workorders'); await sleep(1100); await skimRows(2);
   await beat('w13g-more');
-  await visit('Engagements', '/services/engagements', { hold: 900, rows: 1 });
-  await visit('Stores', '/retail/stores', { hold: 800, rows: 1 });
-  await visit('Routes', '/distribution/routes', { hold: 800, rows: 1 });
+  await visit('Engagements', '/services/engagements', { hold: 700, rows: 0 });
+  await visit('Stores', '/retail/stores', { hold: 700, rows: 0 });
+  await visit('Routes', '/distribution/routes', { hold: 700, rows: 0 });
 });
 
 await scene('w14-control', async () => {
   await visit('Modules', '/admin/modules', { hold: 1200, rows: 0, scroll: 600 });
   await beat('w14b-users');
   await visit('Users', '/admin/users', { hold: 900, rows: 2 });
-  await visit('Roles', '/admin/roles', { hold: 800, rows: 3 });
   await beat('w14c-security');
-  await page.goto(BASE + '/account/security', { waitUntil: 'networkidle' }); await sleep(1200);
+  await open('/account/security'); await sleep(1200);
   await safely('2fa', async () => { await r.spotlight(page.getByText(/Two-factor authentication/i).first(), 1600); });
   await beat('w14d-arabic');
   await safely('arabic', async () => {
     await r.click(tid('user-menu')); await sleep(700);
     await r.click(tid('lang-toggle')); await sleep(1500);
-    await page.goto(BASE + '/', { waitUntil: 'networkidle' }); await sleep(2500);
+    await open('/'); await sleep(2500);
     await r.scroll(500, 1100); await sleep(800); await r.scroll(-500, 800);
   });
 });

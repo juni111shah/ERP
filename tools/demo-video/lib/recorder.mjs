@@ -94,7 +94,8 @@ export class WebRecorder {
     this.context = await this.browser.newContext({ viewport: { width: this.width, height: this.height }, deviceScaleFactor: 1, locale: 'en-US', timezoneId: 'Asia/Karachi', colorScheme: 'light' });
     await this.context.addInitScript(overlayInit, { emblem: emblemPng });
     this.page = await this.context.newPage();
-    this.page.setDefaultTimeout(20000);
+    this.page.setDefaultTimeout(6000);
+    this.page.setDefaultNavigationTimeout(30000);
     return this.page;
   }
 
