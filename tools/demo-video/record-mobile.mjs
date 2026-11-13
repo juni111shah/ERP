@@ -2,7 +2,7 @@
 // 1920x1080 stage with a phone bezel, animated side titles and title cards. Output: work/rec/mobile.mp4 + mobile.marks.json,
 // which build.mjs turns into the finished video with voice, music and captions.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { find, tap, tapText, type, back, hideKeyboard, swipe, sleep, shell, record, nodes, signIn } from './lib/adb.mjs';
+import { find, tap, tapText, back, swipe, sleep, shell, record, nodes, signIn } from './lib/adb.mjs';
 import { here, run, probeDuration } from './lib/media.mjs';
 import { renderStage, STAGE } from './lib/phone-stage.mjs';
 import { WebRecorder } from './lib/recorder.mjs';
@@ -48,9 +48,6 @@ async function phoneScene(id, actions) {
   return file;
 }
 
-const scrollDown = (px = 900, ms = 700) => swipe(540, 1700, 540, 1700 - px, ms);
-const scrollUp = (px = 900, ms = 500) => swipe(540, 700, 540, 700 + px, ms);
-const tapIf = async (re, opts) => { const n = await find(re, { timeout: 2500, ...opts }); if (n) { await tap(n.x, n.y); await sleep(opts?.after ?? 1200); } return n; };
 
 // Fresh start: clear the app so it opens on its intro, then launch it before recording.
 if (!COMPOSE_ONLY) {
@@ -61,57 +58,90 @@ if (!COMPOSE_ONLY) {
 }
 
 const clips = [];
+/** Scrolls the current list until a node matching `re` is comfortably on screen; returns it (or null). */
+async function scrollToFind(re, { tries = 8 } = {}) {
+  for (let i = 0; i < tries; i++) {
+    const n = await find(re, { timeout: 700 });
+    if (n && n.y > 380 && n.y < 2000) return n;
+    await swipe(540, 1750, 540, 1050, 650); await sleep(700);
+  }
+  return null;
+}
+/** The first list row (a wide, tall, clickable item) below the header, optionally containing `re`. */
+async function row(re) {
+  const list = (await nodes()).filter((x) => x.clickable && x.y > 480 && x.y < 2050 && x.w > 900 && x.h > 150 && (!re || re.test(`${x.text} ${x.desc}`)));
+  return list.sort((a, b) => a.y - b.y)[0] ?? null;
+}
+const tapNode = async (n, after = 1200) => { if (n) { await tap(n.x, n.y); await sleep(after); } return n; };
+
 clips.push({ id: 'm01-intro', file: await cardClip('m01-intro', { kick: 'Mobile app', title: 'HigherSquare <span>360</span>', sub: 'Your business, in your pocket' }), card: true });
 
 clips.push({ id: 'm02-signin', file: await phoneScene('m02-signin', async () => {
-  // The app's own animated intro, briefly, then sign in.
-  await sleep(1500);
-  // Two pages of the intro with Next, then Skip.
-  for (let i = 0; i < 2; i++) { const next = await find(/^Next/i, { timeout: 2000 }); if (next) { await tap(next.x, next.y); await sleep(2200); } }
-  const skip = await find(/^Skip/i, { timeout: 1500 }); if (skip) { await tap(skip.x, skip.y); await sleep(1800); }
+  // Two pages of the app's own intro tour, then Skip.
+  await sleep(1200);
+  for (let i = 0; i < 2; i++) await tapNode(await find(/^Next$/, { timeout: 2500 }), 2000);
+  await tapNode(await find(/^Skip$/, { timeout: 2000 }), 1500);
   await signIn('admin@demo.local', 'DevOnly#2026');
-  await sleep(500);
-  await tapText(/^Sign in$/, { after: 3500 });
-  const ws = await find(/Demo Workspace/i, { timeout: 4000 });
-  if (ws) { await sleep(800); await tap(ws.x, ws.y); await sleep(3500); }
-  for (let i = 0; i < 6; i++) { const t = await find(/^(Skip|Got it|Done|Not now|Close)/i, { timeout: 1200 }); if (!t) break; await tap(t.x, t.y); await sleep(1000); }
+  await sleep(400);
+  await tapText(/^Sign in$/, { after: 3000 });
+  await tapNode(await find(/^Demo Workspace/, { timeout: 6000 }), 3000);
+  // First-run tips: show one step, then skip the rest.
+  await tapNode(await find(/^Next$/, { timeout: 2500 }), 1800);
+  await tapNode(await find(/^Skip$/, { timeout: 1500 }), 1500);
 }) });
 
 clips.push({ id: 'm03-overview', file: await phoneScene('m03-overview', async () => {
-  await sleep(1800); await scrollDown(800, 900); await sleep(1600); await scrollDown(800, 900); await sleep(1600); await scrollUp(1700, 700); await sleep(800);
+  await sleep(1200);
+  for (let i = 0; i < 2; i++) await tapNode(await find(/^Next$/, { timeout: 1500 }), 1500);
+  await tapNode(await find(/^Finance \d+/, { timeout: 1500 }), 1800);
+  await swipe(540, 1700, 540, 900, 800); await sleep(1500);
+  await tapNode(await find(/^Line$/, { timeout: 1500 }), 1500);
+  await swipe(540, 900, 540, 1800, 700); await sleep(600);
+  await tapNode(await find(/^All \d+/, { timeout: 1500 }), 1200);
 }) });
 
 clips.push({ id: 'm04-documents', file: await phoneScene('m04-documents', async () => {
   await tapText(/^Invoices$/, { after: 1800 });
-  const rows = (await nodes()).filter((x) => x.clickable && x.y > 500 && x.y < 2000 && x.w > 600).sort((a, b) => a.y - b.y);
-  if (rows[0]) { await tap(rows[0].x, rows[0].y); await sleep(2500); await scrollDown(700, 800); await sleep(1200); await back(); }
-  await tapText(/^Receipts$/, { after: 2000 });
-  await tapText(/^Customers$/, { after: 1800 });
-  const c = (await nodes()).filter((x) => x.clickable && x.y > 500 && x.y < 2000 && x.w > 600).sort((a, b) => a.y - b.y)[1];
-  if (c) { await tap(c.x, c.y); await sleep(2500); await back(); }
+  await tapNode(await find(/^Partly paid$/, { timeout: 1500 }), 1600);
+  await tapNode(await row(/INV-/), 2400);
+  await swipe(540, 1600, 540, 1000, 700); await sleep(1200);
+  await back();
+  await tapText(/^Receipts$/, { after: 1800 });
+  await swipe(540, 1600, 540, 1000, 700); await sleep(1000);
+  await tapText(/^Customers$/, { after: 1600 });
+  await tapNode(await row(/Apex/), 2400);
+  await swipe(540, 1600, 540, 1000, 700); await sleep(1000);
+  await back();
 }) });
 
 clips.push({ id: 'm05-approvals', file: await phoneScene('m05-approvals', async () => {
   await tapText(/^More$/, { after: 1500 });
-  await tapText(/^Approvals/i, { after: 2200 });
-  const row = (await nodes()).filter((x) => x.clickable && x.y > 450 && x.y < 2000 && x.w > 600).sort((a, b) => a.y - b.y)[0];
-  if (row) { await tap(row.x, row.y); await sleep(2500); await back(); }
+  await tapNode(await scrollToFind(/^Approvals$/), 2000);
+  await tapNode(await find(/^My requests$/, { timeout: 1500 }), 1800);
+  await tapNode(await row(), 2200);
+  await back();
   await back();
 }) });
 
 clips.push({ id: 'm06-myhr', file: await phoneScene('m06-myhr', async () => {
-  await tapIf(/^More$/);
-  await tapText(/^My HR|^Self.?service|^My leave/i, { after: 2200 });
-  await scrollDown(700, 800); await sleep(1500);
-  await tapIf(/payslip/i, { after: 2200 }); await back();
-  await back();
+  if (!(await find(/^More$/, { timeout: 800 }))) await back();
+  await tapText(/^More$/, { after: 1200 });
+  await tapNode(await scrollToFind(/^My HR$/, { tries: 12 }), 2200);
+  await tapNode(await find(/^My leave$/, { timeout: 1500 }), 1600);
+  await tapNode(await find(/^Payslips$/, { timeout: 1500 }), 2000);
+  await tapNode(await row(), 2000);
+  await back(); await back();
 }) });
 
 clips.push({ id: 'm07-more', file: await phoneScene('m07-more', async () => {
-  await tapIf(/^Overview$/);
-  await tapIf(/otification/i, { after: 2200 }); await back();
-  await tapText(/^More$/, { after: 1800 });
-  await scrollDown(900, 1200); await sleep(1500); await scrollDown(900, 1200); await sleep(1500); await scrollUp(1800, 900);
+  await tapText(/^Overview$/, { after: 1200 });
+  const bell = (await nodes()).find((x) => /^\d+$/.test(x.text || x.desc) && x.y < 320);
+  if (bell) { await tapNode(bell, 2200); await back(); }
+  await tapText(/^More$/, { after: 1400 });
+  await swipe(540, 600, 540, 2000, 400); await sleep(500);
+  for (let i = 0; i < 4; i++) { await swipe(540, 1800, 540, 900, 900); await sleep(900); }
+  await tapNode(await scrollToFind(/^Properties$/, { tries: 2 }), 2200);
+  await back();
 }) });
 
 clips.push({ id: 'm08-outro', file: await cardClip('m08-outro', { kick: 'HigherSquare 360', title: 'On the web, <span>and in your pocket</span>', sub: 'Android and iOS' }), card: true });

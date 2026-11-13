@@ -1,2 +1,2 @@
 web=record
-mobile=explore
+mobile=record
