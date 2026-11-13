@@ -74,6 +74,15 @@ async function row(re) {
   return list.sort((a, b) => a.y - b.y)[0] ?? null;
 }
 const tapNode = async (n, after = 1200) => { if (n) { await tap(n.x, n.y); await sleep(after); } return n; };
+/** Taps a bottom-bar tab (the More page has tiles with the same names higher up). */
+async function navTab(name, after = 1600) {
+  for (let i = 0; i < 6; i++) {
+    const n = (await nodes()).find((x) => x.y > 2050 && new RegExp('^' + name + '$').test(`${x.text} ${x.desc}`.trim()));
+    if (n) { await tap(n.x, n.y); await sleep(after); return n; }
+    await sleep(600);
+  }
+  throw new Error('No bottom tab ' + name);
+}
 /** The app's own Back arrow (system Back on a root tab would leave the app). */
 const appBack = async () => { const b = await find(/^Back$/, { timeout: 1500 }); if (b) { await tap(b.x, b.y); await sleep(1100); } };
 /** Brings the app to the front again if something took it away. */
@@ -109,20 +118,20 @@ clips.push({ id: 'm03-overview', file: await phoneScene('m03-overview', async ()
 }) });
 
 clips.push({ id: 'm04-documents', file: await phoneScene('m04-documents', async () => {
-  await tapText(/^Invoices$/, { after: 1800 });
+  await navTab('Invoices', 1800);
   await tapNode(await row(/INV-2026-0002/) ?? await row(/INV-/), 2400);
   await swipe(540, 1600, 540, 1000, 700); await sleep(1200);
   await appBack();
-  await tapText(/^Receipts$/, { after: 1800 });
+  await navTab('Receipts', 1800);
   await swipe(540, 1600, 540, 1000, 700); await sleep(1000);
-  await tapText(/^Customers$/, { after: 1600 });
+  await navTab('Customers', 1600);
   await tapNode(await row(/Apex/), 2400);
   await swipe(540, 1600, 540, 1000, 700); await sleep(1000);
   await appBack();
 }) });
 
 clips.push({ id: 'm05-approvals', file: await phoneScene('m05-approvals', async () => {
-  await tapText(/^More$/, { after: 1500 });
+  await navTab('More', 1500);
   await tapNode(await scrollToFind(/^Approvals$/), 2000);
   await tapNode(await find(/^My requests$/, { timeout: 1500 }), 1800);
   await tapNode(await row(), 2200);
@@ -133,7 +142,7 @@ clips.push({ id: 'm05-approvals', file: await phoneScene('m05-approvals', async 
 clips.push({ id: 'm06-myhr', file: await phoneScene('m06-myhr', async () => {
   // My HR through the app's search ("Search screens and actions").
   await ensureApp();
-  await tapText(/^Overview$/, { after: 1200 });
+  await navTab('Overview', 1200);
   await tapNode(await find(/^Search$/, { timeout: 2500 }), 1400);
   await type('My HR'); await sleep(1600);
   const hit = (await nodes()).filter((x) => !x.cls.includes('EditText') && x.y > 330 && /^My HR/.test(`${x.text} ${x.desc}`.trim())).sort((p, q) => p.y - q.y)[0];
@@ -144,10 +153,10 @@ clips.push({ id: 'm06-myhr', file: await phoneScene('m06-myhr', async () => {
 }) });
 
 clips.push({ id: 'm07-more', file: await phoneScene('m07-more', async () => {
-  await tapText(/^Overview$/, { after: 1200 });
+  await navTab('Overview', 1200);
   const bell = (await nodes()).find((x) => /^\d+$/.test(x.text || x.desc) && x.y < 320);
   if (bell) { await tapNode(bell, 2200); await appBack(); }
-  await tapText(/^More$/, { after: 1400 });
+  await navTab('More', 1400);
   await swipe(540, 600, 540, 2000, 400); await sleep(500);
   for (let i = 0; i < 4; i++) { await swipe(540, 1800, 540, 900, 900); await sleep(900); }
   await tapNode(await scrollToFind(/^Properties$/, { tries: 2 }), 2200);
