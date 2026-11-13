@@ -72,6 +72,6 @@ The spoken words are in [script.json](script.json). Each line below is one narra
 | Overview | Highlight cards, finance filter, charts | The overview shows the same live numbers as the web dashboard: sales, cash, receivables and alerts, right on your phone. |
 | Invoices, receipts, customers | Invoice list and detail, receipts, a customer | Look up any invoice, receipt or customer in seconds. Open an invoice to see every line, its status and what is still owed. |
 | Approvals on the go | Approvals, My requests | Approve requests on the go, so nothing waits for you to get back to your desk. |
-| My HR | My leave, payslips | With My HR, employees check their leave balance, request time off and see their payslips. |
+| HR on the go | Employees and payroll runs, opened through the app's search | HR travels with you too: look up any employee, and review each month's payroll run, right from your phone. |
 | Every module | Notifications, the More menu | Every module you use is one tap away, from real estate and projects to point of sale and manufacturing. |
 | Closing | Title card | HigherSquare 360. On the web, and in your pocket. |

@@ -140,22 +140,29 @@ clips.push({ id: 'm05-approvals', file: await phoneScene('m05-approvals', async 
 }) });
 
 clips.push({ id: 'm06-myhr', file: await phoneScene('m06-myhr', async () => {
-  // My HR through the app's search ("Search screens and actions").
+  // HR through the app's search ("Search screens and actions"): employees, then the payroll runs.
   await ensureApp();
   await navTab('Overview', 1200);
-  await tapNode(await find(/^Search$/, { timeout: 2500 }), 1400);
-  await type('My HR'); await sleep(1600);
-  const hit = (await nodes()).filter((x) => !x.cls.includes('EditText') && x.y > 330 && /^My HR/.test(`${x.text} ${x.desc}`.trim())).sort((p, q) => p.y - q.y)[0];
-  await tapNode(hit, 2400);
-  await tapNode(await find(/^My leave$/, { timeout: 1500 }), 1800);
-  await tapNode(await find(/^Payslips$/, { timeout: 1500 }), 2200);
+  const openBySearch = async (text) => {
+    await tapNode(await find(/^Search$/, { timeout: 2500 }), 1400);
+    await type(text); await sleep(1600);
+    const hit = (await nodes()).filter((x) => !x.cls.includes('EditText') && x.y > 330 && new RegExp('^' + text).test(`${x.text} ${x.desc}`.trim())).sort((p, q) => p.y - q.y)[0];
+    await tapNode(hit, 2400);
+  };
+  await openBySearch('Employees');
+  await swipe(540, 1600, 540, 1100, 700); await sleep(1000);
   await appBack();
+  await openBySearch('Payroll');
+  await tapNode(await row(), 2400);
+  await swipe(540, 1600, 540, 1000, 700); await sleep(1200);
+  await appBack(); await appBack();
 }) });
 
 clips.push({ id: 'm07-more', file: await phoneScene('m07-more', async () => {
+  await ensureApp();
   await navTab('Overview', 1200);
-  const bell = (await nodes()).find((x) => /^\d+$/.test(x.text || x.desc) && x.y < 320);
-  if (bell) { await tapNode(bell, 2200); await appBack(); }
+  const bell = (await nodes()).find((x) => /^d+$/.test(x.text || x.desc) && x.y < 320);
+  if (bell) { await tapNode(bell, 2600); await shell('input keyevent 4'); await sleep(1000); await ensureApp(); }
   await navTab('More', 1400);
   await swipe(540, 600, 540, 2000, 400); await sleep(500);
   for (let i = 0; i < 4; i++) { await swipe(540, 1800, 540, 900, 900); await sleep(900); }
