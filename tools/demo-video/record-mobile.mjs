@@ -35,6 +35,7 @@ async function cardClip(id, card) {
 // ---------- phone scenes (recorded on the emulator) ----------
 async function phoneScene(id, actions) {
   console.log('scene', id);
+  if (!COMPOSE_ONLY) await ensureApp();
   const file = `${dir}/phone-${id}.mp4`;
   if (COMPOSE_ONLY) return file;
   const rec = record('demo-' + id, file);
@@ -73,6 +74,13 @@ async function row(re) {
   return list.sort((a, b) => a.y - b.y)[0] ?? null;
 }
 const tapNode = async (n, after = 1200) => { if (n) { await tap(n.x, n.y); await sleep(after); } return n; };
+/** The app's own Back arrow (system Back on a root tab would leave the app). */
+const appBack = async () => { const b = await find(/^Back$/, { timeout: 1500 }); if (b) { await tap(b.x, b.y); await sleep(1100); } };
+/** Brings the app to the front again if something took it away. */
+async function ensureApp() {
+  const focus = await shell('dumpsys window | grep -E "mCurrentFocus|mFocusedApp"').catch(() => '');
+  if (!focus.includes(PKG)) { await shell(`monkey -p ${PKG} -c android.intent.category.LAUNCHER 1`); await sleep(4000); }
+}
 
 clips.push({ id: 'm01-intro', file: await cardClip('m01-intro', { kick: 'Mobile app', title: 'HigherSquare <span>360</span>', sub: 'Your business, in your pocket' }), card: true });
 
@@ -102,16 +110,15 @@ clips.push({ id: 'm03-overview', file: await phoneScene('m03-overview', async ()
 
 clips.push({ id: 'm04-documents', file: await phoneScene('m04-documents', async () => {
   await tapText(/^Invoices$/, { after: 1800 });
-  await tapNode(await find(/^Partly paid$/, { timeout: 1500 }), 1600);
-  await tapNode(await row(/INV-/), 2400);
+  await tapNode(await row(/INV-2026-0002/) ?? await row(/INV-/), 2400);
   await swipe(540, 1600, 540, 1000, 700); await sleep(1200);
-  await back();
+  await appBack();
   await tapText(/^Receipts$/, { after: 1800 });
   await swipe(540, 1600, 540, 1000, 700); await sleep(1000);
   await tapText(/^Customers$/, { after: 1600 });
   await tapNode(await row(/Apex/), 2400);
   await swipe(540, 1600, 540, 1000, 700); await sleep(1000);
-  await back();
+  await appBack();
 }) });
 
 clips.push({ id: 'm05-approvals', file: await phoneScene('m05-approvals', async () => {
@@ -119,29 +126,29 @@ clips.push({ id: 'm05-approvals', file: await phoneScene('m05-approvals', async 
   await tapNode(await scrollToFind(/^Approvals$/), 2000);
   await tapNode(await find(/^My requests$/, { timeout: 1500 }), 1800);
   await tapNode(await row(), 2200);
-  await back();
-  await back();
+  await appBack();
+  await appBack();
 }) });
 
 clips.push({ id: 'm06-myhr', file: await phoneScene('m06-myhr', async () => {
-  if (!(await find(/^More$/, { timeout: 800 }))) await back();
+  await ensureApp();
   await tapText(/^More$/, { after: 1200 });
   await tapNode(await scrollToFind(/^My HR$/, { tries: 12 }), 2200);
   await tapNode(await find(/^My leave$/, { timeout: 1500 }), 1600);
   await tapNode(await find(/^Payslips$/, { timeout: 1500 }), 2000);
   await tapNode(await row(), 2000);
-  await back(); await back();
+  await appBack(); await appBack();
 }) });
 
 clips.push({ id: 'm07-more', file: await phoneScene('m07-more', async () => {
   await tapText(/^Overview$/, { after: 1200 });
   const bell = (await nodes()).find((x) => /^\d+$/.test(x.text || x.desc) && x.y < 320);
-  if (bell) { await tapNode(bell, 2200); await back(); }
+  if (bell) { await tapNode(bell, 2200); await appBack(); }
   await tapText(/^More$/, { after: 1400 });
   await swipe(540, 600, 540, 2000, 400); await sleep(500);
   for (let i = 0; i < 4; i++) { await swipe(540, 1800, 540, 900, 900); await sleep(900); }
   await tapNode(await scrollToFind(/^Properties$/, { tries: 2 }), 2200);
-  await back();
+  await appBack();
 }) });
 
 clips.push({ id: 'm08-outro', file: await cardClip('m08-outro', { kick: 'HigherSquare 360', title: 'On the web, <span>and in your pocket</span>', sub: 'Android and iOS' }), card: true });
@@ -156,10 +163,13 @@ for (const c of clips) {
     await run(['-i', c.file, '-vf', 'fps=30,format=yuv420p', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-an', out]);
   } else {
     const clipDur = await probeDuration(c.file);
+    const target = need(c.id) + 3.5;
+    const speed = Math.min(3, Math.max(1, clipDur / target));
+    if (speed > 1.02) console.log(`  ${c.id}: ${clipDur.toFixed(1)} s sped up x${speed.toFixed(2)}`);
     await run(['-loop', '1', '-i', `${stageDir}/stage-bg.png`, '-i', c.file, '-loop', '1', '-i', `${stageDir}/stage-bezel.png`, '-loop', '1', '-i', `${stageDir}/stage-mask.png`,
-      '-filter_complex', `[1:v]fps=30,scale=${s.screenW}:${s.screenH}:flags=lanczos,format=rgba[sc];[3:v]scale=${s.screenW}:${s.screenH},format=gray[m];[sc][m]alphamerge[sm];` +
+      '-filter_complex', `[1:v]setpts=PTS/${speed.toFixed(4)},fps=30,scale=${s.screenW}:${s.screenH}:flags=lanczos,format=rgba[sc];[3:v]scale=${s.screenW}:${s.screenH},format=gray[m];[sc][m]alphamerge[sm];` +
         `[0:v][sm]overlay=${s.screenX}:${s.screenY}:shortest=1[a];[a][2:v]overlay=0:0,format=yuv420p[v]`,
-      '-map', '[v]', '-t', clipDur.toFixed(3), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-r', '30', out]);
+      '-map', '[v]', '-t', (clipDur / speed).toFixed(3), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-r', '30', out]);
   }
   parts.push({ ...c, out, dur: await probeDuration(out) });
 }
@@ -177,7 +187,7 @@ const total = offset + parts[parts.length - 1].dur;
 
 // Side titles: each phone scene's label slides in on the right.
 const ts = (t) => { const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = (t % 60).toFixed(2).padStart(5, '0'); return `${h}:${String(m).padStart(2, '0')}:${sec}`; };
-let ass = `[Script Info]\nScriptType: v4.00+\nPlayResX: 1920\nPlayResY: 1080\nScaledBorderAndShadow: yes\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n` +
+let ass = `[Script Info]\nScriptType: v4.00+\nPlayResX: 1920\nPlayResY: 1080\nScaledBorderAndShadow: yes\nWrapStyle: 2\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n` +
   `Style: Side,Inter,68,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1\nStyle: Kick,Inter,26,&H00C0D89F,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,6,0,1,0,0,7,0,0,0,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n`;
 /** Breaks a long title into two lines near the middle. */
 function wrap(t) { if (t.length <= 18) return t; const mid = t.length / 2; let best = -1; for (let i = 0; i < t.length; i++) if (t[i] === ' ' && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i; return best < 0 ? t : t.slice(0, best) + '\\N' + t.slice(best + 1); }
