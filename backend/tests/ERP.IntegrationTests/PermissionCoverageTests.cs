@@ -76,6 +76,18 @@ public partial class PermissionCoverageTests(ApiFactory f) : IClassFixture<ApiFa
     }
 
     [Fact]
+    public void Every_menu_item_is_guarded_by_a_permission_in_the_catalogue()
+    {
+        var catalog = f.Services.GetRequiredService<IPermissionCatalog>().All.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);
+        var items = CoreMenu.Items.Concat(f.Services.GetRequiredService<ModuleRegistry>().Modules.SelectMany(m => m.Menu)).ToList();
+        // Open to every member on purpose: the home page, the approvals inbox (each request is filtered) and their own HR page.
+        var open = new HashSet<string>(["core.overview", "core.approvals", "hr.my"], StringComparer.Ordinal);
+        var problems = items.Where(i => i.Permission is null ? !open.Contains(i.Id) : !catalog.Contains(i.Permission))
+            .Select(i => $"{i.Id} ({i.Route}): {i.Permission ?? "no permission"}").ToList();
+        Assert.True(problems.Count == 0, "Menu items without a known permission:\n" + string.Join("\n", problems));
+    }
+
+    [Fact]
     public void Every_permission_is_named_module_resource_action_in_lower_case_and_described()
     {
         var bad = f.Services.GetRequiredService<IPermissionCatalog>().All

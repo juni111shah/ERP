@@ -133,7 +133,8 @@ export const routes: Routes = [
       { path: 'admin/users', canMatch: [permissionGuard('core.users.read')], loadComponent: () => import('@features/admin/pages/users/users.page').then((m) => m.UsersPage) },
       { path: 'admin/roles', canMatch: [permissionGuard('core.roles.read')], loadComponent: () => import('@features/admin/pages/roles/roles.page').then((m) => m.RolesPage) },
       { path: 'admin/settings', canMatch: [permissionGuard('core.settings.read')], loadComponent: () => import('@features/admin/pages/settings/settings.page').then((m) => m.SettingsPage) },
-      { path: 'admin/import', loadComponent: () => import('@features/admin/pages/import/import.page').then((m) => m.ImportPage) },
+      // Only someone who may run at least one import (the page lists the kinds this person can run).
+      { path: 'admin/import', canMatch: [anyPermissionGuard('core.parties.write', 'core.items.write', 'projects.tasks.manage', 'realestate.properties.manage', 'realestate.units.manage')], loadComponent: () => import('@features/admin/pages/import/import.page').then((m) => m.ImportPage) },
       { path: 'admin/documents', canMatch: [permissionGuard('core.attachments.read')], loadComponent: () => import('@features/admin/pages/documents/documents.page').then((m) => m.DocumentsPage) },
       { path: 'admin/messages', canMatch: [permissionGuard('core.settings.read')], loadComponent: () => import('@features/admin/pages/messages/messages.page').then((m) => m.MessagesPage) },
       { path: 'admin/audit', canMatch: [permissionGuard('core.audit.read')], loadComponent: () => import('@features/admin/pages/audit/audit.page').then((m) => m.AuditPage) },
