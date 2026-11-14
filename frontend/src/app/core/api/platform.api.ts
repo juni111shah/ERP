@@ -1,7 +1,7 @@
 import { HttpClient, HttpDownloadProgressEvent, HttpEventType } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
-import { SubscriptionSummary } from '../session/session.store';
+import { PlatformRole, SubscriptionSummary } from '../session/session.store';
 import { CountryDto, CurrencyOption } from './admin.api';
 import { API_BASE_URL } from './api-config';
 import { ListQuery, PagedResult } from './api.models';
@@ -117,7 +117,7 @@ export interface PlatformSettingsView {
   invoiceDueDays: number; renewalLeadDays: number; graceDays: number; suspendAfterDays: number; companyName: string; companyAddress: string | null; companyTaxNumber: string | null; supportEmail: string | null; termsUrl: string | null; paymentInstructions: string | null; termsText: string; privacyText: string; legalIsStarterText: boolean; aboutText: string | null;
 }
 export type PlatformSettingsInput = Omit<PlatformSettingsView, 'emailServerConfigured' | 'nextInvoiceNumber' | 'legalIsStarterText'>;
-export interface PlatformTeamMember { userId: string; email: string; fullName: string; lastSignInAt: string | null; twoFactorEnabled: boolean; }
+export interface PlatformTeamMember { userId: string; email: string; fullName: string; lastSignInAt: string | null; twoFactorEnabled: boolean; role: PlatformRole; }
 export interface NewTeamMember { member: PlatformTeamMember; temporaryPassword: string | null; }
 export interface AiProviderView {
   id: string; name: string; baseUrl: string; model: string; keyHint: string; keyNeedsReentry: boolean; useForBrand: boolean; useForWorkspace: boolean;
@@ -211,7 +211,9 @@ export class PlatformApi {
   saveSettings(input: PlatformSettingsInput): Observable<PlatformSettingsView> { return this.http.put<PlatformSettingsView>(`${this.admin}/settings`, input); }
   activity(q: ListQuery): Observable<PagedResult<ActivityRow>> { return this.http.get<PagedResult<ActivityRow>>(`${this.admin}/activity`, { params: toHttpParams(q) }); }
   team(): Observable<PlatformTeamMember[]> { return this.http.get<PlatformTeamMember[]>(`${this.admin}/team`); }
-  addTeamMember(input: { email: string; fullName: string }): Observable<NewTeamMember> { return this.http.post<NewTeamMember>(`${this.admin}/team`, input); }
+  addTeamMember(input: { email: string; fullName: string; role?: Exclude<PlatformRole, 'owner'> }): Observable<NewTeamMember> { return this.http.post<NewTeamMember>(`${this.admin}/team`, input); }
+  /** Owner only: makes a team member a manager, or support again. */
+  setTeamRole(userId: string, role: Exclude<PlatformRole, 'owner'>): Observable<PlatformTeamMember> { return this.http.put<PlatformTeamMember>(`${this.admin}/team/${userId}/role`, { role }); }
   removeTeamMember(userId: string): Observable<unknown> { return this.http.delete(`${this.admin}/team/${userId}`); }
 
   // ---- Console: leads and public chats --------------------------------------------------------------------------------

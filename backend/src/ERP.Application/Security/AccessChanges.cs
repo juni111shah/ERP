@@ -13,10 +13,17 @@ public interface IAccessChangeNotifier
     Task UsersChangedAsync(Guid orgId, IEnumerable<Guid> userIds, string reason, bool narrowed, CancellationToken ct);
 
     /// <summary>
-    /// What every member of workspace <paramref name="orgId"/> sees changed (a module or a capability was switched). Tokens stay valid:
-    /// a disabled module's routes are already refused by the module gate.
+    /// What every member of workspace <paramref name="orgId"/> sees changed (a module, a capability, the plan or the subscription's standing).
+    /// Tokens stay valid unless <paramref name="narrowed"/>: a disabled module's routes are already refused by the module gate, and a
+    /// paused or blocked workspace by the subscription gate.
     /// </summary>
-    Task WorkspaceChangedAsync(Guid orgId, string reason, CancellationToken ct);
+    Task WorkspaceChangedAsync(Guid orgId, string reason, CancellationToken ct, bool narrowed = false);
+
+    /// <summary>
+    /// A platform team member's rights in the founder's console changed (their role, or they joined or left the team). The console reads
+    /// the rights from the account on every request, so no token is ended; the push only brings their open screens up to date.
+    /// </summary>
+    Task PlatformTeamChangedAsync(Guid userId, string reason, CancellationToken ct);
 }
 
 /// <summary>Why access changed, sent to the client with the "access-changed" event.</summary>
@@ -28,4 +35,10 @@ public static class AccessChangeReasons
     public const string ModulesChanged = "modules-changed";
     public const string CapabilitiesChanged = "capabilities-changed";
     public const string IndustryChanged = "industry-changed";
+    /// <summary>The founder moved the workspace to another plan (modules outside it are switched off).</summary>
+    public const string PlanChanged = "plan-changed";
+    /// <summary>The subscription's standing changed: suspended, cancelled, view-only, or back to normal.</summary>
+    public const string SubscriptionChanged = "subscription-changed";
+    /// <summary>A platform team member's role changed, or they joined or left the team.</summary>
+    public const string PlatformTeamChanged = "platform-team-changed";
 }

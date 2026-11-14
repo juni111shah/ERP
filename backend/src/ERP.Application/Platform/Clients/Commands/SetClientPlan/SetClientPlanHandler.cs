@@ -6,7 +6,7 @@ using ERP.Domain.Platform;
 namespace ERP.Application.Platform;
 
 internal sealed class SetClientPlanHandler(
-    IOrganizationRepository organizations, IReadRepository<SubscriptionPlan> plans, IWorkspaceSubscriptionRepository subscriptions, ISubscriptionAccess access, IPlatformDirectory directory,
+    IOrganizationRepository organizations, IReadRepository<SubscriptionPlan> plans, IWorkspaceSubscriptionRepository subscriptions, SubscriptionChanges changes, IPlatformDirectory directory,
     ClientProvisioner provisioner, ClientReader clients, PlatformLog log, IClock clock) : ICommandHandler<SetClientPlanCommand, ClientDetail>
 {
     private DateOnly Today => DateOnly.FromDateTime(clock.UtcNow);
@@ -43,11 +43,13 @@ internal sealed class SetClientPlanHandler(
         if (s.RequestedPlanId == plan.Id) { s.RequestedPlanId = null; s.RequestedCycle = null; s.RequestNote = null; s.RequestedAt = null; }
         var modules = plan.ModuleList();
         log.Add("Plan changed", command.OrgId, org.Name, $"{wasPlan?.Name ?? "None"} to {plan.Name}, {(i.Cycle == BillingCycle.Annual ? "annual" : "monthly")}{(i.CustomPrice is { } price ? $", custom price {price:N2}" : "")}{(i.IsComplimentary ? ", free of charge" : "")}.");
+        var before = await changes.BeforeAsync(command.OrgId, ct);
         await subscriptions.SaveChangesAsync(ct);
-        access.Invalidate(command.OrgId);
 
-        // 4. Modules outside the plan are switched off.
-        if (modules.Count > 0) await directory.DisableModulesOutsideAsync(command.OrgId, modules, ct);
+        // 4. Modules outside the plan are switched off. The client's people see the new plan at once; when modules went, their old tokens end
+        // too, so a screen that missed the push still refreshes on its next call.
+        var removed = modules.Count > 0 ? await directory.DisableModulesOutsideAsync(command.OrgId, modules, ct) : 0;
+        await changes.AfterAsync(command.OrgId, before, ct, modulesRemoved: removed > 0);
         // A first plan that starts as paid bills its first period, the same as a client created with that plan.
         if (isNew) await provisioner.IssueFirstInvoiceAsync(s, plan, Today, ct);
         return await clients.DetailAsync(command.OrgId, ct);

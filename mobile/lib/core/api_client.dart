@@ -79,6 +79,9 @@ class ApiClient {
   /// Called when the API refuses a call with 403: the user's permissions may have changed since they were loaded.
   void Function()? onForbidden;
 
+  /// Called when the API answers 402: the workspace's subscription was suspended, cancelled or paused since /me was loaded.
+  void Function()? onPaymentRequired;
+
   Future<SessionInfo?>? _refreshing;
 
   String get baseUrl => _dio.options.baseUrl;
@@ -133,6 +136,7 @@ class ApiClient {
       onSessionExpired?.call();
     }
     if (res.statusCode == 403 && auth) onForbidden?.call();
+    if (res.statusCode == 402 && auth) onPaymentRequired?.call();
     if (bytes) return _file(res);
     return unwrap(res.statusCode ?? 0, res.data);
   }

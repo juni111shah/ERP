@@ -6,7 +6,7 @@ using ERP.Domain.Platform;
 namespace ERP.Application.Platform;
 
 internal sealed class RecordInvoicePaymentHandler(
-    ISubscriptionInvoiceRepository invoices, IWorkspaceSubscriptionRepository subscriptions, IOrganizationRepository organizations, ISubscriptionAccess access,
+    ISubscriptionInvoiceRepository invoices, IWorkspaceSubscriptionRepository subscriptions, IOrganizationRepository organizations, SubscriptionChanges changes,
     PlatformInvoiceDocuments documents, PlatformLog log, IPlatformMailer mailer, IClock clock) : ICommandHandler<RecordInvoicePaymentCommand, InvoiceDocument>
 {
     public async Task<InvoiceDocument> Handle(RecordInvoicePaymentCommand command, CancellationToken ct)
@@ -27,8 +27,9 @@ internal sealed class RecordInvoicePaymentHandler(
         var org = await organizations.GetAsync(invoice.OrgId, ct);
         if (s is not null) SubscriptionRules.ApplyPayment(s, invoice, await invoices.HasOverdueAsync(invoice.OrgId, invoice.Id, DateOnly.FromDateTime(clock.UtcNow), ct), today);
         log.Add("Payment recorded", invoice.OrgId, org.Name, $"{invoice.Number}: {invoice.Currency} {invoice.Total:N2}{(invoice.PaymentMethod is { Length: > 0 } m ? $" by {m}" : "")}");
+        var before = await changes.BeforeAsync(invoice.OrgId, ct);
         await subscriptions.SaveChangesAsync(ct);
-        access.Invalidate(invoice.OrgId);
+        await changes.AfterAsync(invoice.OrgId, before, ct);
 
         // 3. Thank the client.
         await mailer.SendAsync(s?.BillingEmail, $"Payment received for {invoice.Number}", $"Thank you. We received {invoice.Currency} {invoice.Total:N2} for invoice {invoice.Number}.", ct);

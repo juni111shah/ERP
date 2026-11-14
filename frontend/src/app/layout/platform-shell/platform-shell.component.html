@@ -36,6 +36,7 @@
           <nz-dropdown-menu #userMenu="nzDropdownMenu">
             <ul nz-menu>
               <li nz-menu-item nzDisabled>{{ session.me()?.user?.email }}</li>
+              <li nz-menu-item nzDisabled data-testid="platform-my-role">{{ roleText() }}</li>
               <li nz-menu-item routerLink="/account/security"><span nz-icon nzType="lock"></span> Account security</li>
               <li nz-menu-divider></li>
               <li nz-menu-item (click)="i18n.toggle()" data-no-i18n data-testid="platform-lang-toggle"><span nz-icon nzType="global"></span> {{ i18n.lang() === 'ar' ? 'English' : 'العربية' }}</li>

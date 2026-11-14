@@ -5,6 +5,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { createPagedList } from '@core/api/paged-list';
+import { SessionStore } from '@core/session/session.store';
 import { IndustryOption, PlatformApi, SignupRow, SignupStatus } from '@core/api/platform.api';
 import { displayLabel } from '@core/format/display';
 import { problemMessage } from '@core/http/problem-details';
@@ -42,6 +43,8 @@ const TABS: SignupTab[] = [
 })
 export class PlatformSignupsPage {
   private readonly api = inject(PlatformApi);
+  /** Approving and rejecting registrations is for managers; the API refuses it to the rest of the team. */
+  readonly canManage = inject(SessionStore).platformManager;
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
 

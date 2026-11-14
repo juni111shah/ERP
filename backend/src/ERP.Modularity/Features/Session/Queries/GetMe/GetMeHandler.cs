@@ -21,6 +21,7 @@ internal sealed class GetMeHandler(
         var (permissions, allowedEntities, enabled) = await auth.ResolveAccessAsync(userId, org.Id, ct);
         var entities = (await legalEntities.ListAllowedAsync(allowedEntities, ct)).Select(e => new MeLegalEntity(e.Id, e.Code, e.Name, e.BaseCurrency)).ToList();
 
+        var platformRole = await platform.PlatformRoleAsync(userId, ct);
         // 3. The answer.
         return new(
             new(profile.Id, profile.Email, profile.FullName, profile.MustChangePassword),
@@ -30,6 +31,6 @@ internal sealed class GetMeHandler(
             entities,
             allowedEntities is null,
             modules.Modules.Where(m => !m.Manifest.Hidden && (m.Manifest.IsCore || enabled.Contains(m.Manifest.Key))).Select(m => new MeModule(m.Manifest.Key, m.Manifest.UiRoute)).ToList(),
-            await platform.IsPlatformAdminAsync(userId, ct), await subscription.GetAsync(org.Id, ct), org.IsInternal);
+            platformRole is not null, await subscription.GetAsync(org.Id, ct), org.IsInternal, platformRole);
     }
 }

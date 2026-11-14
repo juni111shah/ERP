@@ -48,3 +48,35 @@ public sealed class PermissionHandler : AuthorizationHandler<PermissionRequireme
         return Task.CompletedTask;
     }
 }
+
+/// <summary>A right inside the founder's console (see <see cref="PlatformTeamRole"/>), read from the account on every request.</summary>
+public sealed class PlatformRoleRequirement(PlatformTeamRole least) : IAuthorizationRequirement
+{
+    public PlatformTeamRole Least { get; } = least;
+}
+
+public sealed class PlatformRoleHandler(ICurrentUser user, IPlatformDirectory directory) : AuthorizationHandler<PlatformRoleRequirement>
+{
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, PlatformRoleRequirement requirement)
+    {
+        if (user.UserId is { } id && await directory.PlatformRoleAsync(id) is { } role && role >= requirement.Least) context.Succeed(requirement);
+    }
+}
+
+/// <summary>A console action that hurts when it goes wrong (suspend, plans, modules, voids, settings, the team...): managers and the owner only.</summary>
+[AttributeUsage(AttributeTargets.Method)]
+public sealed class PlatformManagerAttribute() : AuthorizeAttribute(PlatformRights.ManagerPolicy);
+
+/// <summary>A console action only the platform owner may take (the AI assistant, who is a manager).</summary>
+[AttributeUsage(AttributeTargets.Method)]
+public sealed class PlatformOwnerAttribute() : AuthorizeAttribute(PlatformRights.OwnerPolicy);
+
+/// <summary>
+/// A console change any platform team member may make, with the reason (day-to-day work such as notes, trials and payments). Every write in
+/// the console carries this, <see cref="PlatformManagerAttribute"/> or <see cref="PlatformOwnerAttribute"/>; a test holds them to it.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method)]
+public sealed class PlatformTeamActionAttribute(string reason) : Attribute
+{
+    public string Reason { get; } = reason;
+}

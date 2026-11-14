@@ -93,7 +93,7 @@ public class AppDbContext : IdentityUserContext<AppUser, Guid>, IAppDbContext, I
         b.Properties<decimal>().HavePrecision(18, 2);
         b.Properties<string>().HaveMaxLength(400);
         foreach (var enumType in new[] { typeof(SubscriptionStatus), typeof(BillingCycle), typeof(SubscriptionInvoiceStatus), typeof(SignupStatus), typeof(SignupMode), typeof(AccountType), typeof(JournalStatus), typeof(TaxKind), typeof(PartyKind), typeof(ItemType),
-                     typeof(ApprovalStatus), typeof(ApprovalStepStatus), typeof(CustomFieldDataType), typeof(InstrumentKind), typeof(InstrumentDirection), typeof(InstrumentStatus), typeof(DocumentStatus), typeof(SettlementMethod), typeof(StatementLineStatus) })
+                     typeof(ApprovalStatus), typeof(ApprovalStepStatus), typeof(CustomFieldDataType), typeof(InstrumentKind), typeof(InstrumentDirection), typeof(InstrumentStatus), typeof(DocumentStatus), typeof(SettlementMethod), typeof(StatementLineStatus), typeof(ERP.Application.Platform.PlatformTeamRole) })
             b.Properties(enumType).HaveConversion<string>().HaveMaxLength(40);
     }
 

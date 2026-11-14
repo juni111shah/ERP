@@ -23,12 +23,14 @@ public sealed class PlatformConsoleController(ISender mediator) : ApiControllerB
     [HttpGet("settings")]
     public Task<PlatformSettingsView> GetSettings(CancellationToken ct) => Mediator.Send(new GetPlatformSettingsQuery(), ct);
 
+    [PlatformManager]
     [HttpPut("settings")]
     public Task<PlatformSettingsView> UpdateSettings(PlatformSettingsInput input, CancellationToken ct) => Mediator.Send(new UpdatePlatformSettingsCommand(input), ct);
 
     [HttpGet("activity")]
     public Task<PagedResult<ActivityRow>> ListActivity([FromQuery] ListPlatformActivityQuery query, CancellationToken ct) => Mediator.Send(query, ct);
 
+    [PlatformManager]
     [HttpPost("billing-run")]
     public Task<LifecycleResult> RunBilling(CancellationToken ct) => Mediator.Send(new RunBillingNowCommand(), ct);
 }

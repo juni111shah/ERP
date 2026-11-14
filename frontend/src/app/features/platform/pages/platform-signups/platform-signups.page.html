@@ -16,7 +16,7 @@
             @if (r.emailVerifiedAt) { <erp-status value="confirmed" label="Confirmed" /> } @else { <erp-status value="pending" label="Not confirmed" /> }
           }
           @case ('rowActions') {
-            @if (r.status === 'pendingReview' || r.status === 'pendingEmail') {
+            @if (canManage() && (r.status === 'pendingReview' || r.status === 'pendingEmail')) {
               <div class="row-actions">
                 <button nz-button nzSize="small" nzType="primary" type="button" (click)="approve(r)" [attr.data-testid]="'signup-approve-' + r.signInKey">Approve</button>
                 <button nz-button nzSize="small" nzDanger type="button" (click)="reject(r)" [attr.data-testid]="'signup-reject-' + r.signInKey">Reject</button>

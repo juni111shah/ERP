@@ -1,7 +1,6 @@
-
     <div class="pf-head">
-      <p>Everyone here sees every client and can change plans, invoices and settings. Add only people who run the business.</p>
-      <div class="pf-actions"><button nz-button nzType="primary" type="button" (click)="errors.set(null); open.set(true)" data-testid="team-add"><span nz-icon nzType="user-add"></span>Add team member</button></div>
+      <p>Everyone here sees every client and does the day-to-day work: notes, trials, invoices and payments. Managers also suspend and cancel clients, change plans and modules, void invoices, reset passwords, decide sign-ups and change the settings and the team. Add only people who run the business.</p>
+      @if (canManage()) { <div class="pf-actions"><button nz-button nzType="primary" type="button" (click)="errors.set(null); open.set(true)" data-testid="team-add"><span nz-icon nzType="user-add"></span>Add team member</button></div> }
     </div>
     @if (failed()) {
       <erp-state-panel kind="error" title="Could not load the team" hint="The server did not answer." actionLabel="Try again" (action)="load()" />
@@ -11,15 +10,23 @@
       <section class="pf-card" data-testid="team-list">
         <div class="pf-scroll">
           <table class="pf-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Last sign-in</th><th>Two-step sign-in</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Last sign-in</th><th>Two-step sign-in</th><th></th></tr></thead>
             <tbody>
               @for (m of team(); track m.userId) {
                 <tr [attr.data-testid]="'team-' + m.email">
                   <td class="pf-nowrap">{{ m.fullName }}@if (m.userId === myId()) { <span class="pf-muted pf-small"> (you)</span> }</td>
                   <td>{{ m.email }}</td>
+                  <td class="pf-nowrap">
+                    @if (isOwner() && m.role !== 'owner') {
+                      <nz-select nzSize="small" [ngModel]="m.role" (ngModelChange)="setRole(m, $event)" [nzDisabled]="busy() === m.userId" [attr.aria-label]="'Role of ' + m.fullName" [attr.data-testid]="'team-role-' + m.email" style="min-width:120px">
+                        <nz-option nzValue="support" nzLabel="Support"></nz-option>
+                        <nz-option nzValue="manager" nzLabel="Manager"></nz-option>
+                      </nz-select>
+                    } @else { <span [attr.data-testid]="'team-role-' + m.email">{{ roleText(m.role) }}</span> }
+                  </td>
                   <td class="pf-nowrap">{{ m.lastSignInAt ? (m.lastSignInAt | erpDate) : 'Never' }}</td>
                   <td><erp-status [value]="m.twoFactorEnabled ? 'active' : 'inactive'" [label]="m.twoFactorEnabled ? 'On' : 'Off'" /></td>
-                  <td class="erp-cell-actions num"><erp-row-actions><button nz-button nzSize="small" nzDanger type="button" (click)="remove(m)" [attr.data-testid]="'team-remove-' + m.email">Remove</button></erp-row-actions></td>
+                  <td class="erp-cell-actions num">@if (canRemove(m)) { <erp-row-actions><button nz-button nzSize="small" nzDanger type="button" (click)="remove(m)" [attr.data-testid]="'team-remove-' + m.email">Remove</button></erp-row-actions> }</td>
                 </tr>
               }
             </tbody>
@@ -27,5 +34,5 @@
         </div>
       </section>
     }
-    <erp-record-drawer title="Add team member" [open]="open()" [fields]="fields" [saving]="saving()" [errors]="errors()" submitLabel="Add" testId="team-form" (submitted)="add($event)" (closed)="open.set(false)" />
+    <erp-record-drawer title="Add team member" [open]="open()" [fields]="fields()" [saving]="saving()" [errors]="errors()" submitLabel="Add" testId="team-form" (submitted)="add($event)" (closed)="open.set(false)" />
     <erp-one-time-password [secret]="secret()" (closed)="secret.set(null)" />

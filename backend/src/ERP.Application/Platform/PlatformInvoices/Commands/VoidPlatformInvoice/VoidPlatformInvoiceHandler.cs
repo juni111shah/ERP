@@ -6,7 +6,7 @@ using ERP.Domain.Platform;
 namespace ERP.Application.Platform;
 
 internal sealed class VoidPlatformInvoiceHandler(
-    ISubscriptionInvoiceRepository invoices, IWorkspaceSubscriptionRepository subscriptions, IOrganizationRepository organizations, ISubscriptionAccess access,
+    ISubscriptionInvoiceRepository invoices, IWorkspaceSubscriptionRepository subscriptions, IOrganizationRepository organizations, SubscriptionChanges changes,
     PlatformInvoiceDocuments documents, PlatformLog log, IClock clock) : ICommandHandler<VoidPlatformInvoiceCommand, InvoiceDocument>
 {
     public async Task<InvoiceDocument> Handle(VoidPlatformInvoiceCommand command, CancellationToken ct)
@@ -19,8 +19,9 @@ internal sealed class VoidPlatformInvoiceHandler(
         var org = await organizations.GetAsync(invoice.OrgId, ct);
         if (s is { Status: SubscriptionStatus.PastDue } && !await invoices.HasOverdueAsync(invoice.OrgId, invoice.Id, DateOnly.FromDateTime(clock.UtcNow), ct)) { s.Status = SubscriptionStatus.Active; s.LapsedOn = null; s.LastReminderKey = null; }
         log.Add("Invoice voided", invoice.OrgId, org.Name, $"{invoice.Number}. {invoice.VoidReason}");
+        var before = await changes.BeforeAsync(invoice.OrgId, ct);
         await subscriptions.SaveChangesAsync(ct);
-        access.Invalidate(invoice.OrgId);
+        await changes.AfterAsync(invoice.OrgId, before, ct);
         return await documents.DocumentAsync(invoice, ct);
     }
 }

@@ -6,7 +6,7 @@
       <div class="pf-head">
         <p>{{ d ? d.totalClients + (d.totalClients === 1 ? ' client' : ' clients') + ', ' + d.newClients30Days + ' new in the last 30 days.' : ' ' }}</p>
         <div class="pf-actions">
-          <button nz-button type="button" [nzLoading]="running()" (click)="runBilling()" data-testid="platform-run-billing"><span nz-icon nzType="thunderbolt"></span>Run billing now</button>
+          @if (canManage()) { <button nz-button type="button" [nzLoading]="running()" (click)="runBilling()" data-testid="platform-run-billing"><span nz-icon nzType="thunderbolt"></span>Run billing now</button> }
         </div>
       </div>
 

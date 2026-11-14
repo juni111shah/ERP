@@ -15,9 +15,15 @@ public sealed class PlatformTeamController(ISender mediator) : ApiControllerBase
     [HttpGet]
     public Task<IReadOnlyList<PlatformTeamMember>> List(CancellationToken ct) => Mediator.Send(new ListPlatformTeamQuery(), ct);
 
+    [PlatformManager]
     [HttpPost]
     public Task<NewTeamMember> Add(TeamMemberInput input, CancellationToken ct) => Mediator.Send(new AddPlatformTeamMemberCommand(input), ct);
 
+    [PlatformOwner]
+    [HttpPut("{userId:guid}/role")]
+    public Task<PlatformTeamMember> SetRole(Guid userId, TeamRoleInput input, CancellationToken ct) => Mediator.Send(new SetPlatformTeamRoleCommand(userId, input.Role), ct);
+
+    [PlatformManager]
     [HttpDelete("{userId:guid}")]
     public async Task<IActionResult> Remove(Guid userId, CancellationToken ct)
     {

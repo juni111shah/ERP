@@ -9,6 +9,8 @@ public class AppUser : IdentityUser<Guid>
     public bool IsActive { get; set; } = true;
     /// <summary>Runs the platform itself: clients, plans, subscriptions and billing. Checked on every platform console request.</summary>
     public bool IsPlatformAdmin { get; set; }
+    /// <summary>What they may do on the platform team (support or manager); only read while <see cref="IsPlatformAdmin"/> is on.</summary>
+    public ERP.Application.Platform.PlatformTeamRole PlatformRole { get; set; }
     public bool MustChangePassword { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? LastSignInAt { get; set; }

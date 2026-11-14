@@ -14,6 +14,7 @@ import { BillingCycle, ClientDetail, InvoiceStatus, PlanView, PlatformApi, Platf
 import { displayLabel } from '@core/format/display';
 import { problemMessage } from '@core/http/problem-details';
 import { PageTitleService } from '@core/services/page-title.service';
+import { SessionStore } from '@core/session/session.store';
 import { RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { RowActionsComponent } from '@shared/components/row-actions/row-actions.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
@@ -60,6 +61,8 @@ export class PlatformClientDetailPage {
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly pageTitle = inject(PageTitleService);
+  /** Suspend, cancel, reactivate, activate, plans, modules and password resets are for managers; the API refuses them to the rest of the team. */
+  readonly canManage = inject(SessionStore).platformManager;
   readonly orgId = inject(ActivatedRoute).snapshot.paramMap.get('orgId')!;
 
   readonly data = signal<ClientDetail | null>(null);
@@ -215,7 +218,7 @@ export class PlatformClientDetailPage {
   }
 
   toggleModule(m: PlatformModule): void {
-    if (this.busy()) return;
+    if (this.busy() || !this.canManage()) return;
     const enable = !this.isEnabled(m.key);
     this.busy.set(m.key);
     this.api.setClientModule(this.orgId, m.key, enable).subscribe({

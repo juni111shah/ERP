@@ -43,6 +43,8 @@ export class PlatformShellComponent {
   readonly narrow = signal(false);
   readonly drawerOpen = signal(false);
   readonly initials = computed(() => userInitials(this.session.me()?.user.fullName));
+  /** What this person may do here, so a hidden button is not a mystery. */
+  readonly roleText = computed(() => { const r = this.session.me()?.platformRole; return r === 'owner' ? 'Platform owner' : r === 'manager' ? 'Manager' : 'Support (no suspend, plans, voids or settings)'; });
   readonly links = CONSOLE_LINKS;
 
   constructor() {

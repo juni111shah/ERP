@@ -35,11 +35,19 @@ public sealed class AccessChangeNotifier(
         await PushAsync(orgId, ids, reason, ct);
     }
 
-    public async Task WorkspaceChangedAsync(Guid orgId, string reason, CancellationToken ct)
+    public async Task WorkspaceChangedAsync(Guid orgId, string reason, CancellationToken ct, bool narrowed = false)
     {
         List<Guid> members;
         using (org.Use(orgId)) members = await db.OrganizationMembers.Where(m => m.IsActive).Select(m => m.UserId).ToListAsync(ct);
-        await PushAsync(orgId, members, reason, ct);
+        if (narrowed) await UsersChangedAsync(orgId, members, reason, narrowed: true, ct);
+        else await PushAsync(orgId, members, reason, ct);
+    }
+
+    public async Task PlatformTeamChangedAsync(Guid userId, string reason, CancellationToken ct)
+    {
+        // No workspace: the console is not tied to one, so every open screen of theirs refreshes.
+        try { await pusher.SendAsync(userId, EventName, new { orgId = (Guid?)null, reason }, ct); }
+        catch (Exception e) when (e is not OperationCanceledException) { log.LogWarning(e, "Could not push {Event} to user {UserId}", EventName, userId); }
     }
 
     private async Task PushAsync(Guid orgId, IReadOnlyList<Guid> userIds, string reason, CancellationToken ct)

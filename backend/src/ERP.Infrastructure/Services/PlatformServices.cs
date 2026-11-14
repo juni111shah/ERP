@@ -62,6 +62,15 @@ public sealed class PlatformDirectory(AppDbContext db, UserManager<AppUser> user
         return owner == userId && await IsPlatformAdminAsync(userId, ct);
     }
 
+    public async Task<PlatformTeamRole?> PlatformRoleAsync(Guid userId, CancellationToken ct = default)
+    {
+        var member = await db.Users.AsNoTracking().Where(u => u.Id == userId && u.IsPlatformAdmin && u.IsActive).Select(u => (PlatformTeamRole?)u.PlatformRole).FirstOrDefaultAsync(ct);
+        if (member is null) return null;
+        return await OwnerIdAsync(ct) == userId ? PlatformTeamRole.Owner : member;
+    }
+
+    private Task<Guid?> OwnerIdAsync(CancellationToken ct) => db.PlatformSettings.AsNoTracking().OrderBy(s => s.CreatedAt).Select(s => s.OwnerUserId).FirstOrDefaultAsync(ct);
+
     public async Task<IReadOnlyDictionary<Guid, WorkspaceUsage>> UsageAsync(IReadOnlyCollection<Guid>? orgIds = null, CancellationToken ct = default)
     {
         var members = await db.OrganizationMembers.IgnoreQueryFilters().AsNoTracking()
@@ -147,20 +156,25 @@ public sealed class PlatformDirectory(AppDbContext db, UserManager<AppUser> user
         return password;
     }
 
-    public async Task DisableModulesOutsideAsync(Guid orgId, IReadOnlyCollection<string> allowed, CancellationToken ct = default)
+    public async Task<int> DisableModulesOutsideAsync(Guid orgId, IReadOnlyCollection<string> allowed, CancellationToken ct = default)
     {
         var rows = await db.OrganizationModules.IgnoreQueryFilters().Where(m => m.OrgId == orgId && m.IsEnabled && !allowed.Contains(m.ModuleKey)).ToListAsync(ct);
         foreach (var row in rows) row.IsEnabled = false;
         // A write for a different workspace needs that workspace's context.
         using (org.Use(orgId)) await db.SaveChangesAsync(ct);
         cache.Remove(ModuleAccess.CacheKey(orgId));
+        return rows.Count;
     }
 
     public async Task<IReadOnlyList<PlatformTeamMember>> TeamAsync(CancellationToken ct = default)
-        => await db.Users.AsNoTracking().Where(u => u.IsPlatformAdmin).OrderBy(u => u.FullName)
-            .Select(u => new PlatformTeamMember(u.Id, u.Email ?? "", u.FullName, u.LastSignInAt, u.TwoFactorEnabled)).ToListAsync(ct);
+    {
+        var owner = await OwnerIdAsync(ct);
+        var rows = await db.Users.AsNoTracking().Where(u => u.IsPlatformAdmin).OrderBy(u => u.FullName)
+            .Select(u => new { u.Id, u.Email, u.FullName, u.LastSignInAt, u.TwoFactorEnabled, u.PlatformRole }).ToListAsync(ct);
+        return rows.Select(u => new PlatformTeamMember(u.Id, u.Email ?? "", u.FullName, u.LastSignInAt, u.TwoFactorEnabled, u.Id == owner ? PlatformTeamRole.Owner : u.PlatformRole)).ToList();
+    }
 
-    public async Task<NewTeamMember> AddTeamMemberAsync(string email, string fullName, CancellationToken ct = default)
+    public async Task<NewTeamMember> AddTeamMemberAsync(string email, string fullName, PlatformTeamRole role, CancellationToken ct = default)
     {
         var user = await users.FindByEmailAsync(email);
         string? temporary = null;
@@ -175,9 +189,11 @@ public sealed class PlatformDirectory(AppDbContext db, UserManager<AppUser> user
             db.OrganizationMembers.Add(new ERP.Domain.Identity.OrganizationMember { OrgId = hq, UserId = user.Id, JoinedAt = clock.UtcNow });
             using (org.Use(hq)) await db.SaveChangesAsync(ct);
         }
+        // Someone already on the team keeps their role; a newcomer starts as support unless the owner chose otherwise.
+        if (!user.IsPlatformAdmin) user.PlatformRole = role == PlatformTeamRole.Manager ? PlatformTeamRole.Manager : PlatformTeamRole.Support;
         user.IsPlatformAdmin = true;
         await users.UpdateAsync(user);
-        return new(new(user.Id, user.Email ?? email, user.FullName, user.LastSignInAt, user.TwoFactorEnabled), temporary);
+        return new(new(user.Id, user.Email ?? email, user.FullName, user.LastSignInAt, user.TwoFactorEnabled, user.PlatformRole), temporary);
     }
 
     public async Task RemoveTeamMemberAsync(Guid userId, Guid actingUserId, CancellationToken ct = default)
@@ -186,6 +202,17 @@ public sealed class PlatformDirectory(AppDbContext db, UserManager<AppUser> user
         if (await IsPlatformOwnerAsync(userId, ct)) throw new ConflictException("The platform owner cannot be removed from the team.");
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new NotFoundException();
         user.IsPlatformAdmin = false;
+        user.PlatformRole = PlatformTeamRole.Support;
+        await users.UpdateAsync(user);
+    }
+
+    public async Task SetTeamRoleAsync(Guid userId, PlatformTeamRole role, CancellationToken ct = default)
+    {
+        if (role == PlatformTeamRole.Owner) throw new ConflictException("There is one platform owner, set by Platform:FounderEmail.");
+        if (await OwnerIdAsync(ct) == userId) throw new ConflictException("The platform owner's role cannot be changed.");
+        var user = await users.FindByIdAsync(userId.ToString());
+        if (user is not { IsPlatformAdmin: true }) throw new NotFoundException();
+        user.PlatformRole = role;
         await users.UpdateAsync(user);
     }
 }

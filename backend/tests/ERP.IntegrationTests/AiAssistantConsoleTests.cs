@@ -68,10 +68,10 @@ public class AiAssistantConsoleTests(AssistantApiFactory f) : IClassFixture<Assi
         return (view["providers"]!.AsArray().Single(p => (string)p!["name"]! == name)!, view);
     }
 
-    private async Task<HttpClient> TeamMemberAsync(HttpClient founder)
+    private async Task<HttpClient> TeamMemberAsync(HttpClient founder, string role = "manager")
     {
         var tag = Tag();
-        var added = await Ok(await founder.PostAsJsonAsync("/api/v1/platform-admin/team", new { email = $"manager+{tag}@example.test", fullName = "Manager" }));
+        var added = await Ok(await founder.PostAsJsonAsync("/api/v1/platform-admin/team", new { email = $"manager+{tag}@example.test", fullName = "Manager", role }));
         var (client, _) = await f.SignInAsync($"manager+{tag}@example.test", (string)added["temporaryPassword"]!);
         return client;
     }
@@ -134,6 +134,9 @@ public class AiAssistantConsoleTests(AssistantApiFactory f) : IClassFixture<Assi
         var manager = await TeamMemberAsync(founder);
         var me = await Ok(await founder.GetAsync("/api/v1/me"));
         Assert.Equal(HttpStatusCode.Conflict, (await manager.DeleteAsync($"/api/v1/platform-admin/team/{me["user"]!["id"]}")).StatusCode);
+        // A support member may not change the team at all.
+        var support = await TeamMemberAsync(founder, "support");
+        Assert.Equal(HttpStatusCode.Forbidden, (await support.DeleteAsync($"/api/v1/platform-admin/team/{me["user"]!["id"]}")).StatusCode);
     }
 
     [Theory]

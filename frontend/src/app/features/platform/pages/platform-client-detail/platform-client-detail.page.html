@@ -21,13 +21,13 @@
         </div>
         @if (c.status) {
           <div class="pf-actions" data-testid="client-actions">
-            @if (c.status !== 'cancelled') { <button nz-button nzType="primary" type="button" (click)="openDialog('plan')" data-testid="client-change-plan"><span nz-icon nzType="swap"></span>Change plan</button> }
+            @if (canManage() && c.status !== 'cancelled') { <button nz-button nzType="primary" type="button" (click)="openDialog('plan')" data-testid="client-change-plan"><span nz-icon nzType="swap"></span>Change plan</button> }
             @if (canExtend()) { <button nz-button type="button" (click)="openDialog('trial')" data-testid="client-extend-trial"><span nz-icon nzType="calendar"></span>Extend trial</button> }
-            @if (canActivate()) { <button nz-button type="button" (click)="openDialog('activate')" data-testid="client-activate"><span nz-icon nzType="check-circle"></span>Activate</button> }
+            @if (canManage() && canActivate()) { <button nz-button type="button" (click)="openDialog('activate')" data-testid="client-activate"><span nz-icon nzType="check-circle"></span>Activate</button> }
             @if (c.status !== 'cancelled') { <button nz-button type="button" (click)="openDialog('invoice')" data-testid="client-issue-invoice"><span nz-icon nzType="file-add"></span>Issue invoice</button> }
-            @if (c.status === 'suspended' || c.status === 'cancelled') { <button nz-button type="button" (click)="reactivate()" [nzLoading]="busy() === 'reactivate'" data-testid="client-reactivate"><span nz-icon nzType="play-circle"></span>Reactivate</button> }
-            @if (c.status !== 'suspended' && c.status !== 'cancelled') { <button nz-button nzDanger type="button" (click)="suspend()" data-testid="client-suspend"><span nz-icon nzType="pause-circle"></span>Suspend</button> }
-            @if (c.status !== 'cancelled') { <button nz-button nzDanger type="button" (click)="cancel()" data-testid="client-cancel"><span nz-icon nzType="stop"></span>Cancel subscription</button> }
+            @if (canManage() && (c.status === 'suspended' || c.status === 'cancelled')) { <button nz-button type="button" (click)="reactivate()" [nzLoading]="busy() === 'reactivate'" data-testid="client-reactivate"><span nz-icon nzType="play-circle"></span>Reactivate</button> }
+            @if (canManage() && c.status !== 'suspended' && c.status !== 'cancelled') { <button nz-button nzDanger type="button" (click)="suspend()" data-testid="client-suspend"><span nz-icon nzType="pause-circle"></span>Suspend</button> }
+            @if (canManage() && c.status !== 'cancelled') { <button nz-button nzDanger type="button" (click)="cancel()" data-testid="client-cancel"><span nz-icon nzType="stop"></span>Cancel subscription</button> }
           </div>
         }
       </section>
@@ -42,7 +42,7 @@
             <h2 style="font-size:15px;font-weight:600;margin:0 0 6px">A plan change is requested</h2>
             <p>{{ c.name }} asked for <strong>{{ req.planName }}</strong>, {{ cycleText(req.cycle) }}, on {{ req.requestedAt | erpDate }}.@if (req.note) { <br /><span class="note">"{{ req.note }}"</span> }</p>
             <div class="pf-actions">
-              <button nz-button nzType="primary" nzSize="small" type="button" (click)="applyRequest()" data-testid="client-request-apply">Apply</button>
+              @if (canManage()) { <button nz-button nzType="primary" nzSize="small" type="button" (click)="applyRequest()" data-testid="client-request-apply">Apply</button> }
               <button nz-button nzSize="small" type="button" (click)="decline()" data-testid="client-request-decline">Decline</button>
             </div>
           </section>
@@ -97,7 +97,7 @@
                     <td class="pf-nowrap">{{ m.isAdministrator ? 'Administrator' : 'Member' }}</td>
                     <td><erp-status [value]="m.isActive ? 'active' : 'inactive'" /></td>
                     <td class="pf-nowrap">{{ m.lastSignInAt ? (m.lastSignInAt | erpDate) : 'Never' }}</td>
-                    <td class="erp-cell-actions num"><erp-row-actions><button nz-button nzSize="small" type="button" (click)="issuePassword(m)" data-testid="client-user-password">Issue temporary password</button></erp-row-actions></td>
+                    <td class="erp-cell-actions num">@if (canManage()) { <erp-row-actions><button nz-button nzSize="small" type="button" (click)="issuePassword(m)" data-testid="client-user-password">Issue temporary password</button></erp-row-actions> }</td>
                   </tr>
                 } @empty { <tr><td colspan="6" class="pf-muted">No users.</td></tr> }
               </tbody>
@@ -112,7 +112,7 @@
                 @for (m of modules(); track m.key) {
                   <li class="module">
                     <div class="about">{{ m.name }}<small>{{ m.description }}</small>@if (notInPlan(m.key)) { <small style="color:var(--erp-color-warning-text)">Not part of the {{ c.planName }} plan</small> }</div>
-                    <nz-switch [ngModel]="isEnabled(m.key)" [nzControl]="true" [nzLoading]="busy() === m.key" (click)="toggleModule(m)" [attr.aria-label]="m.name" [attr.data-testid]="'client-module-' + m.key"></nz-switch>
+                    <nz-switch [ngModel]="isEnabled(m.key)" [nzControl]="true" [nzLoading]="busy() === m.key" [nzDisabled]="!canManage()" (click)="toggleModule(m)" [attr.aria-label]="m.name" [attr.data-testid]="'client-module-' + m.key"></nz-switch>
                   </li>
                 }
               </ul>

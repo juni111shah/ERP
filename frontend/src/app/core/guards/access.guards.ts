@@ -82,7 +82,8 @@ export const platformAdminGuard: CanMatchFn = (_route, segments) => {
   }
   const home = router.createUrlTree(['/']);
   const me = session.me();
-  if (me) return me.platformAdmin ? true : home;
+  // Taken off the team while the console was open (see AccessSync): home, saying why.
+  if (me) return me.platformAdmin ? true : session.rechecking() ? refuseAccess() : home;
   return inject(AuthService).loadMe().pipe(map((m) => (m.platformAdmin ? true : home)), catchError(() => of(home)));
 };
 

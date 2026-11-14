@@ -16,9 +16,11 @@ public sealed class SignupsController(ISender mediator) : ApiControllerBase(medi
     [HttpGet]
     public Task<PagedResult<SignupRow>> List([FromQuery] ListSignupsQuery query, CancellationToken ct) => Mediator.Send(query, ct);
 
+    [PlatformManager]
     [HttpPost("{id:guid}/approve")]
     public Task<SignupRow> Approve(Guid id, CancellationToken ct) => Mediator.Send(new ApproveSignupCommand(id), ct);
 
+    [PlatformManager]
     [HttpPost("{id:guid}/reject")]
     public Task<SignupRow> Reject(Guid id, ReasonInput input, CancellationToken ct) => Mediator.Send(new RejectSignupCommand(id, input.Reason), ct);
 }

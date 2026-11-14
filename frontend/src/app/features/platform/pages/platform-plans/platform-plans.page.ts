@@ -5,6 +5,7 @@ import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { ProblemDetails } from '@core/api/api.models';
+import { SessionStore } from '@core/session/session.store';
 import { PlanView, PlatformApi, PlatformModule } from '@core/api/platform.api';
 import { yearlySaving } from '@core/format/subscription';
 import { problemMessage } from '@core/http/problem-details';
@@ -42,6 +43,8 @@ import { PLATFORM_STYLES } from '../../platform-ui';
 })
 export class PlatformPlansPage {
   private readonly api = inject(PlatformApi);
+  /** The price list (new, edit, archive) is for managers; the API refuses it to the rest of the team. */
+  readonly canManage = inject(SessionStore).platformManager;
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
 

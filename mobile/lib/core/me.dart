@@ -18,6 +18,19 @@ class LegalEntity {
       );
 }
 
+/// How a workspace's subscription lets it work (the API's `subscription.access`).
+enum SubscriptionAccess {
+  full,
+  readOnly,
+  blocked;
+
+  static SubscriptionAccess parse(Object? value) => switch (value) {
+        'readOnly' => SubscriptionAccess.readOnly,
+        'blocked' => SubscriptionAccess.blocked,
+        _ => SubscriptionAccess.full,
+      };
+}
+
 /// What the app needs to know after sign-in (`GET /api/v1/me`): who, what the user may do, which legal entities and which modules are on.
 class Me {
   const Me({
@@ -28,6 +41,9 @@ class Me {
     required this.permissions,
     required this.legalEntities,
     required this.modules,
+    this.access = SubscriptionAccess.full,
+    this.subscriptionStatus,
+    this.suspendedReason,
   });
 
   final String fullName;
@@ -40,6 +56,15 @@ class Me {
   /// Keys of the enabled modules, for example "sales", "pos".
   final Set<String> modules;
 
+  /// How the workspace's subscription stands: full, view-only (changes are paused) or blocked (suspended or cancelled).
+  final SubscriptionAccess access;
+
+  /// The subscription status as the API names it ("suspended", "cancelled", "pastDue"...), or null when there is no plan.
+  final String? subscriptionStatus;
+
+  /// Why the workspace was suspended or cancelled, when the platform gave a reason.
+  final String? suspendedReason;
+
   /// The API expands "*" for owners; a user holding it may do everything.
   bool can(String? permission) => permission == null || permissions.contains('*') || permissions.contains(permission);
 
@@ -51,6 +76,7 @@ class Me {
   factory Me.fromJson(Map<String, dynamic> json) {
     final user = (json['user'] as Map<String, dynamic>?) ?? const {};
     final workspace = (json['workspace'] as Map<String, dynamic>?) ?? const {};
+    final subscription = (json['subscription'] as Map<String, dynamic>?) ?? const {};
     return Me(
       fullName: (user['fullName'] ?? '').toString(),
       email: (user['email'] ?? '').toString(),
@@ -59,6 +85,9 @@ class Me {
       permissions: {for (final p in (json['permissions'] as List<dynamic>? ?? const [])) p.toString()},
       legalEntities: [for (final e in (json['legalEntities'] as List<dynamic>? ?? const [])) LegalEntity.fromJson(e as Map<String, dynamic>)],
       modules: {for (final m in (json['enabledModules'] as List<dynamic>? ?? const [])) (m as Map<String, dynamic>)['key'].toString()},
+      access: SubscriptionAccess.parse(subscription['access']),
+      subscriptionStatus: subscription['status']?.toString(),
+      suspendedReason: subscription['suspendedReason']?.toString(),
     );
   }
 

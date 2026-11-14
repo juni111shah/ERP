@@ -100,6 +100,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, ERP.Api.Infrastructure.PlatformAdminHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, ERP.Api.Infrastructure.PlatformRoleHandler>();
 builder.Services.AddAuthorization(o =>
 {
     var staff = new AuthorizationPolicyBuilder()
@@ -111,6 +112,10 @@ builder.Services.AddAuthorization(o =>
     o.AddPolicy(ERP.Api.Infrastructure.PlatformAdminRequirement.Policy, p => p.RequireAuthenticatedUser()
         .RequireAssertion(ctx => !ctx.User.HasClaim(c => c.Type == "portal_party"))
         .AddRequirements(new ERP.Api.Infrastructure.PlatformAdminRequirement()));
+    foreach (var (policy, least) in new[] { (ERP.Application.Platform.PlatformRights.ManagerPolicy, ERP.Application.Platform.PlatformTeamRole.Manager), (ERP.Application.Platform.PlatformRights.OwnerPolicy, ERP.Application.Platform.PlatformTeamRole.Owner) })
+        o.AddPolicy(policy, p => p.RequireAuthenticatedUser()
+            .RequireAssertion(ctx => !ctx.User.HasClaim(c => c.Type == "portal_party"))
+            .AddRequirements(new ERP.Api.Infrastructure.PlatformAdminRequirement(), new ERP.Api.Infrastructure.PlatformRoleRequirement(least)));
     o.AddPolicy("portal", p => p.RequireAuthenticatedUser().RequireClaim("portal_party"));
     o.AddPolicy("portal.customer", p => p.RequireAuthenticatedUser().RequireClaim("portal_party").RequireClaim("portal_kind", "customer"));
     o.AddPolicy("portal.vendor", p => p.RequireAuthenticatedUser().RequireClaim("portal_party").RequireClaim("portal_kind", "vendor"));

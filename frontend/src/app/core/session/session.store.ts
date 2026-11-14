@@ -15,6 +15,8 @@ export interface SubscriptionSummary {
   isComplimentary: boolean;
   suspendedReason: string | null;
 }
+export type PlatformRole = 'support' | 'manager' | 'owner';
+
 export interface MeResponse {
   user: { id: string; email: string; fullName: string; mustChangePassword: boolean };
   workspace: Workspace & { countryCode: string; baseCurrency: string; timeZone: string; defaultLocale: string; /** The workspace holds sample data for trying the system. */ isDemo?: boolean };
@@ -25,6 +27,11 @@ export interface MeResponse {
   enabledModules: { key: string; uiRoute: string }[];
   /** Member of the team that runs the platform: may open the console at /platform. */
   platformAdmin?: boolean;
+  /**
+   * Their role on the platform team, null when they are not on it. Support reads everything and does the day-to-day work; a manager also
+   * suspends, changes plans and modules, voids, resets passwords, decides sign-ups and runs the team; the owner also runs the AI assistant.
+   */
+  platformRole?: PlatformRole | null;
   /** This workspace is the platform's own, not a client. */
   isInternalWorkspace?: boolean;
   subscription?: SubscriptionSummary;
@@ -50,6 +57,10 @@ export class SessionStore {
   readonly enabledModules = computed<ReadonlySet<string>>(() => new Set(['core', ...(this.me()?.enabledModules.map((m) => m.key) ?? [])]));
   readonly isAuthenticated = computed(() => !!this.accessToken());
   readonly isOrgAdmin = computed(() => this.permissions().has('*'));
+  /** In the founder's console: may take the actions that hurt when they go wrong (a manager or the owner). The API checks the same. */
+  readonly platformManager = computed(() => { const r = this.me()?.platformRole; return r === 'manager' || r === 'owner'; });
+  /** In the founder's console: the platform owner (the AI assistant, who is a manager). */
+  readonly platformOwner = computed(() => this.me()?.platformRole === 'owner');
   /** True while the open page is checked again after this person's access changed (see AccessSync): a guard that refuses then says so. */
   readonly rechecking = signal(false);
   /** A founder chose "Back to workspace": the root route shows the workspace in this tab rather than the console. */

@@ -46,7 +46,25 @@ public interface IPlatformMailer
 
 public sealed record WorkspaceUsage(Guid OrgId, int ActiveUsers, int LegalEntities, IReadOnlyList<string> EnabledModules, DateTime? LastSignInAt);
 public sealed record WorkspaceMemberView(Guid UserId, string Email, string FullName, bool IsActive, bool IsAdministrator, DateTime? LastSignInAt, bool TwoFactorEnabled);
-public sealed record PlatformTeamMember(Guid UserId, string Email, string FullName, DateTime? LastSignInAt, bool TwoFactorEnabled);
+/// <summary>
+/// What a member of the platform team may do in the founder's console. Everyone on the team can read everything and do the day-to-day
+/// work (notes, trials, invoices and payments, leads); a <see cref="Manager"/> can also make the changes that hurt when they go wrong
+/// (suspend, cancel, plans, modules, voids, password resets, sign-ups, settings, the team). The <see cref="Owner"/> is the one account
+/// named by Platform:FounderEmail: everything a manager can, plus the AI assistant and who is a manager. Stored values are Support and
+/// Manager; Owner is worked out from the platform settings.
+/// </summary>
+public enum PlatformTeamRole { Support = 0, Manager = 1, Owner = 2 }
+
+/// <summary>The console's authorization policies on top of "platform-admin" (on the team at all), checked against the account on every request.</summary>
+public static class PlatformRights
+{
+    public const string ManagerPolicy = "platform-manager";
+    public const string OwnerPolicy = "platform-owner";
+
+    public static bool CanManage(PlatformTeamRole? role) => role is PlatformTeamRole.Manager or PlatformTeamRole.Owner;
+}
+
+public sealed record PlatformTeamMember(Guid UserId, string Email, string FullName, DateTime? LastSignInAt, bool TwoFactorEnabled, PlatformTeamRole Role = PlatformTeamRole.Support);
 public sealed record NewTeamMember(PlatformTeamMember Member, string? TemporaryPassword);
 
 /// <summary>Reads and account changes that cross workspaces. The one trusted route for the platform console (implemented in Infrastructure).</summary>
@@ -55,17 +73,21 @@ public interface IPlatformDirectory
     Task<bool> IsPlatformAdminAsync(Guid userId, CancellationToken ct = default);
     /// <summary>The one account that may manage AI services and their keys.</summary>
     Task<bool> IsPlatformOwnerAsync(Guid userId, CancellationToken ct = default);
+    /// <summary>Their role on the platform team, or null when they are not on it (or their account is switched off).</summary>
+    Task<PlatformTeamRole?> PlatformRoleAsync(Guid userId, CancellationToken ct = default);
     Task<IReadOnlyDictionary<Guid, WorkspaceUsage>> UsageAsync(IReadOnlyCollection<Guid>? orgIds = null, CancellationToken ct = default);
     Task<IReadOnlyList<WorkspaceMemberView>> MembersAsync(Guid orgId, CancellationToken ct = default);
     /// <summary>A registration's password: the hash for a new account, or null when the email has an account and this is its password. Throws a field error otherwise.</summary>
     Task<string?> PrepareSignupPasswordAsync(string email, string password, CancellationToken ct = default);
     string NewTemporaryPassword();
     Task<string> IssueTemporaryPasswordAsync(Guid orgId, Guid userId, CancellationToken ct = default);
-    /// <summary>Switches off the workspace's modules a plan does not include. Their data stays.</summary>
-    Task DisableModulesOutsideAsync(Guid orgId, IReadOnlyCollection<string> allowed, CancellationToken ct = default);
+    /// <summary>Switches off the workspace's modules a plan does not include and says how many there were. Their data stays.</summary>
+    Task<int> DisableModulesOutsideAsync(Guid orgId, IReadOnlyCollection<string> allowed, CancellationToken ct = default);
     Task<IReadOnlyList<PlatformTeamMember>> TeamAsync(CancellationToken ct = default);
-    Task<NewTeamMember> AddTeamMemberAsync(string email, string fullName, CancellationToken ct = default);
+    Task<NewTeamMember> AddTeamMemberAsync(string email, string fullName, PlatformTeamRole role, CancellationToken ct = default);
     Task RemoveTeamMemberAsync(Guid userId, Guid actingUserId, CancellationToken ct = default);
+    /// <summary>Makes a team member a manager or support again. The owner's role is fixed.</summary>
+    Task SetTeamRoleAsync(Guid userId, PlatformTeamRole role, CancellationToken ct = default);
 }
 
 public interface ISubscriptionLifecycle
@@ -255,7 +277,7 @@ internal sealed class SubscriptionInvoicing(IRepository<SubscriptionInvoice> inv
 internal sealed class SubscriptionLifecycle(
     IRepository<WorkspaceSubscription> subscriptions, IRepository<SubscriptionPlan> plans, IRepository<SubscriptionInvoice> invoices, IRepository<SignupRequest> signups,
     IReadRepository<Organization> organizations, PlatformSettingsStore settingsStore, SubscriptionInvoicing invoicing, PlatformLog log, IPlatformMailer mailer,
-    ISubscriptionAccess access, IClock clock) : ISubscriptionLifecycle
+    SubscriptionChanges changes, IClock clock) : ISubscriptionLifecycle
 {
     private static readonly int[] TrialReminderDays = [7, 3, 1];
 
@@ -354,6 +376,7 @@ internal sealed class SubscriptionLifecycle(
                     {
                         s.LastReminderKey = "read-only";
                         reminders++;
+                        changed.Add(s.OrgId); // now view-only: the client's screens show it at once
                         mail.Add(() => mailer.SendAsync(s.BillingEmail, "Changes are paused on your workspace",
                             $"Invoice {overdue.Number} is still unpaid, so {name} is now view-only. Pay the invoice to continue working.\n\n{settings.PaymentInstructions}", ct));
                     }
@@ -367,7 +390,8 @@ internal sealed class SubscriptionLifecycle(
         foreach (var r in stale) { r.Status = SignupStatus.Expired; r.PasswordHash = null; r.VerificationTokenHash = null; }
 
         await subscriptions.SaveChangesAsync(ct);
-        foreach (var orgId in changed) access.Invalidate(orgId);
+        // Each client whose standing changed sees it at once: the blocked page, the view-only banner, or its normal workspace again.
+        foreach (var orgId in changed) await changes.ChangedAsync(orgId, ct);
         foreach (var send in mail) await send();
         return new(expired, issued, pastDue, suspended, reminders, stale.Count);
     }

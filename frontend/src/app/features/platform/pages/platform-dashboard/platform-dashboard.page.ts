@@ -6,6 +6,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { DashboardChart } from '@core/api/admin.api';
+import { SessionStore } from '@core/session/session.store';
 import { LifecycleResult, PlatformApi, PlatformDashboard } from '@core/api/platform.api';
 import { displayMoney } from '@core/format/display';
 import { problemMessage } from '@core/http/problem-details';
@@ -40,6 +41,8 @@ import { PLATFORM_STYLES } from '../../platform-ui';
 })
 export class PlatformDashboardPage {
   private readonly api = inject(PlatformApi);
+  /** Running the billing run is for managers; the API refuses it to the rest of the team. */
+  readonly canManage = inject(SessionStore).platformManager;
   private readonly modal = inject(NzModalService);
   private readonly message = inject(NzMessageService);
 

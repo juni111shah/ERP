@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
@@ -13,6 +13,7 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { forkJoin } from 'rxjs';
 import { CurrencyOption } from '@core/api/admin.api';
+import { SessionStore } from '@core/session/session.store';
 import { PlanView, PlatformApi, PlatformSettingsView, SignupMode } from '@core/api/platform.api';
 import { doneText } from '@core/format/done-text';
 import { applyProblemDetailsToForm, asProblem, controlError, problemMessage } from '@core/http/problem-details';
@@ -42,6 +43,8 @@ import { PLATFORM_STYLES } from '../../platform-ui';
 })
 export class PlatformSettingsPage {
   private readonly api = inject(PlatformApi);
+  /** The platform settings are for managers: the rest of the team sees them read-only. */
+  readonly canManage = inject(SessionStore).platformManager;
   private readonly message = inject(NzMessageService);
 
   readonly modes = SIGNUP_MODES;
@@ -74,7 +77,11 @@ export class PlatformSettingsPage {
     privacyText: [''],
   });
 
-  constructor() { this.load(); }
+  constructor() {
+    // The rest of the team reads the settings; only a manager changes them (the API refuses the rest).
+    effect(() => { if (this.canManage()) this.form.enable({ emitEvent: false }); else this.form.disable({ emitEvent: false }); });
+    this.load();
+  }
 
   err(name: string): string { return controlError(this.form.get(name)); }
 
@@ -95,6 +102,7 @@ export class PlatformSettingsPage {
   }
 
   save(): void {
+    if (!this.canManage()) return;
     if (this.form.invalid) {
       revealErrors(this.form);
       return;

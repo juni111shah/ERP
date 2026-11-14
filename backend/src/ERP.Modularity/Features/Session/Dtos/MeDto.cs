@@ -11,4 +11,6 @@ public sealed record MeModule(string Key, string UiRoute);
 public sealed record MeDto(
     MeUser User, MeWorkspace Workspace, IReadOnlyList<WorkspaceOption> Workspaces, IReadOnlyList<string> Permissions,
     IReadOnlyList<MeLegalEntity> LegalEntities, bool AllLegalEntities, IReadOnlyList<MeModule> EnabledModules,
-    bool PlatformAdmin, ERP.Application.Platform.SubscriptionSummary Subscription, bool IsInternalWorkspace);
+    bool PlatformAdmin, ERP.Application.Platform.SubscriptionSummary Subscription, bool IsInternalWorkspace,
+    /// <summary>Their role on the platform team (support, manager, owner), or null when they are not on it: the console hides what they may not do.</summary>
+    ERP.Application.Platform.PlatformTeamRole? PlatformRole = null);

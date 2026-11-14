@@ -23,9 +23,10 @@ final notificationTickProvider = NotifierProvider<NotificationTick, int>(Notific
 
 /// Keeps the permissions in memory in line with the server while the app is open:
 /// - the API's live connection says "access-changed" (an administrator changed this person's roles, a role they hold, or the
-///   workspace's modules): the session is renewed and /me and the menu are loaded again;
-/// - a 401 was answered by renewing the session (the server ends old tokens when access is narrowed), a call got 403, the connection
-///   came back after a drop, or the app returned to the foreground: the same reload.
+///   workspace's modules, plan or subscription): the session is renewed and /me and the menu are loaded again;
+/// - a 401 was answered by renewing the session (the server ends old tokens when access is narrowed), a call got 403 or 402, the
+///   connection came back after a drop, or the app returned to the foreground: the same reload.
+/// A workspace that was just suspended or cancelled closes every screen, so the home shell can say why.
 /// When something was taken away, every open screen is closed back to the home shell with a short message, so nobody is left on a
 /// screen they can no longer use. Buttons and menus follow by themselves: they watch [meOrEmptyProvider] and [menuProvider].
 class AccessSync {
@@ -59,6 +60,7 @@ class AccessSync {
   Future<void> _reload({required bool renew}) async {
     if (_ref.read(sessionProvider).status != AuthStatus.signedIn) return;
     final before = _ref.read(meProvider).value?.permissions;
+    final beforeAccess = _ref.read(meProvider).value?.access;
     if (renew && await _ref.read(apiProvider).refresh() == null) {
       _ref.read(sessionProvider.notifier).expired();
       return;
@@ -76,6 +78,10 @@ class AccessSync {
       rootMessengerKey.currentState?.showSnackBar(
         const SnackBar(content: Text('Your access has changed. Some screens and actions are no longer available.')),
       );
+    }
+    // Suspended or cancelled just now: every screen closes, so the home shell shows why (see WorkspaceBlockedView).
+    if (after.access == SubscriptionAccess.blocked && beforeAccess != SubscriptionAccess.blocked) {
+      rootNavigatorKey.currentState?.popUntil((route) => route.isFirst);
     }
   }
 
@@ -124,6 +130,7 @@ final accessSyncProvider = Provider<AccessSync>((ref) {
   final api = ref.read(apiProvider);
   api.onSessionRenewed = () => sync.reloadSoon(renew: false);
   api.onForbidden = sync.forbidden;
+  api.onPaymentRequired = sync.forbidden;
   ref.listen<SessionState>(sessionProvider, (previous, next) {
     if (next.status == AuthStatus.signedIn) {
       sync.connect();

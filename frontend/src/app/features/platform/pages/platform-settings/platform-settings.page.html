@@ -155,6 +155,7 @@
             <ng-template #legalHint>Shown at <a routerLink="/terms" target="_blank">/terms</a> and <a routerLink="/privacy" target="_blank">/privacy</a> after you save. Start a line with ## to make it a heading. {{ '{' }}company{{ '}' }} and {{ '{' }}email{{ '}' }} are filled in from above. Empty the box to go back to the starter wording.</ng-template>
           </div>
         </section>
-        <div class="save-row"><button nz-button nzType="primary" [nzLoading]="saving()" data-testid="settings-save">Save settings</button></div>
+        @if (canManage()) { <div class="save-row"><button nz-button nzType="primary" [nzLoading]="saving()" data-testid="settings-save">Save settings</button></div> }
+        @else { <p class="pf-muted" data-testid="settings-read-only">Only a manager or the platform owner can change these settings.</p> }
       </form>
     }

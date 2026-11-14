@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/me.dart';
 import '../../core/palette_registry.dart';
 import '../../core/session.dart';
 import '../../kit/bottom_nav.dart';
@@ -16,6 +17,7 @@ import '../receivables/receipt_screens.dart';
 import '../more/more_page.dart';
 import '../onboarding/onboarding_tour.dart';
 import 'profile_sheet.dart';
+import 'workspace_blocked.dart';
 
 /// The signed-in shell: bottom navigation over the main areas. The tab contents are rebuilt when the workspace changes.
 class HomePage extends ConsumerStatefulWidget {
@@ -49,6 +51,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final workspace = ref.watch(sessionProvider).workspace;
+    final me = ref.watch(meOrEmptyProvider);
     final t = ErpTheme.of(context);
     return CallbackShortcuts(
       bindings: {
@@ -90,14 +93,24 @@ class _HomePageState extends ConsumerState<HomePage> {
               const HomeHeaderActions(),
             ],
           ),
-          body: KeyedSubtree(
-            key: ValueKey(workspace?.id),
-            child: IndexedStack(
-              index: _index,
-              children: const [DashboardPage(), InvoicesScreen(showAppBar: false), ReceiptsScreen(showAppBar: false), PartiesScreen(title: 'Customers', role: 'Customer', showAppBar: false), MorePage()],
-            ),
-          ),
-          bottomNavigationBar: ErpBottomNav(
+          // A suspended or cancelled workspace shows why instead of its screens; a view-only one says changes are paused.
+          body: me.access == SubscriptionAccess.blocked
+              ? WorkspaceBlockedView(me: me)
+              : Column(
+                  children: [
+                    if (me.access == SubscriptionAccess.readOnly) WorkspaceReadOnlyNotice(me: me),
+                    Expanded(
+                      child: KeyedSubtree(
+                        key: ValueKey(workspace?.id),
+                        child: IndexedStack(
+                          index: _index,
+                          children: const [DashboardPage(), InvoicesScreen(showAppBar: false), ReceiptsScreen(showAppBar: false), PartiesScreen(title: 'Customers', role: 'Customer', showAppBar: false), MorePage()],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+          bottomNavigationBar: me.access == SubscriptionAccess.blocked ? null : ErpBottomNav(
             currentIndex: _index,
             onTap: (i) => setState(() => _index = i),
             onLongPress: (i) {

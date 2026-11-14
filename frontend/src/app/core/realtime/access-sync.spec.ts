@@ -5,7 +5,7 @@ import { Router, UrlTree, provideRouter } from '@angular/router';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { of } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
-import { permissionGuard } from '../guards/access.guards';
+import { permissionGuard, platformAdminGuard } from '../guards/access.guards';
 import { MeResponse, SessionStore } from '../session/session.store';
 import { holdsPermission } from '@shared/directives/has-permission.directive';
 import { AccessSync } from './access-sync.service';
@@ -73,6 +73,32 @@ describe('live access changes', () => {
       session.rechecking.set(true);
       guard();
       expect(warnings).toEqual(['You do not have access to that page.', 'Your access has changed, so that page is no longer available to you.']);
+    });
+
+    it('reads the platform team role: support, manager or owner', () => {
+      session.me.set({ ...me([]), platformAdmin: true, platformRole: 'support' });
+      expect(session.platformManager()).toBeFalse();
+      expect(session.platformOwner()).toBeFalse();
+      session.me.set({ ...me([]), platformAdmin: true, platformRole: 'manager' });
+      expect(session.platformManager()).toBeTrue();
+      expect(session.platformOwner()).toBeFalse();
+      session.me.set({ ...me([]), platformAdmin: true, platformRole: 'owner' });
+      expect(session.platformManager()).toBeTrue();
+      expect(session.platformOwner()).toBeTrue();
+      session.me.set(me([]));
+      expect(session.platformManager()).toBeFalse();
+    });
+
+    it('says why the console closed when the person was taken off the platform team', () => {
+      const guard = () => runInInjectionContext(TestBed.inject(EnvironmentInjector), () => platformAdminGuard({}, []));
+      session.me.set({ ...me([]), platformAdmin: true, platformRole: 'support' });
+      expect(guard()).toBeTrue();
+      session.me.set({ ...me([]), platformAdmin: false, platformRole: null });
+      expect(router.serializeUrl(guard() as UrlTree)).toBe('/');
+      expect(warnings).toEqual([]);
+      session.rechecking.set(true);
+      expect(router.serializeUrl(guard() as UrlTree)).toBe('/');
+      expect(warnings).toEqual(['Your access has changed, so that page is no longer available to you.']);
     });
   });
 });

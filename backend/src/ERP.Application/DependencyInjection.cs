@@ -92,6 +92,7 @@ public static class DependencyInjection
         services.AddScoped<ERP.Application.Platform.PlanViews>();
         services.AddScoped<ERP.Application.Platform.ClientReader>();
         services.AddScoped<ERP.Application.Platform.ClientSubscriptions>();
+        services.AddScoped<ERP.Application.Platform.SubscriptionChanges>();
         services.AddScoped<ERP.Application.Platform.PlatformInvoiceDocuments>();
         services.AddScoped<ERP.Application.Platform.BillingOverviews>();
         services.AddScoped<ERP.Application.Platform.AssistantConsole>();

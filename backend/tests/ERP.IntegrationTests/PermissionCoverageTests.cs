@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using ERP.Api.Infrastructure;
+using ERP.Application.Platform;
 using ERP.Application.Security;
 using ERP.Modularity;
 using ERP.Modularity.Web;
@@ -17,11 +19,12 @@ namespace ERP.IntegrationTests;
 /// founder's console, the portals), <c>[AllowAnonymous]</c>, <c>[SignedIn("why")]</c> for the caller's own things, or
 /// <c>[PermissionByRequest(typeof(...))]</c> when the request decides the permission. A bare <c>[Authorize]</c> fails, so a new endpoint
 /// cannot slip through with "any signed-in user" by accident. Then a member holding no permission at all is refused (403) by every
-/// permission-protected endpoint, with every module switched on so the module gate cannot answer first.
+/// permission-protected endpoint, with every module switched on so the module gate cannot answer first. The founder's console has its own
+/// rights on top (support, manager, owner): every change there names the right it needs, and a support member is refused the rest.
 /// </summary>
 public partial class PermissionCoverageTests(ApiFactory f) : IClassFixture<ApiFactory>
 {
-    private static readonly string[] NamedPolicies = ["platform-admin", "portal", "portal.customer", "portal.vendor"];
+    private static readonly string[] NamedPolicies = ["platform-admin", PlatformRights.ManagerPolicy, PlatformRights.OwnerPolicy, "portal", "portal.customer", "portal.vendor"];
 
     private List<RouteEndpoint> ApiEndpoints()
     {
@@ -168,6 +171,145 @@ public partial class PermissionCoverageTests(ApiFactory f) : IClassFixture<ApiFa
 
         await HrKit.Ok(await admin.PutAsJsonAsync($"/api/v1/users/{userId}/roles", new { roleIds = Array.Empty<string>() }));
         Assert.Equal(HttpStatusCode.Unauthorized, (await member.GetAsync("/api/v1/parties")).StatusCode);
+    }
+
+    // ---------- the founder's console ----------
+
+    private const string Console = "api/v1/platform-admin";
+    private static readonly string[] PlatformRightPolicies = [PlatformRights.ManagerPolicy, PlatformRights.OwnerPolicy];
+
+    private IEnumerable<RouteEndpoint> ConsoleEndpoints() => ApiEndpoints().Where(e => e.RoutePattern.RawText!.TrimStart('/').StartsWith(Console + "/", StringComparison.OrdinalIgnoreCase) || e.RoutePattern.RawText!.TrimStart('/') == Console);
+
+    private static IReadOnlyList<string> Methods(RouteEndpoint e) => e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? ["GET"];
+
+    private static string? PlatformRight(RouteEndpoint e) => e.Metadata.GetOrderedMetadata<IAuthorizeData>().Select(a => a.Policy).FirstOrDefault(p => p is not null && PlatformRightPolicies.Contains(p));
+
+    private static string ConsoleRoute(RouteEndpoint e) => e.RoutePattern.RawText!.TrimStart('/')[Console.Length..].TrimStart('/');
+
+    [Fact]
+    public void Every_founder_console_change_says_who_on_the_platform_team_may_make_it()
+    {
+        var problems = new List<string>();
+        foreach (var e in ConsoleEndpoints())
+        {
+            if (!e.Metadata.GetOrderedMetadata<IAuthorizeData>().Any(a => a.Policy == "platform-admin")) problems.Add($"{Name(e)}: not behind the platform-admin policy.");
+            if (Methods(e).All(m => m is "GET" or "HEAD")) continue;
+            var team = e.Metadata.GetMetadata<PlatformTeamActionAttribute>();
+            if (PlatformRight(e) is null && team is null)
+                problems.Add($"{Name(e)}: a console change needs [PlatformManager], [PlatformOwner] or [PlatformTeamAction(\"why\")].");
+            if (team is not null && string.IsNullOrWhiteSpace(team.Reason)) problems.Add($"{Name(e)}: [PlatformTeamAction] needs a reason.");
+            if (team is not null && PlatformRight(e) is not null) problems.Add($"{Name(e)}: both a stricter right and [PlatformTeamAction]; pick one.");
+        }
+        Assert.True(problems.Count == 0, "Founder console endpoints without a clear right:\n" + string.Join("\n", problems));
+    }
+
+    [Fact]
+    public void The_founder_actions_that_hurt_when_they_go_wrong_need_a_manager()
+    {
+        // Suspend, cancel, reactivate, activate; plans and modules; voids and reopens; password resets; the team; settings and the billing
+        // run; the price list; sign-up decisions; the demo flag. The AI assistant and who is a manager are for the owner alone.
+        string[] manager =
+        [
+            "POST clients/{orgId:guid}/suspend", "POST clients/{orgId:guid}/cancel", "POST clients/{orgId:guid}/reactivate", "POST clients/{orgId:guid}/activate",
+            "PUT clients/{orgId:guid}/plan", "PUT clients/{orgId:guid}/demo", "POST clients/{orgId:guid}/users/{userId:guid}/temporary-password",
+            "POST clients/{orgId:guid}/modules/{key}/{action:regex(^(enable|disable)$)}",
+            "POST invoices/{id:guid}/void", "POST invoices/{id:guid}/reopen",
+            "POST team", "DELETE team/{userId:guid}",
+            "PUT settings", "POST billing-run",
+            "POST plans", "PUT plans/{id:guid}", "POST plans/{id:guid}/{action:regex(^(archive|restore)$)}",
+            "POST signups/{id:guid}/approve", "POST signups/{id:guid}/reject",
+        ];
+        string[] owner =
+        [
+            "PUT team/{userId:guid}/role", "PUT assistant/visibility", "PUT assistant/limits", "POST assistant/providers", "PUT assistant/providers/order",
+            "PUT assistant/providers/{id:guid}", "DELETE assistant/providers/{id:guid}", "POST assistant/providers/{id:guid}/test", "POST assistant/try",
+        ];
+        var byRoute = ConsoleEndpoints().SelectMany(e => Methods(e).Select(m => (Key: $"{m} {ConsoleRoute(e)}", Right: PlatformRight(e))))
+            .GroupBy(x => x.Key).ToDictionary(g => g.Key, g => g.Select(x => x.Right).ToList());
+        var problems = new List<string>();
+        foreach (var (routes, wanted) in new[] { (manager, PlatformRights.ManagerPolicy), (owner, PlatformRights.OwnerPolicy) })
+            foreach (var r in routes)
+            {
+                if (!byRoute.TryGetValue(r, out var rights)) problems.Add($"{r}: no such console endpoint (renamed? update this list)");
+                else if (rights.Any(x => x is null || (wanted == PlatformRights.OwnerPolicy && x != PlatformRights.OwnerPolicy)))
+                    problems.Add($"{r}: needs {wanted}, has {string.Join(", ", rights.Select(x => x ?? "the whole team"))}");
+            }
+        Assert.True(problems.Count == 0, "Founder actions without the stricter right:\n" + string.Join("\n", problems));
+    }
+
+    [Fact]
+    public async Task A_support_member_of_the_platform_team_reads_everything_but_is_refused_every_manager_and_owner_action()
+    {
+        var (founder, _) = await f.SignInAsync(ApiFactory.FounderEmail);
+        var support = await TeamMemberAsync(founder, "support");
+        Assert.Equal("support", (string?)(await ApiFactory.Json(await support.GetAsync("/api/v1/me")))["platformRole"]);
+
+        var failures = new List<string>();
+        var refused = 0;
+        foreach (var e in ConsoleEndpoints())
+        {
+            var url = "/" + Fill(e.RoutePattern);
+            var right = PlatformRight(e);
+            foreach (var method in Methods(e))
+            {
+                // Reads are open to the whole team. Of the changes, only those needing a stricter right are sent: they never reach a handler.
+                if (method != "GET" && right is null) continue;
+                using var req = new HttpRequestMessage(new HttpMethod(method), url);
+                if (method is "POST" or "PUT" or "PATCH") req.Content = JsonContent.Create(new JsonObject());
+                using var res = await support.SendAsync(req);
+                if (method == "GET")
+                {
+                    if (res.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized) failures.Add($"GET {e.RoutePattern.RawText}: a support member could not read it ({(int)res.StatusCode})");
+                    continue;
+                }
+                refused++;
+                if (res.StatusCode != HttpStatusCode.Forbidden) failures.Add($"{method} {e.RoutePattern.RawText} -> {(int)res.StatusCode}: {Trim(await res.Content.ReadAsStringAsync())}");
+            }
+        }
+        Assert.True(failures.Count == 0, "The platform team's rights do not hold:\n" + string.Join("\n", failures));
+        Assert.True(refused >= 25, $"Only {refused} manager or owner actions were checked");
+    }
+
+    [Fact]
+    public async Task A_manager_runs_the_risky_actions_but_not_the_owners_and_only_the_owner_makes_managers()
+    {
+        var (founder, _) = await f.SignInAsync(ApiFactory.FounderEmail);
+        var (manager, managerId) = await TeamMemberWithIdAsync(founder, "manager");
+        Assert.Equal("manager", (string?)(await ApiFactory.Json(await manager.GetAsync("/api/v1/me")))["platformRole"]);
+        Assert.Equal("owner", (string?)(await ApiFactory.Json(await founder.GetAsync("/api/v1/me")))["platformRole"]);
+
+        // A manager's right works; the owner's do not.
+        Assert.Equal(HttpStatusCode.OK, (await manager.PostAsync($"/{Console}/billing-run", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await manager.PutAsJsonAsync($"/{Console}/assistant/visibility", new { brandEnabled = true, workspaceEnabled = false })).StatusCode);
+        var (_, supportId) = await TeamMemberWithIdAsync(founder, "support");
+        Assert.Equal(HttpStatusCode.Forbidden, (await manager.PutAsJsonAsync($"/{Console}/team/{supportId}/role", new { role = "manager" })).StatusCode);
+
+        // A manager adds support members, not managers, and cannot take another manager off the team.
+        Assert.Equal(HttpStatusCode.Forbidden, (await manager.PostAsJsonAsync($"/{Console}/team", new { email = $"m2_{Guid.NewGuid():N}@platform.test", fullName = "Second", role = "manager" })).StatusCode);
+        var (_, otherManager) = await TeamMemberWithIdAsync(founder, "manager");
+        Assert.Equal(HttpStatusCode.Forbidden, (await manager.DeleteAsync($"/{Console}/team/{otherManager}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await manager.DeleteAsync($"/{Console}/team/{supportId}")).StatusCode);
+
+        // The owner makes the manager support again: the next risky call is refused, with no new sign-in.
+        var changed = await ApiFactory.Json(await founder.PutAsJsonAsync($"/{Console}/team/{managerId}/role", new { role = "support" }));
+        Assert.Equal("support", (string?)changed["role"]);
+        Assert.Equal(HttpStatusCode.Forbidden, (await manager.PostAsync($"/{Console}/billing-run", null)).StatusCode);
+
+        // The owner's own role is fixed.
+        var me = await ApiFactory.Json(await founder.GetAsync("/api/v1/me"));
+        Assert.Equal(HttpStatusCode.Conflict, (await founder.PutAsJsonAsync($"/{Console}/team/{me["user"]!["id"]}/role", new { role = "support" })).StatusCode);
+    }
+
+    private async Task<HttpClient> TeamMemberAsync(HttpClient founder, string role) => (await TeamMemberWithIdAsync(founder, role)).Client;
+
+    private async Task<(HttpClient Client, string UserId)> TeamMemberWithIdAsync(HttpClient founder, string role)
+    {
+        var email = $"team_{Guid.NewGuid():N}@platform.test";
+        var res = await founder.PostAsJsonAsync($"/{Console}/team", new { email, fullName = "Team " + role, role });
+        Assert.True(res.IsSuccessStatusCode, $"Adding a {role} failed: {(int)res.StatusCode} {await res.Content.ReadAsStringAsync()}");
+        var added = await ApiFactory.Json(res);
+        var (client, _) = await f.SignInAsync(email, (string)added["temporaryPassword"]!);
+        return (client, (string)added["member"]!["userId"]!);
     }
 
     // ---------- helpers ----------

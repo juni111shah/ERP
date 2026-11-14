@@ -17,17 +17,21 @@ public sealed class PlansController(ISender mediator) : ApiControllerBase(mediat
     [HttpGet]
     public Task<IReadOnlyList<PlanView>> List(CancellationToken ct) => Mediator.Send(new ListPlansQuery(), ct);
 
+    [PlatformManager]
     [HttpPost]
     public Task<PlanView> Create(PlanInput input, CancellationToken ct) => Mediator.Send(new CreatePlanCommand(input), ct);
 
+    [PlatformManager]
     [HttpPut("{id:guid}")]
     public Task<PlanView> Update(Guid id, PlanInput input, CancellationToken ct) => Mediator.Send(new UpdatePlanCommand(id, input), ct);
 
     // {action} is the action name in MVC, so the one route is served by one action per value.
+    [PlatformManager]
     [HttpPost(ArchiveOrRestore)]
     [ActionName("archive")]
     public Task<PlanView> Archive(Guid id, CancellationToken ct) => Mediator.Send(new SetPlanArchivedCommand(id, true), ct);
 
+    [PlatformManager]
     [HttpPost(ArchiveOrRestore)]
     [ActionName("restore")]
     public Task<PlanView> Restore(Guid id, CancellationToken ct) => Mediator.Send(new SetPlanArchivedCommand(id, false), ct);
