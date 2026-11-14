@@ -14,6 +14,10 @@ The phone app for the ERP. It talks to the same API as the web app (`backend/src
 
 Read-only for now. Creating and editing documents, push notifications, offline mode and Arabic/RTL are the next steps.
 
+Permissions follow the server live: the app listens on the API's SignalR hub (`/hubs/notifications`, `lib/core/realtime.dart`) and, on
+`access-changed`, renews the session and reloads `/me` and the menu (`lib/core/access_sync.dart`). It does the same after a 401 renewal,
+a 403, a reconnect and on returning to the foreground. When a permission is taken away, open screens close back to the home shell.
+
 ## Run it
 
 ```bash

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/access_sync.dart';
 import '../../core/me.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
@@ -71,6 +72,7 @@ class NotificationFeed {
 /// The signed-in user's notifications. Falls back to the Overview alerts if the endpoint fails. Nothing is marked read.
 final notificationsProvider = FutureProvider.autoDispose<NotificationFeed>((ref) async {
   ref.watch(sessionProvider.select((s) => s.workspace?.id));
+  ref.watch(notificationTickProvider); // a pushed notification: ask again
   try {
     final data = await ref.watch(apiProvider).get('/api/v1/notifications');
     return NotificationFeed.fromJson(data as Map<String, dynamic>);

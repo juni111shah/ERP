@@ -72,6 +72,13 @@ class ApiClient {
   /// Called when the session cannot be renewed any more (the user has to sign in again).
   void Function()? onSessionExpired;
 
+  /// Called after a 401 was answered by renewing the session. The server ends old tokens when someone's access is narrowed, so the
+  /// permissions held in memory may be out of date.
+  void Function()? onSessionRenewed;
+
+  /// Called when the API refuses a call with 403: the user's permissions may have changed since they were loaded.
+  void Function()? onForbidden;
+
   Future<SessionInfo?>? _refreshing;
 
   String get baseUrl => _dio.options.baseUrl;
@@ -119,9 +126,13 @@ class ApiClient {
     }
     await _captureCookie(res);
     if (res.statusCode == 401 && auth && retry) {
-      if (await refresh() != null) return _send(method, path, query: query, body: body, auth: auth, retry: false, bytes: bytes, headers: headers);
+      if (await refresh() != null) {
+        onSessionRenewed?.call();
+        return _send(method, path, query: query, body: body, auth: auth, retry: false, bytes: bytes, headers: headers);
+      }
       onSessionExpired?.call();
     }
+    if (res.statusCode == 403 && auth) onForbidden?.call();
     if (bytes) return _file(res);
     return unwrap(res.statusCode ?? 0, res.data);
   }

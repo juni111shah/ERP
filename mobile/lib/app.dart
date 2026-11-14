@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/access_sync.dart';
 import 'core/brand.dart';
 import 'core/session.dart';
 import 'core/theme_mode.dart';
@@ -24,6 +25,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(changes.dispose);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: changes,
     redirect: (context, state) {
@@ -58,14 +60,29 @@ class ErpApp extends ConsumerStatefulWidget {
   ConsumerState<ErpApp> createState() => _ErpAppState();
 }
 
-class _ErpAppState extends ConsumerState<ErpApp> {
+class _ErpAppState extends ConsumerState<ErpApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future.microtask(() {
       ref.read(introProvider.notifier).load();
       ref.read(sessionProvider.notifier).bootstrap();
+      // Live permission changes: connects while signed in (see AccessSync).
+      ref.read(accessSyncProvider);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Back in the foreground: the connection was likely dropped while away, so changes made meanwhile are picked up now.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) ref.read(accessSyncProvider).reloadSoon(renew: false);
   }
 
   @override
@@ -76,6 +93,7 @@ class _ErpAppState extends ConsumerState<ErpApp> {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ref.watch(themeModeProvider),
+      scaffoldMessengerKey: rootMessengerKey,
       routerConfig: ref.watch(routerProvider),
     );
   }

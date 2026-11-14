@@ -113,5 +113,6 @@ final menuProvider = FutureProvider<List<MenuGroup>>((ref) async {
   return [for (final g in (data as List<dynamic>)) MenuGroup.fromJson(g as Map<String, dynamic>)];
 });
 
-/// `ref.watch(meOrEmptyProvider)`: the current [Me], or an empty one while loading so permission checks simply say no.
-final meOrEmptyProvider = Provider<Me>((ref) => ref.watch(meProvider).asData?.value ?? Me.empty);
+/// `ref.watch(meOrEmptyProvider)`: the current [Me], or an empty one before the first load so permission checks simply say no. While it
+/// reloads after a change of access (see AccessSync) the previous value stays, so buttons do not flicker.
+final meOrEmptyProvider = Provider<Me>((ref) => ref.watch(meProvider).value ?? Me.empty);
