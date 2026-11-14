@@ -14,6 +14,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { QuoteDto, SalesQuotesApi, SalesQuoteStatus } from '@core/api/sales.api';
 import { problemMessage } from '@core/http/problem-details';
 import { SuccessToastService } from '@core/services/success-toast.service';
+import { SessionStore } from '@core/session/session.store';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -46,6 +47,7 @@ export class QuoteDetailPage {
   private readonly quotesApi = inject(SalesQuotesApi);
   private readonly message = inject(NzMessageService);
   private readonly toast = inject(SuccessToastService);
+  private readonly session = inject(SessionStore);
 
   readonly quote = signal<QuoteDto | null>(null);
   readonly failed = signal(false);
@@ -88,7 +90,8 @@ export class QuoteDetailPage {
     if (!q) return;
     this.quotesApi.convertToOrder(q.id).subscribe({
       next: (order) => {
-        this.toast.show(`${q.number} converted into sales order ${order.number}`, { label: 'View order', to: ['/sales/orders', order.id] });
+        this.toast.show(`${q.number} converted into sales order ${order.number}`,
+          this.session.hasPermission('sales.orders.read') ? { label: 'View order', to: ['/sales/orders', order.id] } : undefined);
         this.loadQuote(q.id);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to convert quote')),

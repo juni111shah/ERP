@@ -13,6 +13,7 @@ import { displayDate } from '@core/format/display';
 import { problemMessage } from '@core/http/problem-details';
 import { SessionStore } from '@core/session/session.store';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
 import { AssetLookups } from '../../asset-lookups';
 
@@ -21,7 +22,7 @@ import { AssetLookups } from '../../asset-lookups';
   selector: 'erp-asset-reports',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzSelectModule, NzSkeletonModule, NzTableModule, StatePanelComponent],
+  imports: [DecimalPipe, FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzSelectModule, NzSkeletonModule, NzTableModule, StatePanelComponent, CanPipe],
   providers: [AssetLookups],
   styleUrl: './asset-reports.page.scss',
   templateUrl: './asset-reports.page.html',

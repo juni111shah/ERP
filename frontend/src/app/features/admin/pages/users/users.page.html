@@ -75,9 +75,11 @@
                 <nz-tag [nzColor]="u.isActive ? 'green' : 'default'">{{ u.isActive ? 'Active' : 'Inactive' }}</nz-tag>
               </td>
               <td style="white-space:nowrap">{{ u.lastSignInAt ? (u.lastSignInAt | erpDate) : 'Never' }}</td>
-              <td *erpHasPermission="'core.users.write'" style="white-space:nowrap">
+              <td style="white-space:nowrap">
+                <ng-container *erpHasPermission="'core.users.write'">
                 <button nz-button nzSize="small" type="button" (click)="open(u)" data-testid="user-edit">Roles</button>
                 <button nz-button nzSize="small" type="button" [nzDanger]="u.isActive" style="margin-inline-start:8px" (click)="toggleActive(u)" data-testid="user-toggle">{{ u.isActive ? 'Deactivate' : 'Reactivate' }}</button>
+                </ng-container>
               </td>
             </tr>
           }
@@ -101,5 +103,5 @@
     </nz-drawer>
     <ng-template #footer>
       <button nz-button (click)="drawerOpen.set(false)">Cancel</button>
-      <button nz-button nzType="primary" [nzLoading]="saving()" (click)="save()" style="margin-inline-start:8px" data-testid="user-save">Save</button>
+      <button *erpHasPermission="'core.users.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save()" style="margin-inline-start:8px" data-testid="user-save">Save</button>
     </ng-template>

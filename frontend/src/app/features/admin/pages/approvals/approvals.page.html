@@ -28,12 +28,10 @@
                 }
               </td>
               <td class="nowrap">
-                @if (a.status === 'pending') {
-                  @if (tab() === 0) {
-                    <!-- The list holds only what this person can decide now; the server checks the permission of the level. -->
-                    <button nz-button nzType="primary" nzSize="small" type="button" (click)="decide(a, true)" data-testid="approve">Approve</button> <button nz-button nzDanger nzSize="small" type="button" (click)="decide(a, false)" data-testid="reject">Reject</button>
-                  } @else { <button nz-button nzSize="small" type="button" (click)="withdraw(a)" data-testid="withdraw">Withdraw</button> }
-                }
+                @if (canDecide(a)) {
+                  <!-- The same rule as the server: someone else's pending request whose current level needs a permission this person holds. -->
+                  <button nz-button nzType="primary" nzSize="small" type="button" (click)="decide(a, true)" data-testid="approve">Approve</button> <button nz-button nzDanger nzSize="small" type="button" (click)="decide(a, false)" data-testid="reject">Reject</button>
+                } @else if (canWithdraw(a)) { <button nz-button nzSize="small" type="button" (click)="withdraw(a)" data-testid="withdraw">Withdraw</button> }
                 <button nz-button nzType="link" nzSize="small" type="button" (click)="showSteps(a)" data-testid="approval-steps">Steps</button>
               </td>
             </tr>

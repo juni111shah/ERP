@@ -5,7 +5,7 @@
       @if (a.status === 'completed') { <nz-alert nzType="success" nzShowIcon nzMessage="Completed and capitalised. Financing is fixed; pay instalments from each schedule." style="margin-bottom:16px"></nz-alert> }
       @if (a.status === 'draft') {
         <div style="display:flex;gap:8px;margin-bottom:16px">
-          <button *erpHasPermission="'realestate.acquisitions.complete'" nz-button nzType="primary" [disabled]="busy()" (click)="complete()" data-testid="acq-complete">Complete the purchase</button>
+          <button *erpHasPermission="'realestate.acquisitions.complete'" nz-button nzType="primary" [disabled]="busy() || (a.cashAtCompletion > 0 && !a.payFromAccountId && !('realestate.acquisitions.manage' | can))" (click)="complete()" data-testid="acq-complete">Complete the purchase</button>
           <button *erpHasPermission="'realestate.acquisitions.manage'" nz-button nzDanger [disabled]="busy()" (click)="cancel()" data-testid="acq-cancel">Cancel draft</button>
         </div>
       }
@@ -50,8 +50,8 @@
         </nz-tab>
       </nz-tabset>
       <nz-card *erpHasPermission="'core.audit.read'" style="margin-top:16px" [nzTitle]="'history.title' | translate: 'History'"><erp-record-history recordType="Acquisition" [recordId]="a.id" /></nz-card>
-      <erp-record-drawer title="Bank account for the purchase" [open]="choosingBank()" [fields]="bankFields()" [saving]="busy()" [errors]="errors()" [width]="420" testId="acq-bank-form" submitLabel="Save and continue"
+      <erp-record-drawer title="Bank account for the purchase" [open]="choosingBank()" [fields]="bankFields()" [saving]="busy()" [errors]="errors()" [width]="420" writePermission="realestate.acquisitions.manage" testId="acq-bank-form" submitLabel="Save and continue"
                          (submitted)="saveBank($event)" (closed)="choosingBank.set(false)" />
-      <erp-record-drawer title="Pay instalment" [open]="paying() !== null" [fields]="payFields()" [saving]="busy()" [errors]="errors()" [width]="420" testId="pay-form" submitLabel="Pay"
+      <erp-record-drawer title="Pay instalment" [open]="paying() !== null" [fields]="payFields()" [saving]="busy()" [errors]="errors()" [width]="420" writePermission="realestate.funding.pay" testId="pay-form" submitLabel="Pay"
                          (submitted)="pay($event)" (closed)="paying.set(null)" />
     }

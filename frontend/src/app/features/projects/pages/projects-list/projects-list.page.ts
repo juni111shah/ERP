@@ -26,6 +26,7 @@ import { PagedTableComponent, TableColumn } from '@shared/components/paged-table
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { loadOrFallback } from '@shared/utils/load-or-fallback';
 import { MasterDataState } from '@shared/utils/master-data-state';
@@ -44,7 +45,7 @@ type View = 'live' | 'active' | 'planning' | 'onHold' | 'mine' | 'completed' | '
   selector: 'erp-projects-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, NzToolTipModule, PagedTableComponent, RecordDrawerComponent, StatCardComponent, HasPermissionDirective, ProjectTagComponent],
+  imports: [ErpDatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, NzSelectModule, NzToolTipModule, PagedTableComponent, RecordDrawerComponent, StatCardComponent, HasPermissionDirective, CanPipe, ProjectTagComponent],
   templateUrl: './projects-list.page.html',
   styles: [PRJ_STYLES + `
     .views { margin-top:16px; } .code { font-family:ui-monospace,monospace; font-size:12px; color:var(--erp-color-text-secondary,#475569); white-space:nowrap; }

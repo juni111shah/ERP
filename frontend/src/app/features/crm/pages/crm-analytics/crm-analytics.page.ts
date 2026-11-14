@@ -10,12 +10,13 @@ import { WorkspaceCurrencyService } from '@core/services/workspace-currency.serv
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 
 /** CRM analytics: lead and deal KPIs and the expected value sitting in each pipeline stage. */
 @Component({
   selector: 'erp-crm-analytics-page',
   standalone: true,
-  imports: [DecimalPipe, RouterModule, NzButtonModule, NzGridModule, NzIconModule, NzSkeletonModule, StatCardComponent, StatePanelComponent, StatusTagComponent],
+  imports: [DecimalPipe, RouterModule, NzButtonModule, NzGridModule, NzIconModule, NzSkeletonModule, StatCardComponent, StatePanelComponent, StatusTagComponent, HasPermissionDirective],
   templateUrl: './crm-analytics.page.html',
   styleUrl: './crm-analytics.page.scss'
 })

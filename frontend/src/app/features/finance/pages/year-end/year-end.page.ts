@@ -13,6 +13,7 @@ import { PagedTableComponent, TableColumn } from '@shared/components/paged-table
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ActionFormState } from '@shared/utils/action-form-state';
 import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
 
@@ -25,7 +26,7 @@ const closedText = (y: FiscalYearCloseDto): string =>
   selector: 'erp-year-end',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, NzButtonModule, NzIconModule, HasPermissionDirective, PagedTableComponent, RecordDrawerComponent, StatusTagComponent],
+  imports: [DecimalPipe, RouterLink, NzButtonModule, NzIconModule, HasPermissionDirective, CanPipe, PagedTableComponent, RecordDrawerComponent, StatusTagComponent],
   templateUrl: './year-end.page.html',
 })
 export class YearEndPage {

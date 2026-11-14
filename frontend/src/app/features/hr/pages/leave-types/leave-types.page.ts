@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { LeaveApi, LeaveTypeDto, LeaveTypesApi } from '@core/api/hr.api';
 import { createPagedList } from '@core/api/paged-list';
+import { SessionStore } from '@core/session/session.store';
 import { asProblem } from '@core/http/problem-details';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
@@ -28,12 +29,15 @@ function leaveTypeBody(v: Record<string, unknown>): Record<string, unknown> {
       <button toolbar *erpHasPermission="'hr.leave.approve'" nz-button nzType="primary" (click)="state.create()" data-testid="leave-type-new"><span nz-icon nzType="plus"></span>New leave type</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit leave type' : 'New leave type'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="leave-type-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="hr.leave.approve" testId="leave-type-form" (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class LeaveTypesPage {
   private readonly leaveTypesApi = inject(LeaveTypesApi);
   private readonly leaveApi = inject(LeaveApi);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
+  /** Opening a row edits it, so only someone who may change leave types can open one. */
+  readonly canManage = computed(() => this.session.hasPermission('hr.leave.approve'));
   readonly list = createPagedList((q) => this.leaveTypesApi.list(q), { sort: 'code' });
   readonly state = new MasterDataState<LeaveTypeDto>({
     save: (id, body) => { const b = leaveTypeBody(body as Record<string, unknown>); return id ? this.leaveTypesApi.update(id, b) : this.leaveTypesApi.create(b); }, reload: () => this.list.reload(), message: this.message, entityName: 'Leave type',
@@ -69,6 +73,6 @@ export class LeaveTypesPage {
   }
 
   open(t: LeaveTypeDto): void {
-    this.state.edit(t);
+    if (this.canManage()) this.state.edit(t);
   }
 }

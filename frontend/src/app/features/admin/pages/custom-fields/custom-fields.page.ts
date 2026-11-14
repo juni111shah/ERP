@@ -91,6 +91,9 @@ export class CustomFieldsPage {
     this.keyTyped = false;
     this.editing.set(d);
     this.form.reset(customFieldFormValue(d, this.defs().length));
+    // Without the manage permission a row opens the field to look at only.
+    if (this.canManage()) this.form.enable();
+    else this.form.disable();
     this.drawerOpen.set(true);
   }
 
@@ -101,6 +104,7 @@ export class CustomFieldsPage {
   }
 
   save(): void {
+    if (!this.canManage()) return;
     if (this.form.invalid) { revealErrors(this.form); return; }
     const body = toCustomFieldInput(this.form.getRawValue(), this.entityType()!, this.hasChoices());
     const d = this.editing();

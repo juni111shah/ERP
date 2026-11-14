@@ -11,5 +11,7 @@
     </nz-drawer>
     <ng-template #footer>
       <button nz-button type="button" (click)="closed.emit()">{{ 'common.cancel' | translate: 'Cancel' }}</button>
-      <button nz-button nzType="primary" type="button" [nzLoading]="busy()" (click)="send()" style="margin-inline-start:8px" data-testid="email-send">{{ 'email.send' | translate: 'Send' }}</button>
+      @if (canSend()) {
+        <button nz-button nzType="primary" type="button" [nzLoading]="busy()" (click)="send()" style="margin-inline-start:8px" data-testid="email-send">{{ 'email.send' | translate: 'Send' }}</button>
+      }
     </ng-template>

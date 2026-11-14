@@ -9,18 +9,18 @@
       <erp-state-panel kind="error" title="The distribution figures could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
     } @else {
       <div class="erp-stat-grid erp-stat-grid--auto" data-testid="distribution-analytics-stats">
-        <erp-stat-card label="Routes" format="number" [value]="kpi()?.totalRoutes ?? null" [caption]="kpi() ? kpi()!.activeRoutes + ' active' : null" [loading]="loading()" link="/distribution/routes" [tone]="1" />
-        <erp-stat-card label="Vans out today" format="number" [value]="kpi()?.activeTripsToday ?? null" caption="Trips in progress that left today" [loading]="loading()" link="/distribution/trips" [tone]="3" />
+        <erp-stat-card label="Routes" format="number" [value]="kpi()?.totalRoutes ?? null" [caption]="kpi() ? kpi()!.activeRoutes + ' active' : null" [loading]="loading()" [link]="('distribution.routes.read' | can) ? '/distribution/routes' : null" [tone]="1" />
+        <erp-stat-card label="Vans out today" format="number" [value]="kpi()?.activeTripsToday ?? null" caption="Trips in progress that left today" [loading]="loading()" [link]="('distribution.trips.read' | can) ? '/distribution/trips' : null" [tone]="3" />
         <erp-stat-card label="Van sales this month" format="money" [value]="kpi()?.totalVanSalesMonth ?? null" [caption]="kpi() ? kpi()!.completedTripsMonth + (kpi()!.completedTripsMonth === 1 ? ' completed trip' : ' completed trips') : null" [loading]="loading()" tone="success" />
         <erp-stat-card label="Collected this month" format="money" [value]="kpi()?.totalCollectionsMonth ?? null" caption="From completed trips" [loading]="loading()" [tone]="2" />
-        <erp-stat-card label="Wholesale price rules" format="number" [value]="kpi()?.wholesaleRulesCount ?? null" caption="Active rules" [loading]="loading()" link="/distribution/wholesale" [tone]="4" />
+        <erp-stat-card label="Wholesale price rules" format="number" [value]="kpi()?.wholesaleRulesCount ?? null" caption="Active rules" [loading]="loading()" [link]="('distribution.pricing.read' | can) ? '/distribution/wholesale' : null" [tone]="4" />
       </div>
 
       @if (kpi(); as k) {
         @if (k.totalRoutes === 0) {
-          <erp-state-panel title="No routes yet" hint="Add a delivery route, then dispatch van trips on it to see sales and collections here." icon="compass" actionLabel="Go to routes" (action)="goTo('/distribution/routes')" />
+          <erp-state-panel title="No routes yet" hint="Add a delivery route, then dispatch van trips on it to see sales and collections here." icon="compass" [actionLabel]="('distribution.routes.read' | can) ? 'Go to routes' : null" (action)="goTo('/distribution/routes')" />
         } @else if (k.completedTripsMonth === 0) {
-          <erp-state-panel title="No completed trips this month" hint="Sales and collections appear here once a van trip is reconciled." icon="car" actionLabel="Go to van sales" (action)="goTo('/distribution/trips')" />
+          <erp-state-panel title="No completed trips this month" hint="Sales and collections appear here once a van trip is reconciled." icon="car" [actionLabel]="('distribution.trips.read' | can) ? 'Go to van sales' : null" (action)="goTo('/distribution/trips')" />
         } @else {
           <nz-card nzTitle="Collections against van sales this month" class="detail-card">
             <div class="metric-head">

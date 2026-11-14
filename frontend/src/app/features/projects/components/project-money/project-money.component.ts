@@ -50,6 +50,7 @@ export class ProjectMoneyComponent {
   constructor() { effect(() => { this.project().id; this.load(); }); }
 
   canBill(): boolean { return this.session.hasPermission('projects.billing.manage'); }
+  canOpenInvoice(): boolean { return this.session.hasPermission('finance.invoices.read'); }
 
   load(): void {
     const id = this.project().id;

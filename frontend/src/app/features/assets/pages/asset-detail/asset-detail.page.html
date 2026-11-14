@@ -20,7 +20,7 @@
                         <td class="r">{{ row.accumulated | number: '1.2-2' }}</td>
                         <td class="r">{{ row.netBookValue | number: '1.2-2' }}</td>
                         <td><erp-status [value]="row.posted ? 'posted' : 'scheduled'" [label]="row.posted ? 'Posted' : 'Planned'" /></td>
-                        <td>@if (row.journalEntryId) { <a [routerLink]="['/finance/journals', row.journalEntryId]">Open journal</a> } @else { <span class="muted">—</span> }</td>
+                        <td>@if (row.journalEntryId && ('finance.journals.read' | can)) { <a [routerLink]="['/finance/journals', row.journalEntryId]">Open journal</a> } @else { <span class="muted">—</span> }</td>
                       </tr>
                     }
                   </tbody>
@@ -30,9 +30,9 @@
           </nz-card>
         </div>
       </erp-detail-page>
-      <erp-record-drawer title="Edit asset" [open]="edit.open()" [fields]="editFields()" [value]="$any(a)" [saving]="edit.saving()" [errors]="edit.errors()" testId="asset-form" (submitted)="edit.submit($event)" (closed)="edit.close()" />
+      <erp-record-drawer title="Edit asset" [open]="edit.open()" [fields]="editFields()" [value]="$any(a)" [saving]="edit.saving()" [errors]="edit.errors()" writePermission="assets.register.manage" testId="asset-form" (submitted)="edit.submit($event)" (closed)="edit.close()" />
       <erp-record-drawer title="Capitalise asset" submitLabel="Capitalise" [open]="capitalise.open()" [fields]="capitaliseFields" [saving]="capitalise.saving()" [errors]="capitalise.errors()"
-                         testId="capitalise-form" (submitted)="capitalise.submit($event)" (closed)="capitalise.close()" />
+                         writePermission="assets.register.capitalise" testId="capitalise-form" (submitted)="capitalise.submit($event)" (closed)="capitalise.close()" />
       <erp-record-drawer title="Dispose of asset" submitLabel="Dispose" [open]="dispose.open()" [fields]="disposeFields" [saving]="dispose.saving()" [errors]="dispose.errors()"
-                         testId="dispose-form" (submitted)="dispose.submit($event)" (closed)="dispose.close()" />
+                         writePermission="assets.register.dispose" testId="dispose-form" (submitted)="dispose.submit($event)" (closed)="dispose.close()" />
     }

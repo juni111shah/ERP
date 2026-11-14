@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
@@ -11,6 +11,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { ChecklistRow, ChecklistsApi, EmployeeLifeApi, EmployeeTask, HistoryEntry } from '@core/api/hr-people.api';
 import { toIsoDate } from '@core/format/dates';
 import { asProblem } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 
@@ -30,6 +31,7 @@ export class EmployeeLifeComponent {
   private readonly lifeApi = inject(EmployeeLifeApi);
   private readonly checklistsApi = inject(ChecklistsApi);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
   readonly employeeId = input.required<string>();
   readonly employeeName = input('');
   readonly open = input(false);
@@ -38,7 +40,8 @@ export class EmployeeLifeComponent {
   readonly history = signal<HistoryEntry[]>([]);
   readonly tasks = signal<EmployeeTask[]>([]);
   readonly templates = signal<ChecklistRow[]>([]);
-  readonly canManage = true;
+  /** Notes, tasks and ticking a task off need hr.employees.manage. */
+  readonly canManage = computed(() => this.session.hasPermission('hr.employees.manage'));
   note = '';
   taskTitle = '';
   taskDue: Date | null = null;
@@ -75,6 +78,7 @@ export class EmployeeLifeComponent {
   }
 
   toggle(t: EmployeeTask): void {
+    if (!this.canManage()) return;
     this.lifeApi.setDone(t.id, !t.isDone).subscribe({ next: () => this.loadTasks(), error: (e) => this.message.error(asProblem(e)?.detail ?? 'Could not update the task') });
   }
 

@@ -40,6 +40,7 @@ Imports between areas use the aliases `@core/...`, `@shared/...`, `@layout/...`,
      `shared/utils/date-range.ts` (period presets);
    - KPIs: `KpiStats`, `countRows`, `fetchAllRows` (`shared/utils/kpi-stats.ts`), `<erp-status-counts>`;
    - UI: `createPagedList` + `<erp-paged-table>`, `<erp-stat-card>`, `<erp-status>`, `saveBlob`, `deleteWithConfirm`.
+   - permissions: `*erpHasPermission="'a.b.write'"` (a list = any of them; `; mode: 'all'`), the `can` pipe (`[disabled]="!('a.b.write' | can)"`), `session.hasPermission()` inside `computed()`, `permissionGuard` / `anyPermissionGuard` / `allPermissionsGuard` on every route, `writePermission` on `<erp-record-drawer>` / `<erp-attachments>` / `<erp-return-form>`. They all follow live access changes (`core/realtime`).
 5. **Typed code**: no `any`; give form values an interface (`QuoteFormValue`) and cast `form.value` to it.
 6. **Members a template uses keep stable names**; move their implementation, not the template.
 7. Lookups that a page needs only while it is open are provided by the page (`providers: [SalesLookups]`), so every visit loads fresh lists.

@@ -14,6 +14,7 @@ import { ApexChartComponent } from '@shared/components/apex-chart/apex-chart.com
 import { RangeControlComponent } from '@shared/components/range-control/range-control.component';
 import { StatCardComponent, StatFormat } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { allowedLink } from '../../dashboard-links';
 import { isEmptySection, isNumericColumn, ownerCellText, ownerStatFormat, sectionChart } from '../../dashboard-owner';
 import { DashboardRange, initialRange } from '@shared/utils/date-range';
 
@@ -59,6 +60,8 @@ export class OwnerPage {
 
   date(v: string): string { return displayDate(v); }
   format(f: string): StatFormat { return ownerStatFormat(f); }
+  /** A card's link, kept only when this person may open the page it points to. */
+  link(l: string | null | undefined): string | null { return allowedLink(l, (p) => this.session.hasPermission(p)); }
 
   /** A section with no figures, no table rows and no chart values: the page says so instead of showing nothing. */
   isEmpty(s: OwnerSection): boolean { return isEmptySection(s); }

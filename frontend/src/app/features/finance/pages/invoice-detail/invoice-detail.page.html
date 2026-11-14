@@ -11,13 +11,13 @@
               @if (o.kind === 'issued') {
                 <button *erpHasPermission="'core.email.send'" nz-button nzType="primary" type="button" (click)="emailOpen.set(true)" data-testid="success-send">Send to customer</button>
                 <a nz-button [href]="'/print/invoice/' + i.id" target="_blank" rel="noopener" data-testid="success-print">Print</a>
-                <a nz-button [routerLink]="['/finance/invoices']" [queryParams]="{ new: 1 }" data-testid="success-another">Create another</a>
+                <a *erpHasPermission="'finance.invoices.write'" nz-button [routerLink]="['/finance/invoices']" [queryParams]="{ new: 1 }" data-testid="success-another">Create another</a>
               } @else {
-                <button nz-button nzType="primary" type="button" (click)="recordPayment()" data-testid="success-pay">Record payment</button>
+                <button *erpHasPermission="'finance.receipts.write'" nz-button nzType="primary" type="button" (click)="recordPayment()" data-testid="success-pay">Record payment</button>
                 <button *erpHasPermission="'core.email.send'" nz-button type="button" (click)="emailOpen.set(true)" data-testid="success-send">Send again</button>
               }
             </ng-container>
-            <span loop><a [routerLink]="['/parties', i.partyId]" data-testid="success-loop">{{ 'ui.success.trackPayment' | translate: 'Track payment on the customer page' }}</a></span>
+            @if ('core.parties.read' | can) { <span loop><a [routerLink]="['/parties', i.partyId]" data-testid="success-loop">{{ 'ui.success.trackPayment' | translate: 'Track payment on the customer page' }}</a></span> }
           </erp-success-panel>
         }
       }
@@ -46,7 +46,7 @@
                 <tbody>
                   @for (a of allocations(); track a.settlementId) {
                     <tr>
-                      <td><a [routerLink]="['/finance/receipts', a.settlementId]">{{ a.number }}</a></td>
+                      <td>@if ('finance.receipts.read' | can) { <a [routerLink]="['/finance/receipts', a.settlementId]">{{ a.number }}</a> } @else { {{ a.number }} }</td>
                       <td>{{ fmtDate(a.date) }}</td><td>{{ humanize(a.method) }}</td><td>{{ a.reference || '—' }}</td>
                       <td><erp-status [value]="a.status === 'issued' ? 'posted' : a.status" /></td><td class="r">{{ money(a.amount) }}</td>
                     </tr>
@@ -60,7 +60,7 @@
           </nz-card>
         </div>
 
-        <div documents><erp-attachments ownerType="invoice" [ownerId]="inv.id" /></div>
+        <div documents><erp-attachments ownerType="invoice" [ownerId]="inv.id" writePermission="finance.invoices.write" /></div>
 
         <div history>
           <nz-timeline>

@@ -12,13 +12,14 @@ import { WorkspaceCurrencyService } from '@core/services/workspace-currency.serv
 import { SessionStore } from '@core/session/session.store';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { CanPipe } from '@shared/pipes/can.pipe';
 
 /** Services analytics: active engagements, recurring retainer revenue, milestones ready to invoice and hours, for one legal entity. */
 @Component({
   selector: 'erp-services-analytics-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, NzButtonModule, NzCardModule, NzGridModule, NzIconModule, NzProgressModule, StatCardComponent, StatePanelComponent],
+  imports: [DecimalPipe, NzButtonModule, NzCardModule, NzGridModule, NzIconModule, NzProgressModule, StatCardComponent, StatePanelComponent, CanPipe],
   templateUrl: './services-analytics.page.html',
   styleUrl: './services-analytics.page.scss',
 })

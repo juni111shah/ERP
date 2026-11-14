@@ -3,9 +3,9 @@
       <nz-range-picker [ngModel]="range()" (ngModelChange)="setRange($event)" [nzAllowClear]="false" data-testid="statement-range"></nz-range-picker>
       <button nz-button (click)="load()" [nzLoading]="loading()" data-testid="statement-refresh"><span nz-icon nzType="reload"></span>{{ 'statement.refresh' | translate: 'Refresh' }}</button>
       <button nz-button (click)="print()" [disabled]="!data()" data-testid="statement-print"><span nz-icon nzType="printer"></span>{{ 'statement.print' | translate: 'Print' }}</button>
-      <button *erpHasPermission="'core.email.send'" nz-button (click)="emailOpen.set(true)" data-testid="statement-email"><span nz-icon nzType="mail"></span>{{ 'statement.email' | translate: 'Email' }}</button>
+      <button *erpHasPermission="emailPermissions; mode: 'all'" nz-button (click)="emailOpen.set(true)" data-testid="statement-email"><span nz-icon nzType="mail"></span>{{ 'statement.email' | translate: 'Email' }}</button>
     </div>
-    <erp-email-document-drawer [open]="emailOpen()" [path]="'parties/' + partyId() + '/statement/email'" [params]="emailParams()" (closed)="emailOpen.set(false)" />
+    <erp-email-document-drawer [open]="emailOpen()" [path]="'parties/' + partyId() + '/statement/email'" [params]="emailParams()" [sendPermission]="emailPermissions" (closed)="emailOpen.set(false)" />
     @if (error()) { <p class="err" data-testid="statement-error">{{ error() }}</p> }
     <nz-table #t [nzData]="data()?.lines ?? []" [nzFrontPagination]="false" [nzShowPagination]="false" nzSize="small" [nzLoading]="loading()" [nzScroll]="{ x: '720px' }" data-testid="party-ledger">
       <thead><tr>

@@ -16,11 +16,13 @@ import {
 import { displayDate } from '@core/format/display';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent, SelectOption } from '@shared/components/record-drawer/record-drawer.component';
 import { ReturnFormComponent, ReturnFormValue } from '@shared/components/return-form/return-form.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ActionFormState } from '@shared/utils/action-form-state';
 import { loadInto } from '@shared/utils/load-into';
 import { askReason } from '@shared/utils/reason-prompt';
@@ -29,6 +31,12 @@ import { ReturnSource, ReturnSourceType, ReturnSources, purchaseReturnBody, sale
 export type { ReturnSource } from '../../returns-sources';
 
 const manage = (kind: ReturnKind) => (kind === 'sales' ? 'sales.returns.manage' : 'purchasing.returns.manage');
+
+/** The documents a return can be raised against, each with the read permission its search and load calls need. */
+const SOURCE_OPTIONS: Record<ReturnKind, { value: ReturnSourceType; label: string; permission: string }[]> = {
+  sales: [{ value: 'order', label: 'Sales order', permission: 'sales.orders.read' }, { value: 'invoice', label: 'Invoice', permission: 'finance.invoices.read' }],
+  purchase: [{ value: 'order', label: 'Purchase order', permission: 'purchasing.orders.read' }, { value: 'bill', label: 'Vendor bill', permission: 'finance.bills.read' }],
+};
 
 /** The sales returns table. */
 const salesColumns = (): TableColumn<ReturnSummary>[] => [
@@ -60,7 +68,7 @@ const purchaseColumns = (): TableColumn<ReturnSummary>[] => [
   selector: 'erp-returns',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, NzButtonModule, NzIconModule, NzModalModule, NzPopconfirmModule, NzTableModule, PagedTableComponent, RecordDrawerComponent, ReturnFormComponent, StatusTagComponent, HasPermissionDirective],
+  imports: [DecimalPipe, RouterLink, NzButtonModule, NzIconModule, NzModalModule, NzPopconfirmModule, NzTableModule, PagedTableComponent, RecordDrawerComponent, ReturnFormComponent, StatusTagComponent, HasPermissionDirective, CanPipe],
   providers: [ReturnSources],
   styleUrl: './returns.page.scss',
   templateUrl: './returns.page.html',
@@ -72,9 +80,12 @@ export class ReturnsPage {
   private readonly salesApi = inject(SalesReturnsApi);
   private readonly purchaseApi = inject(PurchaseReturnsApi);
   private readonly sources = inject(ReturnSources);
-  private pickedType: ReturnSourceType = 'order';
+  private readonly session = inject(SessionStore);
 
   readonly kind: ReturnKind = this.route.snapshot.data['kind'] === 'purchase' ? 'purchase' : 'sales';
+  /** Only the document types the user may read can be searched and loaded. */
+  private readonly sourceOptions = SOURCE_OPTIONS[this.kind].filter((o) => this.session.hasPermission(o.permission)).map(({ value, label }) => ({ value, label }));
+  private pickedType: ReturnSourceType = this.sourceOptions[0]?.value ?? 'order';
   readonly manageKey = manage(this.kind);
   readonly displayDate = displayDate;
   readonly list: PagedList<ReturnSummary> = createPagedList<ReturnSummary>((q) => this.api().list(q), { sort: '-returnDate' });
@@ -88,8 +99,8 @@ export class ReturnsPage {
 
   readonly startFields: FieldSpec[] = [
     {
-      key: 'sourceType', label: 'Return against', type: 'select', required: true, default: 'order',
-      options: this.kind === 'sales' ? [{ value: 'order', label: 'Sales order' }, { value: 'invoice', label: 'Invoice' }] : [{ value: 'order', label: 'Purchase order' }, { value: 'bill', label: 'Vendor bill' }],
+      key: 'sourceType', label: 'Return against', type: 'select', required: true, default: this.pickedType,
+      options: this.sourceOptions,
       onChange: (value) => { this.pickedType = (value as ReturnSourceType) ?? 'order'; return null; },
     },
     { key: 'sourceId', label: 'Document', type: 'lookup', required: true, lookup: (term) => this.sources.search(this.kind, this.pickedType, term) },
@@ -104,7 +115,8 @@ export class ReturnsPage {
     const q = this.route.snapshot.queryParamMap;
     const target: [ReturnSourceType, string | null][] = [['order', q.get('order')], ['invoice', q.get('invoice')], ['bill', q.get('bill')]];
     const picked = target.find(([, id]) => !!id);
-    if (picked) this.loadSource(picked[0], picked[1]!).subscribe({ next: (s) => this.openForm(s), error: (e) => this.message.error(problemMessage(e, 'Could not load the document')) });
+    // The order, invoice and bill pages link here with the document; the form opens only for users who may create returns.
+    if (picked && this.session.hasPermission(this.manageKey)) this.loadSource(picked[0], picked[1]!).subscribe({ next: (s) => this.openForm(s), error: (e) => this.message.error(problemMessage(e, 'Could not load the document')) });
     if (this.kind === 'purchase') {
       loadInto(this.warehouses, inject(WarehousesApi).list({ page: 1, pageSize: 100, sort: 'code' }), (r) => r.items.filter((w) => w.isActive).map((w) => ({ value: w.id, label: `${w.code} · ${w.name}` })));
     }

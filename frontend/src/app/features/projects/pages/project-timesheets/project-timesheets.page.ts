@@ -13,6 +13,7 @@ import { WorkspaceCurrencyService } from '@core/services/workspace-currency.serv
 import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { LogTimeComponent } from '../../components/log-time/log-time.component';
 import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
 import { injectProjectsConfig } from '../../projects-lookups';
@@ -23,7 +24,7 @@ import { APPROVAL_STATUSES, errorText, filterOptions, PRJ_STYLES } from '../../p
   selector: 'erp-project-timesheets',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterModule, NzTagModule, NzButtonModule, NzIconModule, NzModalModule, PagedTableComponent, HasPermissionDirective, LogTimeComponent, ProjectTagComponent],
+  imports: [DecimalPipe, RouterModule, NzTagModule, NzButtonModule, NzIconModule, NzModalModule, PagedTableComponent, HasPermissionDirective, CanPipe, LogTimeComponent, ProjectTagComponent],
   templateUrl: './project-timesheets.page.html',
   styles: [PRJ_STYLES + '.acts { display:inline-flex; gap:4px; }'],
 })

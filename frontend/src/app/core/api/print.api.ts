@@ -287,11 +287,11 @@ export class PrintApi {
   }
 
   lease(id: string): Observable<PrintLeaseData['lease']> {
-    return this.http.get<PrintLeaseData['lease']>(`${this.base}/m/real-estate/leases/${id}`);
+    return this.http.get<PrintLeaseData['lease']>(`${this.base}/m/realestate/leases/${id}`);
   }
 
   workOrder(id: string): Observable<PrintWorkOrderData['wo']> {
-    return this.http.get<PrintWorkOrderData['wo']>(`${this.base}/m/real-estate/work-orders/${id}`);
+    return this.http.get<PrintWorkOrderData['wo']>(`${this.base}/m/realestate/work-orders/${id}`);
   }
 
   payroll(id: string): Observable<PrintPayrollData['payroll']> {
@@ -311,7 +311,7 @@ export class PrintApi {
   }
 
   inspection(id: string): Observable<MaybeWrapped<PrintInspectionData['inspection']>> {
-    return this.http.get<MaybeWrapped<PrintInspectionData['inspection']>>(`${this.base}/m/real-estate/inspections/${id}`);
+    return this.http.get<MaybeWrapped<PrintInspectionData['inspection']>>(`${this.base}/m/realestate/inspections/${id}`);
   }
 
   posOrder(id: string): Observable<PosOrderRecord> {

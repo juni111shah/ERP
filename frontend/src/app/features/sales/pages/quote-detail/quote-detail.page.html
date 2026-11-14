@@ -46,7 +46,7 @@
               </button>
             }
             @if (q.convertedSalesOrderId) {
-              <a [routerLink]="['/sales/orders', q.convertedSalesOrderId]" nz-button nzType="dashed">
+              <a *erpHasPermission="'sales.orders.read'" [routerLink]="['/sales/orders', q.convertedSalesOrderId]" nz-button nzType="dashed">
                 <span nz-icon nzType="link"></span>View Sales Order
               </a>
             }

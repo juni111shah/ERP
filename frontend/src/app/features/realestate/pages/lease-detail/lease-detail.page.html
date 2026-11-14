@@ -38,7 +38,7 @@
       <nz-card style="margin-top:16px" nzTitle="Details">
         <nz-descriptions nzBordered [nzColumn]="descriptionColumns">
           <nz-descriptions-item nzTitle="Tenant">{{ l.tenantName }}</nz-descriptions-item>
-          <nz-descriptions-item nzTitle="Unit"><a [routerLink]="['/real-estate/properties', l.propertyId]">{{ l.unitNumber }}</a></nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Unit">@if ('realestate.properties.read' | can) { <a [routerLink]="['/real-estate/properties', l.propertyId]">{{ l.unitNumber }}</a> } @else { {{ l.unitNumber }} }</nz-descriptions-item>
           <nz-descriptions-item nzTitle="Term">{{ l.startDate | erpDate }} → {{ l.endDate | erpDate }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="Rent-free days">{{ l.graceDays }}</nz-descriptions-item>
           <nz-descriptions-item nzTitle="Notice period">{{ l.noticePeriodDays }} {{ 'ui.common.days' | translate: 'days' }}</nz-descriptions-item>
@@ -64,7 +64,7 @@
         } @else { <p>The rent schedule is generated when the lease is activated.</p> }
       </nz-card>
       @if (l.status !== 'draft') { <erp-lease-deposit [lease]="l" /> }
-      <erp-attachments ownerType="lease" [ownerId]="l.id" />
+      <erp-attachments ownerType="lease" [ownerId]="l.id" writePermission="realestate.leases.edit" />
       <nz-card *erpHasPermission="'core.audit.read'" style="margin-top:16px" [nzTitle]="'history.title' | translate: 'History'"><erp-record-history recordType="Lease" [recordId]="l.id" /></nz-card>
       <erp-record-drawer title="Edit draft lease" [open]="state.open()" [fields]="editFields" [value]="$any(state.editing())" customFieldEntityType="realestate.lease"
                          [saving]="state.saving()" [errors]="state.errors()" testId="lease-form" (submitted)="state.submit($event)" (closed)="state.close()" />

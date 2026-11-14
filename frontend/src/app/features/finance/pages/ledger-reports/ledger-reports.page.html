@@ -1,7 +1,7 @@
 
     <h1 class="erp-page-title">Financial reports</h1>
     <p class="links">
-      <a *erpHasPermission="'finance.yearend.close'" routerLink="/finance/year-end" data-testid="link-year-end">Year-end close</a>
+      <a *erpHasPermission="['finance.yearend.close', 'finance.yearend.reopen']" routerLink="/finance/year-end" data-testid="link-year-end">Year-end close</a>
       <a *erpHasPermission="'finance.journals.post'" routerLink="/finance/opening-balances" data-testid="link-opening">Opening balances</a>
     </p>
     <div class="bar">

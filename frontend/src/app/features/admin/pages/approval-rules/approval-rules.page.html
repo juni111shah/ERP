@@ -13,7 +13,7 @@
               <td><span style="font-weight:600;">{{ typeLabel(r.documentType) }}</span></td>
               <td data-testid="rule-level">{{ r.level }}</td><td><code>{{ r.approverPermission }}</code></td>
               <td><strong>{{ r.minAmount != null ? (r.minAmount | number:'1.2-2') : 'Any amount' }}</strong></td>
-              <td><nz-switch [ngModel]="r.isActive" (ngModelChange)="toggle(r, $event)" [disabled]="!canWrite" aria-label="Rule is active" /></td>
+              <td><nz-switch [ngModel]="r.isActive" (ngModelChange)="toggle(r, $event)" [disabled]="!canWrite()" aria-label="Rule is active" /></td>
               <td class="erp-cell-actions"><erp-row-actions><button *erpHasPermission="'core.settings.write'" nz-button nzDanger nzSize="small" type="button" (click)="remove(r)" data-testid="rule-delete">Delete</button></erp-row-actions></td>
             </tr>
           }

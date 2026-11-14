@@ -25,6 +25,7 @@ import { controlError, problemMessage } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
 import { SuccessToastService, ToastAction } from '@core/services/success-toast.service';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
@@ -81,6 +82,7 @@ export class BillsPage implements OnInit {
   private readonly message = inject(NzMessageService);
   private readonly toast = inject(SuccessToastService);
   private readonly fb = inject(FormBuilder);
+  private readonly session = inject(SessionStore);
   private readonly lookups = inject(FinanceLookups).load({ entities: true, taxCodes: true, accounts: true });
 
   readonly currency = inject(WorkspaceCurrencyService).currency;
@@ -122,7 +124,8 @@ export class BillsPage implements OnInit {
   });
   private readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.value });
   readonly totals = computed(() => taxedLineTotals(this.value().lines ?? [], this.taxes()));
-  readonly editable = computed(() => !this.bill() || this.bill()!.status === 'draft' || this.bill()!.status === 'pendingApproval');
+  /** A new, draft or pending bill, and the user may write bills: otherwise the drawer is read-only. */
+  readonly editable = computed(() => (!this.bill() || this.bill()!.status === 'draft' || this.bill()!.status === 'pendingApproval') && this.session.hasPermission('finance.bills.write'));
   /** Due date = bill date + the vendor's terms; same pattern as the invoices drawer. */
   private readonly dueDate: TermsDueDate;
 

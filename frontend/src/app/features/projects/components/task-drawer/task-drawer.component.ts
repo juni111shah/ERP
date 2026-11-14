@@ -93,6 +93,9 @@ export class TaskDrawerComponent {
   });
 
   canManage(): boolean { return this.session.hasPermission('projects.tasks.manage'); }
+  /** Posting a comment needs read access to projects (the comments endpoint), which a board-only user may not have. */
+  canComment(): boolean { return this.session.hasPermission('projects.projects.read'); }
+  canSeeFiles(): boolean { return this.session.hasPermission('core.attachments.read'); }
 
   /** A new task, optionally already in a project and with a parent or a status. */
   create(defaults: { projectId?: string | null; parentTaskId?: string | null; status?: ProjectTaskStatus; assignedUserId?: string | null } = {}): void {

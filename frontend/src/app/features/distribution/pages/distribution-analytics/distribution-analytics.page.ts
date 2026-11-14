@@ -9,13 +9,14 @@ import { DistributionKpiApi, DistributionKpiSummaryDto } from '@core/api/distrib
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { CanPipe } from '@shared/pipes/can.pipe';
 
 /** Distribution analytics: the month's van sales, collections and route KPIs. */
 @Component({
   selector: 'erp-distribution-analytics-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, NzButtonModule, NzCardModule, NzIconModule, NzProgressModule, StatCardComponent, StatePanelComponent],
+  imports: [CanPipe, DecimalPipe, NzButtonModule, NzCardModule, NzIconModule, NzProgressModule, StatCardComponent, StatePanelComponent],
   templateUrl: './distribution-analytics.page.html',
   styleUrl: './distribution-analytics.page.scss',
 })

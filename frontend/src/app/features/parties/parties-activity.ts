@@ -29,6 +29,20 @@ const TRANSACTION_ROUTES: Record<string, string> = {
   'Payment': '/finance/payments',
 };
 
+/** The read permission of each transaction type's page (its route guard and GET endpoint). */
+const TRANSACTION_READ: Record<string, string> = {
+  'Invoice': 'finance.invoices.read',
+  'Credit note': 'finance.invoices.read',
+  'Receipt': 'finance.receipts.read',
+  'Bill': 'finance.bills.read',
+  'Payment': 'finance.payments.read',
+};
+
+/** The permission needed to open a transaction's document page. */
+export function transactionPermission(tx: Transaction): string | undefined {
+  return TRANSACTION_READ[tx.type];
+}
+
 /** The lists to read: invoices and receipts of a customer, bills and payments of a vendor. */
 export function activityLists(isCustomer: boolean, isVendor: boolean): PartyDocumentList[] {
   return [...(isCustomer ? ['invoices', 'receipts'] as const : []), ...(isVendor ? ['bills', 'payments'] as const : [])];

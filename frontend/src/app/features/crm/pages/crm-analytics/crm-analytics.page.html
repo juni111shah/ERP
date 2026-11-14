@@ -24,7 +24,7 @@
       <section class="panel" data-testid="crm-stage-breakdown">
         <div class="head">
           <h3>Deals by stage</h3>
-          <a nz-button nzType="link" nzSize="small" routerLink="/crm/opportunities">Open pipeline</a>
+          <a *erpHasPermission="'crm.opportunities.read'" nz-button nzType="link" nzSize="small" routerLink="/crm/opportunities">Open pipeline</a>
         </div>
         @if (stages(); as rows) {
           @for (s of rows; track s.stage) {

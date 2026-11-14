@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { createPagedList } from '@core/api/paged-list';
 import { USAGES, UnitTypeDto, UnitTypesApi, humanize } from '@core/api/realestate.api';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -20,6 +21,9 @@ import { MasterDataState } from '@shared/utils/master-data-state';
 })
 export class UnitTypesPage {
   private readonly unitTypesApi = inject(UnitTypesApi);
+  private readonly session = inject(SessionStore);
+  /** A row opens the edit drawer, so only people who may change unit types can open it. */
+  readonly canManage = computed(() => this.session.hasPermission('realestate.unittypes.manage'));
   readonly list = createPagedList((q) => this.unitTypesApi.list(q), { sort: 'code' });
   readonly state = new MasterDataState<UnitTypeDto>({
     save: (id, body) => (id ? this.unitTypesApi.update(id, body) : this.unitTypesApi.create(body)),

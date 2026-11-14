@@ -13,6 +13,7 @@ import { toIsoDate } from '@core/format/dates';
 import { CsvExportService } from '@core/services/csv-export.service';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { ApexChartComponent } from '@shared/components/apex-chart/apex-chart.component';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
 import { PRJ_STYLES } from '../../projects-ui';
 
@@ -24,7 +25,7 @@ const sum = <T>(rows: T[], f: (r: T) => number): number => rows.reduce((a, r) =>
   selector: 'erp-project-reports',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzDatePickerModule, NzIconModule, NzSelectModule, NzTableModule, ApexChartComponent, ProjectTagComponent],
+  imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzDatePickerModule, NzIconModule, NzSelectModule, NzTableModule, ApexChartComponent, CanPipe, ProjectTagComponent],
   templateUrl: './project-reports.page.html',
   styles: [PRJ_STYLES + `
     .tabs { display:flex; gap:4px; border-bottom:1px solid var(--erp-color-border-subtle,#e2e8f0); margin-bottom:12px; overflow-x:auto; }

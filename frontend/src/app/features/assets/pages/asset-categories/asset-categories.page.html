@@ -15,4 +15,4 @@
       <button toolbar *erpHasPermission="'assets.categories.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="category-new"><span nz-icon nzType="plus"></span>New category</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit asset category' : 'New asset category'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="category-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="assets.categories.manage" testId="category-form" (submitted)="state.submit($event)" (closed)="state.close()" />

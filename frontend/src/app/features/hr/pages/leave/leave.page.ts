@@ -13,16 +13,18 @@ import { toIsoDate } from '@core/format/dates';
 import { doneText } from '@core/format/done-text';
 import { fromIsoDate } from '@core/format/from-iso-date';
 import { problemMessage } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 
 /** Leave requests: draft, submit, then a manager approves or rejects; approved leave feeds attendance and payroll. */
 @Component({
   selector: 'erp-leave',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PagedTableComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzIconModule, NzInputModule, NzSelectModule],
+  imports: [FormsModule, PagedTableComponent, HasPermissionDirective, CanPipe, StatusTagComponent, NzButtonModule, NzDatePickerModule, NzDrawerModule, NzIconModule, NzInputModule, NzSelectModule],
   styleUrl: './leave.page.scss',
   templateUrl: './leave.page.html',
 })
@@ -31,6 +33,7 @@ export class LeavePage {
   private readonly employeesApi = inject(EmployeesApi);
   private readonly typesApi = inject(LeaveTypesApi);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
   readonly statuses = Object.entries(LEAVE_STATUS_LABELS).map(([value, label]) => ({ value, label }));
   readonly list = createPagedList((q) => this.leaveApi.list(q), { sort: '-fromDate' });
   readonly employees = signal<EmployeeSummary[]>([]);
@@ -50,7 +53,8 @@ export class LeavePage {
   readonly detail = signal<LeaveRequestDto | null>(null);
   readonly saving = signal(false);
   readonly days = signal<number | null>(null);
-  readonly editable = computed(() => !this.id() || this.detail()?.status === 'draft');
+  /** The fields can be changed on a new or draft request, by someone who may request leave (saving needs hr.leave.request). */
+  readonly editable = computed(() => this.session.hasPermission('hr.leave.request') && (!this.id() || this.detail()?.status === 'draft'));
   readonly canDecide = computed(() => this.detail()?.status === 'submitted');
   readonly canCancel = computed(() => ['draft', 'submitted', 'approved'].includes(this.detail()?.status ?? ''));
   employeeId: string | null = null;

@@ -66,7 +66,7 @@
     </nz-drawer>
     <ng-template #formFooter>
       <button nz-button (click)="formOpen.set(false)">Cancel</button>
-      <button nz-button nzType="primary" [nzLoading]="saving()" (click)="register()" style="margin-inline-start:8px" data-testid="ch-save">{{ replacing() ? 'Register replacement' : 'Register' }}</button>
+      <button *erpHasPermission="replacing() ? 'finance.cheques.approve' : 'finance.cheques.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="register()" style="margin-inline-start:8px" data-testid="ch-save">{{ replacing() ? 'Register replacement' : 'Register' }}</button>
     </ng-template>
 
     <nz-drawer [nzVisible]="detailOpen()" [nzWidth]="480" [nzTitle]="cheque() ? 'Cheque ' + cheque()!.instrumentNo : ''" (nzOnClose)="detailOpen.set(false)">
@@ -80,12 +80,12 @@
           @if (c.replacesInstrumentId) { <p><span>Replaces an earlier cheque that bounced</span></p> }
           @if (c.replacedByChequeId) { <p data-testid="ch-replaced-by"><span>Replaced by a new cheque</span></p> }
           @for (a of c.allocations; track a.id) { <div>{{ 'ui.cheque.pays' | translate: 'Pays' }} {{ a.invoiceNumber }}: {{ money(a.amount, c.currencyCode) }}</div> }
-          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap" *erpHasPermission="'finance.cheques.approve'">
-            @if (c.status === 'inCustody') { <button nz-button nzType="primary" (click)="act('deposit')" data-testid="ch-deposit">Deposit</button> }
-            @if (c.status === 'deposited') { <button nz-button nzType="primary" (click)="act('clear')" data-testid="ch-clear">Mark cleared</button> }
-            @if (c.status === 'inCustody' || c.status === 'deposited') { <button nz-button nzDanger (click)="act('bounce')" data-testid="ch-bounce">Bounced</button> }
-            @if (c.status === 'bounced') { <button nz-button (click)="act('followup')" data-testid="ch-followup">Log follow-up</button> }
-            @if (c.status === 'bounced') { <button nz-button nzType="primary" (click)="openNew(c)" data-testid="ch-replace">Register replacement</button> }
+          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap" *erpHasPermission="['finance.cheques.approve', 'finance.cheques.write']">
+            @if (c.status === 'inCustody') { <button *erpHasPermission="'finance.cheques.approve'" nz-button nzType="primary" (click)="act('deposit')" data-testid="ch-deposit">Deposit</button> }
+            @if (c.status === 'deposited') { <button *erpHasPermission="'finance.cheques.approve'" nz-button nzType="primary" (click)="act('clear')" data-testid="ch-clear">Mark cleared</button> }
+            @if (c.status === 'inCustody' || c.status === 'deposited') { <button *erpHasPermission="'finance.cheques.approve'" nz-button nzDanger (click)="act('bounce')" data-testid="ch-bounce">Bounced</button> }
+            @if (c.status === 'bounced') { <button *erpHasPermission="'finance.cheques.write'" nz-button (click)="act('followup')" data-testid="ch-followup">Log follow-up</button> }
+            @if (c.status === 'bounced') { <button *erpHasPermission="'finance.cheques.approve'" nz-button nzType="primary" (click)="openNew(c)" data-testid="ch-replace">Register replacement</button> }
           </div>
           @if (c.status === 'inCustody') { <button *erpHasPermission="'finance.cheques.write'" nz-button style="margin-top:12px" (click)="cancel()" data-testid="ch-cancel">Cancel this entry</button> }
           <div *erpHasPermission="'core.audit.read'" style="margin-top:20px"><erp-record-history recordType="PaymentInstrument" [recordId]="c.id" /></div>

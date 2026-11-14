@@ -11,6 +11,7 @@ import { CsvExportService } from '@core/services/csv-export.service';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { BillModalComponent } from '../../components/bill-modal/bill-modal.component';
 import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
 import { errorText, PRJ_STYLES } from '../../projects-ui';
@@ -20,7 +21,7 @@ import { errorText, PRJ_STYLES } from '../../projects-ui';
   selector: 'erp-project-billing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterModule, NzCardModule, NzButtonModule, NzIconModule, NzTableModule, HasPermissionDirective, StatCardComponent, BillModalComponent, ProjectTagComponent],
+  imports: [DecimalPipe, RouterModule, NzCardModule, NzButtonModule, NzIconModule, NzTableModule, HasPermissionDirective, CanPipe, StatCardComponent, BillModalComponent, ProjectTagComponent],
   templateUrl: './project-billing.page.html',
   styles: [PRJ_STYLES],
 })

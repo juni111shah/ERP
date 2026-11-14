@@ -47,6 +47,31 @@ const JOURNAL_SOURCE_ROUTES: Record<string, string> = {
   lease: '/real-estate/leases',
 };
 
+/** The read permission each source page's route guard asks for (app.routes.ts and the module route files). */
+const SOURCE_ROUTE_PERMISSIONS: Record<string, string> = {
+  '/finance/invoices': 'finance.invoices.read',
+  '/finance/receipts': 'finance.receipts.read',
+  '/finance/bills': 'finance.bills.read',
+  '/finance/payments': 'finance.payments.read',
+  '/finance/cheques': 'finance.cheques.read',
+  '/pos/orders': 'pos.orders.read',
+  '/sales/orders': 'sales.orders.read',
+  '/sales/quotes': 'sales.quotes.read',
+  '/purchasing/orders': 'purchasing.orders.read',
+  '/purchasing/receipts': 'purchasing.receipts.read',
+  '/inventory/movements': 'inventory.stock.read',
+  '/inventory/stock': 'inventory.stock.read',
+  '/manufacturing/workorders': 'manufacturing.workorders.read',
+  '/hr/payroll': 'hr.payroll.read',
+  '/real-estate/leases': 'realestate.leases.read',
+};
+
+/** The permission needed to open a journal's source document page, or null when the source has no page. */
+export function journalSourcePermission(sourceType: string): string | null {
+  const basePath = JOURNAL_SOURCE_ROUTES[(sourceType ?? '').toLowerCase().trim()];
+  return basePath ? SOURCE_ROUTE_PERMISSIONS[basePath] ?? null : null;
+}
+
 const EMPTY_ID = '00000000-0000-0000-0000-000000000000';
 
 /** The route of a journal's source document (its list when the id is empty), or null when the source has no page. */

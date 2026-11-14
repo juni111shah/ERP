@@ -11,9 +11,13 @@
             @if (column.key === 'number') {
               <strong class="nowrap">{{ row.number }}</strong>
             } @else if (column.key === 'purchaseOrderNumber') {
-              <a [routerLink]="['/purchasing/orders', row.purchaseOrderId]" class="po-link">
-                {{ row.purchaseOrderNumber }}
-              </a>
+              @if ('purchasing.orders.read' | can) {
+                <a [routerLink]="['/purchasing/orders', row.purchaseOrderId]" class="po-link">
+                  {{ row.purchaseOrderNumber }}
+                </a>
+              } @else {
+                <span>{{ row.purchaseOrderNumber }}</span>
+              }
             } @else if (column.key === 'vendorName') {
               <span class="vendor-name">{{ row.vendorName }}</span>
             } @else if (column.key === 'receiptDate') {

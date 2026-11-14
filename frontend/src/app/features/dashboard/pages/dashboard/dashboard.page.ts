@@ -20,6 +20,7 @@ import { StatCardComponent, StatFormat } from '@shared/components/stat-card/stat
 import { RevealDirective } from '@shared/directives/reveal.directive';
 import { ErpLabelPipe } from '@shared/pipes/display.pipes';
 import { UrgencyTag, alertsFor, readableAlert, urgencyTag } from '../../dashboard-alerts';
+import { allowedLink } from '../../dashboard-links';
 import {
   DomainCategory, FINANCE_CHARTS, KpiCluster, MATRIX_CLUSTER_TITLES, OPS_CHARTS, OVERVIEW_CLUSTER_TITLES, SALES_CHARTS,
   categoryCharts, categoryKpis, categoryTitle, chartsIn, classifyKpi, heroKpis, kpiClusters, pickChart, searchKpis, withoutHeroes,
@@ -104,7 +105,14 @@ export class DashboardPage {
     if (!d) return null;
     const locale = this.locale();
     const translate = (key: string) => this.i18n.t(key, '');
-    return { ...d, kpis: d.kpis.map((k) => localizeKpi(k, locale, translate)), charts: d.charts.map((c) => localizeChart(c, locale)) };
+    // A card or alert links only to a page this person may open; it follows the session, so changed access re-checks the links.
+    const can = (p: string) => this.session.hasPermission(p);
+    return {
+      ...d,
+      kpis: d.kpis.map((k) => localizeKpi({ ...k, link: allowedLink(k.link, can) ?? undefined }, locale, translate)),
+      charts: d.charts.map((c) => localizeChart(c, locale)),
+      alerts: d.alerts.map((a) => ({ ...a, link: allowedLink(a.link, can) ?? undefined })),
+    };
   });
   /** Screen-reader announcement once the figures for a period have loaded. */
   readonly announcement = computed(() => {

@@ -94,7 +94,7 @@ export class PosReturnDialogComponent {
     if (!o || this.total() <= 0) return [];
     return splitRefund(this.total(), this.method(), o.moneyLeftToRefund, o.invoiceId ? o.onAccountLeft : 0, this.moneyMethod(), this.reference().trim() || null);
   });
-  readonly canSubmit = computed(() => !this.busy() && !!this.sessionId() && this.total() > 0 && !!this.reason().trim() && this.order()?.status === 'completed' && this.overTender() === null);
+  readonly canSubmit = computed(() => this.session.hasPermission('pos.orders.refund') && !this.busy() && !!this.sessionId() && this.total() > 0 && !!this.reason().trim() && this.order()?.status === 'completed' && this.overTender() === null);
 
   constructor() {
     effect(() => {

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -14,6 +14,7 @@ import { LookupOption } from '@core/custom-fields/lookup-registry';
 import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
@@ -52,6 +53,9 @@ export class WorkOrdersPage {
   private readonly billsApi = inject(BillsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  private readonly session = inject(SessionStore);
+  /** A row opens the work order drawer: its form saves with workorders.edit and its buttons need the permission of each move. */
+  readonly canOpen = computed(() => ['realestate.workorders.edit', ...Object.values(PERMISSION)].some((p) => this.session.hasPermission(p)));
   readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;
   readonly statuses = Object.keys(NEXT);

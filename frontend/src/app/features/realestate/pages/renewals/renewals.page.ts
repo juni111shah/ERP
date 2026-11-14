@@ -15,6 +15,8 @@ import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { matchText, TableToolsComponent } from '@shared/components/table-tools/table-tools.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 
 /** Leases ending soon: see who is due, compare rent with the unit's asking rent and create draft renewals in bulk with a rent change. */
@@ -22,7 +24,7 @@ import { ErpDatePipe } from '@shared/pipes/display.pipes';
   selector: 'erp-renewals',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatCardComponent, StatePanelComponent, TableToolsComponent, TranslatePipe, DecimalPipe, FormsModule, RouterLink, NzTableModule, NzButtonModule, NzCheckboxModule, NzInputNumberModule, NzSelectModule, NzTagModule],
+  imports: [ErpDatePipe, HasPermissionDirective, CanPipe, StatCardComponent, StatePanelComponent, TableToolsComponent, TranslatePipe, DecimalPipe, FormsModule, RouterLink, NzTableModule, NzButtonModule, NzCheckboxModule, NzInputNumberModule, NzSelectModule, NzTagModule],
   styleUrl: './renewals.page.scss',
   templateUrl: './renewals.page.html',
 })

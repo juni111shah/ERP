@@ -50,7 +50,7 @@
           </nz-card>
         </div>
       </erp-detail-page>
-      <erp-record-drawer title="Issue material" submitLabel="Issue" [open]="issue.open()" [fields]="issueFields()" [saving]="issue.saving()" [errors]="issue.errors()" testId="wo-issue-form" (submitted)="issue.submit($event)" (closed)="issue.close()" />
-      <erp-record-drawer title="Return material" submitLabel="Return" [open]="giveBack.open()" [fields]="returnFields()" [saving]="giveBack.saving()" [errors]="giveBack.errors()" testId="wo-return-form" (submitted)="giveBack.submit($event)" (closed)="giveBack.close()" />
-      <erp-record-drawer title="Complete work order" submitLabel="Complete" [open]="complete.open()" [fields]="completeFields()" [saving]="complete.saving()" [errors]="complete.errors()" testId="wo-complete-form" (submitted)="complete.submit($event)" (closed)="complete.close()" />
+      <erp-record-drawer title="Issue material" submitLabel="Issue" [open]="issue.open()" [fields]="issueFields()" [saving]="issue.saving()" [errors]="issue.errors()" writePermission="manufacturing.workorders.manage" testId="wo-issue-form" (submitted)="issue.submit($event)" (closed)="issue.close()" />
+      <erp-record-drawer title="Return material" submitLabel="Return" [open]="giveBack.open()" [fields]="returnFields()" [saving]="giveBack.saving()" [errors]="giveBack.errors()" writePermission="manufacturing.workorders.manage" testId="wo-return-form" (submitted)="giveBack.submit($event)" (closed)="giveBack.close()" />
+      <erp-record-drawer title="Complete work order" submitLabel="Complete" [open]="complete.open()" [fields]="completeFields()" [saving]="complete.saving()" [errors]="complete.errors()" writePermission="manufacturing.workorders.manage" testId="wo-complete-form" (submitted)="complete.submit($event)" (closed)="complete.close()" />
     }

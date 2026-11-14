@@ -18,6 +18,8 @@ export interface ReportDef<T = unknown> {
   filters: ReportFilter[];
   /** module key the report belongs to (hidden when the module is off); omitted for core */
   module?: string;
+  /** the read permission the endpoint requires; omitted means finance.reports.read */
+  permission?: string;
   /** the columns; called before the first answer too (with null) */
   columns: (data: T | null) => ReportColumn[];
   rows: (data: T) => ReportRow[];
@@ -35,6 +37,9 @@ export interface ReportDef<T = unknown> {
 
 /** A typed definition as an entry of the registry (the page hands each definition the payload of its own endpoint). */
 const report = <T>(def: ReportDef<T>): ReportDef => def as unknown as ReportDef;
+
+/** The permission needed to run a report (its endpoint's read permission). */
+export const reportPermission = (def: Pick<ReportDef, 'permission'>): string => def.permission ?? 'finance.reports.read';
 
 /** The payloads: most reports return their table as `rows` plus a few totals. */
 type WithRows<T = object> = T & { rows: ReportRow[] };
@@ -100,7 +105,7 @@ export const REPORTS: ReportDef[] = [
   }),
   report<WithRows<{ totalValue: number }>>({
     slug: 'stock-valuation', title: 'Stock valuation', subtitle: 'Quantity, average cost and value of stock per warehouse and item at the end of the chosen date.', module: 'inventory',
-    endpoint: 'm/inventory/reports/valuation', filters: ['asOf'],
+    endpoint: 'm/inventory/reports/valuation', filters: ['asOf'], permission: 'inventory.stock.read',
     columns: () => [t('warehouse', 'Warehouse'), t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('quantity', 'Quantity'), m('averageCost', 'Average cost'), m('value', 'Value')],
     rows: (x) => x.rows,
     totals: (x) => ({ warehouse: 'Total', sku: '', item: '', uom: '', quantity: null, averageCost: null, value: x.totalValue }),
@@ -108,21 +113,21 @@ export const REPORTS: ReportDef[] = [
   }),
   report<WithRows<{ totalClosingValue: number }>>({
     slug: 'stock-movement-summary', title: 'Stock movement summary', subtitle: 'Opening, receipts, issues, adjustments and closing quantity per item for a period. Transfers net to zero and are left out.', module: 'inventory',
-    endpoint: 'm/inventory/reports/movement-summary', filters: ['range'],
+    endpoint: 'm/inventory/reports/movement-summary', filters: ['range'], permission: 'inventory.stock.read',
     columns: () => [t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('opening', 'Opening'), n('receipts', 'Receipts'), n('issues', 'Issues'), n('adjustments', 'Adjustments'), n('closing', 'Closing'), m('closingValue', 'Closing value')],
     rows: (x) => x.rows,
     totals: (x) => ({ sku: 'Total', item: '', uom: '', opening: null, receipts: null, issues: null, adjustments: null, closing: null, closingValue: x.totalClosingValue }),
   }),
   report<WithRows<{ totalValue: number }>>({
     slug: 'slow-moving-stock', title: 'Slow-moving stock', subtitle: 'Items still in stock with no movement for the chosen number of days.', module: 'inventory',
-    endpoint: 'm/inventory/reports/slow-moving', filters: ['asOf', 'days'],
+    endpoint: 'm/inventory/reports/slow-moving', filters: ['asOf', 'days'], permission: 'inventory.stock.read',
     columns: () => [t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('quantity', 'Quantity'), m('value', 'Value'), d('lastMovement', 'Last movement'), n('daysIdle', 'Days idle')],
     rows: (x) => x.rows,
     totals: (x) => ({ sku: 'Total', item: '', uom: '', quantity: null, value: x.totalValue, lastMovement: null, daysIdle: null }),
   }),
   report<WithRows>({
     slug: 'reorder-suggestions', title: 'Reorder suggestions', subtitle: 'Items at or below their reorder level, with a suggested order quantity.', module: 'inventory',
-    endpoint: 'm/inventory/reports/reorder', filters: [],
+    endpoint: 'm/inventory/reports/reorder', filters: [], permission: 'inventory.stock.read',
     columns: () => [t('sku', 'SKU'), t('item', 'Item'), t('uom', 'Unit'), n('onHand', 'On hand'), n('reorderLevel', 'Reorder level'), n('reorderQuantity', 'Reorder quantity'), n('suggestedOrder', 'Suggested order')],
     rows: (x) => x.rows,
   }),
@@ -177,7 +182,7 @@ export const REPORTS: ReportDef[] = [
   }),
   report<StockGlReconciliation>({
     slug: 'stock-gl-reconciliation', title: 'Stock versus ledger', subtitle: 'The value of the stock on hand against the inventory account in the ledger, per legal entity. A difference means stock moved without a matching entry, or the other way round.', module: 'inventory',
-    endpoint: 'm/inventory/reports/stock-gl-reconciliation', filters: ['asOf'],
+    endpoint: 'm/inventory/reports/stock-gl-reconciliation', filters: ['asOf'], permission: 'inventory.reconciliation.read',
     columns: () => [t('legalEntity', 'Legal entity'), t('currencyCode', 'Currency'), m('stockValue', 'Stock value'), m('inventoryAccountBalance', 'Inventory account'), m('difference', 'Difference')],
     rows: (x) => x.rows,
     totals: (x) => ({ legalEntity: 'Total', currencyCode: '', stockValue: sumOf(x.rows, 'stockValue'), inventoryAccountBalance: sumOf(x.rows, 'inventoryAccountBalance'), difference: sumOf(x.rows, 'difference') }),

@@ -31,6 +31,7 @@ import { SessionStore } from '@core/session/session.store';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '@shared/components/thermal-receipt/thermal-receipt.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { KeyboardClickDirective } from '@shared/directives/keyboard-click.directive';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { CashDialogShift, PosCashDialogComponent } from '../../components/pos-cash-dialog/pos-cash-dialog.component';
@@ -81,6 +82,7 @@ const blurHidden = (el: HTMLElement | null): boolean => !el || el.offsetParent =
     NzSkeletonModule,
     NzToolTipModule,
     HasPermissionDirective,
+    CanPipe,
     KeyboardClickDirective,
     StatePanelComponent,
     ThermalReceiptComponent,
@@ -119,6 +121,9 @@ export class PosTerminalPage {
   readonly currency = this.currencyService.currency;
   readonly canSellOnAccount = computed(() => this.store.hasPermission('pos.orders.on-account'));
   readonly canOverridePrice = computed(() => this.store.hasPermission('pos.orders.override-price'));
+  /** A return finds the sale by its receipt (orders read) and gives the money back (refund). */
+  readonly canReturn = computed(() => this.store.hasPermission('pos.orders.refund') && this.store.hasPermission('pos.orders.read'));
+  readonly canManageShift = computed(() => this.store.hasPermission('pos.sessions.manage'));
 
   readonly registers = signal<PosTerminalRegisterDto[]>([]);
   readonly settings = signal<PosTerminalSettingsDto | null>(null);
@@ -197,6 +202,16 @@ export class PosTerminalPage {
   readonly discountLimit = computed(() => discountLimit(this.settings(), this.store.hasPermission('pos.orders.discount-override')));
   readonly discountInvalid = computed(() => this.discountValue() > this.discountLimit());
   readonly discountChips = computed(() => [5, 10, 15, 20, 25].filter((d) => d <= this.discountLimit()));
+  /**
+   * The ticket holds something only the override permissions allow: a discount above this person's limit, a price below the list
+   * price, or an item that is not in the catalogue. Access can change while the till is open (and a held ticket can come from someone
+   * else), so the till stops at Pay instead of letting the server refuse the sale.
+   */
+  readonly needsOverride = computed(() => {
+    const limit = this.discountLimit();
+    const canPrice = this.canOverridePrice();
+    return this.cart().some((l) => l.discountPercent > limit || (!canPrice && (l.itemId === null || (l.listPrice !== null && l.unitPrice < l.listPrice))));
+  });
 
   readonly editIndex = signal<number | null>(null);
   readonly editQty = signal(1);
@@ -405,7 +420,7 @@ export class PosTerminalPage {
   /** Not a product: a receipt scanned here starts its return, for whoever may take one. */
   private notFound(code: string): void {
     const warn = () => this.message.warning(`No product matches "${code}".`);
-    if (!this.session() || !this.store.hasPermission('pos.orders.refund') || !this.store.hasPermission('pos.orders.read')) {
+    if (!this.session() || !this.canReturn()) {
       warn();
       return;
     }
@@ -545,6 +560,7 @@ export class PosTerminalPage {
   }
 
   startOpenItem(): void {
+    if (!this.canOverridePrice()) return;
     this.openItemName.set('');
     this.openItemPrice.set(0);
     this.openItemTax.set(0);
@@ -553,7 +569,7 @@ export class PosTerminalPage {
 
   addOpenItem(): void {
     const name = this.openItemName().trim();
-    if (!name || this.openItemPrice() <= 0) return;
+    if (!name || this.openItemPrice() <= 0 || !this.canOverridePrice()) return;
     const lines = [...this.cart(), openItemLine(name, this.openItemPrice(), this.openItemTax())];
     this.setCart(lines);
     this.selectLine(lines.length - 1);
@@ -562,7 +578,7 @@ export class PosTerminalPage {
   }
 
   startDiscount(): void {
-    if (!this.cart().length) return;
+    if (!this.cart().length || this.discountLimit() <= 0) return;
     this.discountValue.set(commonDiscount(this.cart()));
     this.discountOpen.set(true);
   }
@@ -711,7 +727,7 @@ export class PosTerminalPage {
   // ---- payment ----
 
   startPayment(): void {
-    if (!this.cart().length) return;
+    if (!this.cart().length || !this.store.hasPermission('pos.orders.create') || this.needsOverride()) return;
     if (!this.session()) {
       this.message.warning('Open a shift before taking payment.');
       return;
@@ -726,7 +742,7 @@ export class PosTerminalPage {
 
   takePayment(tenders: Tender[]): void {
     const s = this.session();
-    if (!s || this.paying()) return;
+    if (!s || this.paying() || this.needsOverride()) return;
     this.paying.set(true);
     this.ordersApi.sell({
       legalEntityId: s.legalEntityId,
@@ -788,7 +804,7 @@ export class PosTerminalPage {
       this.message.warning('Open a shift to give money back.');
       return;
     }
-    if (!this.store.hasPermission('pos.orders.refund')) return;
+    if (!this.canReturn()) return;
     this.returnNumber.set(number);
     this.returnOpen.set(true);
   }
@@ -810,7 +826,7 @@ export class PosTerminalPage {
   // ---- cash and shifts ----
 
   private startCash(): void {
-    if (this.session() && this.store.hasPermission('pos.sessions.manage')) this.cashOpen.set(true);
+    if (this.session() && this.canManageShift()) this.cashOpen.set(true);
   }
 
   closeCash(): void {
@@ -824,6 +840,7 @@ export class PosTerminalPage {
   }
 
   startOpen(): void {
+    if (!this.canManageShift()) return;
     this.openFloat.set(this.settings()?.enforceFloatAtOpen === false ? 0 : null);
     this.shiftNotes.set('');
     this.openShiftOpen.set(true);
@@ -832,7 +849,7 @@ export class PosTerminalPage {
   submitOpenShift(): void {
     const reg = this.registers().find((r) => r.id === this.registerId());
     const float = this.openFloat();
-    if (!reg || float === null) return;
+    if (!reg || float === null || !this.canManageShift()) return;
     this.shiftBusy.set(true);
     this.sessionsApi.openSession({ legalEntityId: reg.legalEntityId, registerId: reg.id, openingCash: float, notes: this.shiftNotes() || null }).subscribe({
       next: (s) => {
@@ -851,6 +868,7 @@ export class PosTerminalPage {
   }
 
   startClose(): void {
+    if (!this.canManageShift()) return;
     this.closeCash_.set(null); // counted, not copied from what the system expects
     this.closeNotes.set('');
     this.loadHeld();
@@ -861,7 +879,7 @@ export class PosTerminalPage {
   submitCloseShift(): void {
     const s = this.session();
     const counted = this.closeCash_();
-    if (!s || counted === null) return;
+    if (!s || counted === null || !this.canManageShift()) return;
     this.shiftBusy.set(true);
     this.sessionsApi.closeSession(s.id, { actualCash: counted, notes: this.closeNotes() || null }).subscribe({
       next: () => {
@@ -883,7 +901,7 @@ export class PosTerminalPage {
 
   showShiftReport(): void {
     const s = this.session();
-    if (!s) return;
+    if (!s || !this.store.hasPermission('pos.sessions.read')) return;
     this.sessionsApi.report(s.id).subscribe({
       next: (r) => this.shiftReport.set(r),
       error: (err) => this.message.error(problemMessage(err, 'The shift report could not be loaded.')),

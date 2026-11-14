@@ -14,6 +14,7 @@ import { LookupOption } from '@core/custom-fields/lookup-registry';
 import { toUtcIsoDate } from '@core/format/dates';
 import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
@@ -41,6 +42,9 @@ export class LeadsPage {
   private readonly listingsApi = inject(ListingsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  private readonly session = inject(SessionStore);
+  /** A row opens the edit drawer (with move / convert / lose), so only people who may manage leads can open it. */
+  readonly canManage = computed(() => this.session.hasPermission('realestate.crm.manage'));
   readonly humanize = humanize;
   readonly stages = LEAD_STAGES;
   readonly pipeline = signal<LeadPipeline | null>(null);

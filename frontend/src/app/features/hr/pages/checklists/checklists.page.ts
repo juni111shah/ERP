@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { CHECKLIST_KINDS, ChecklistDto, ChecklistRow, ChecklistsApi } from '@core/api/hr-people.api';
 import { createPagedList } from '@core/api/paged-list';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -30,13 +31,16 @@ function checklistBody(v: Record<string, unknown>): Record<string, unknown> {
       <button toolbar *erpHasPermission="'hr.employees.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="checklist-new"><span nz-icon nzType="plus"></span>New checklist</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit checklist' : 'New checklist'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="checklist-form" (submitted)="state.submit($event)" (closed)="state.close()">
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="hr.employees.manage" testId="checklist-form" (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as e) { <div drawerActions style="margin-bottom:12px"><button *erpHasPermission="'hr.employees.manage'" nz-button nzDanger type="button" (click)="remove(e.id)" data-testid="checklist-delete">Delete</button></div> }
     </erp-record-drawer>`,
 })
 export class ChecklistsPage {
   private readonly modal = inject(NzModalService);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
+  /** Opening a row edits it, so only someone who may change checklists can open one. */
+  readonly canManage = computed(() => this.session.hasPermission('hr.employees.manage'));
   private readonly checklistsApi = inject(ChecklistsApi);
   readonly list = createPagedList((q) => this.checklistsApi.list(q), { sort: 'name' });
   readonly state = new MasterDataState<ChecklistDto>({
@@ -55,7 +59,7 @@ export class ChecklistsPage {
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ];
 
-  open(row: ChecklistRow): void { this.checklistsApi.detail(row.id).subscribe((c) => this.state.edit(c)); }
+  open(row: ChecklistRow): void { if (this.canManage()) this.checklistsApi.detail(row.id).subscribe((c) => this.state.edit(c)); }
 
   remove(id: string): void {
     deleteWithConfirm(this.modal, this.message, {

@@ -77,6 +77,6 @@
       @if (editable()) {
         @if (bill()?.id) { <button *erpHasPermission="'finance.bills.write'" nz-button nzDanger (click)="remove()" style="margin-inline-start:8px" data-testid="bill-delete">Delete</button> }
         <button *erpHasPermission="'finance.bills.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="bill-save">Save draft</button>
-        <button *erpHasPermission="'finance.bills.post'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save(true)" style="margin-inline-start:8px" data-testid="bill-post">Save and post</button>
+        <button *erpHasPermission="['finance.bills.write', 'finance.bills.post']; mode: 'all'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save(true)" style="margin-inline-start:8px" data-testid="bill-post">Save and post</button>
       }
     </ng-template>

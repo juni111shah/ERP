@@ -24,6 +24,7 @@ import { doneText } from '@core/format/done-text';
 import { controlError, problemMessage } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
@@ -78,6 +79,7 @@ export class PaymentsPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly lookups = inject(FinanceLookups).load({ entities: true, accounts: true });
   private readonly workspaceCurrency = inject(WorkspaceCurrencyService).currency;
+  private readonly session = inject(SessionStore);
 
   readonly entities = this.lookups.entities;
   readonly banks = this.lookups.cashAndBankAccounts;
@@ -113,7 +115,7 @@ export class PaymentsPage implements OnInit {
   readonly partyOptions = signal<LookupOption[]>([]);
   readonly openInvoices = signal<BillSummary[]>([]);
   readonly amounts = signal<Record<string, number>>({});
-  readonly editableAllocation = computed(() => !this.receipt() || (this.receipt()!.status === 'issued' && this.receipt()!.unallocated > 0));
+  readonly editableAllocation = computed(() => (!this.receipt() || (this.receipt()!.status === 'issued' && this.receipt()!.unallocated > 0)) && this.session.hasPermission('finance.payments.write'));
   readonly form = this.fb.group({
     legalEntityId: ['', Validators.required], partyId: ['', Validators.required], date: [null as Date | null, Validators.required], method: ['bankTransfer', Validators.required],
     bankAccountId: ['', Validators.required], amount: [null as number | null, [Validators.required, Validators.min(0.01)]], reference: [''],
@@ -202,7 +204,8 @@ export class PaymentsPage implements OnInit {
   private openNew(): void {
     this.receipt.set(null);
     this.form.reset({ legalEntityId: this.lookups.onlyEntityId(), partyId: '', date: new Date(), method: 'bankTransfer', bankAccountId: mainBankAccount(this.banks())?.id ?? '', amount: null, reference: '', chequeNo: '', chequeDate: null, bankName: '' });
-    this.form.enable();
+    // Without the write permission a new form opened from a link stays read-only (there is no Record button either).
+    if (this.session.hasPermission('finance.payments.write')) this.form.enable(); else this.form.disable();
     this.searchParties('');
     this.drawerOpen.set(true);
   }

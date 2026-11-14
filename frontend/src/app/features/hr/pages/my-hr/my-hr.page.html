@@ -3,8 +3,8 @@
     @if (notLinked()) {
       <div data-testid="my-not-linked">
         <erp-state-panel title="Your sign-in is not linked to an employee record" icon="user"
-                         [hint]="canOpenEmployees ? 'My HR shows your own leave, payslips and profile, so it needs an employee record. Open your employee record and choose your sign-in under Sign-in account.' : 'My HR shows your own leave, payslips and profile, so it needs an employee record. Ask HR to choose your sign-in under Sign-in account on your employee record.'"
-                         [actionLabel]="canOpenEmployees ? 'Open employees' : null" (action)="openEmployees()" />
+                         [hint]="canOpenEmployees() ? 'My HR shows your own leave, payslips and profile, so it needs an employee record. Open your employee record and choose your sign-in under Sign-in account.' : 'My HR shows your own leave, payslips and profile, so it needs an employee record. Ask HR to choose your sign-in under Sign-in account on your employee record.'"
+                         [actionLabel]="canOpenEmployees() ? 'Open employees' : null" (action)="openEmployees()" />
       </div>
     } @else if (failed()) {
       <erp-state-panel kind="error" title="My HR could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="start()" />

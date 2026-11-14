@@ -29,6 +29,7 @@ import { WorkspaceCurrencyService } from '@core/services/workspace-currency.serv
 import { SessionStore } from '@core/session/session.store';
 import { ActionButton, DescriptionItem, DetailPageComponent } from '@shared/components/detail-page/detail-page.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { loadOrFallback } from '@shared/utils/load-or-fallback';
 import { askReason } from '@shared/utils/reason-prompt';
 import { IndustryRecordFormComponent } from '../../components/industry-record-form/industry-record-form.component';
@@ -41,7 +42,7 @@ type Step = 'invoice' | 'bill' | 'consume';
   selector: 'erp-industry-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, RouterLink, TranslatePipe, NzAlertModule, NzButtonModule, NzCheckboxModule, NzInputModule, NzInputNumberModule, NzModalModule, NzProgressModule,
+  imports: [DecimalPipe, FormsModule, RouterLink, TranslatePipe, CanPipe, NzAlertModule, NzButtonModule, NzCheckboxModule, NzInputModule, NzInputNumberModule, NzModalModule, NzProgressModule,
     NzSelectModule, NzSkeletonModule, NzTableModule, NzTagModule, NzTimelineModule, DetailPageComponent, StatePanelComponent, IndustryRecordFormComponent],
   styleUrl: './industry-detail.page.scss',
   templateUrl: './industry-detail.page.html',
@@ -110,9 +111,12 @@ export class IndustryDetailPage {
     const r = this.record(), t = this.type();
     if (!r || !t) return [];
     const manage = `${this.module()}.${t.key}.manage`;
+    // A step marked as needing approval also needs {module}.{type}.approve (TransitionRecordHandler); the server lists it only then,
+    // and this follows a permission taken away while the page is open.
+    const canApprove = this.session.hasPermission(`${this.module()}.${t.key}.approve`);
     const steps: ActionButton[] = r.nextSteps.map((s, i) => ({
       label: s.label, icon: s.approval ? 'check' : 'arrow-right', type: i === 0 ? 'primary' : 'default', danger: /^(cancel|reject|void)/i.test(s.to) || s.to === 'cancelled' || s.to === 'rejected',
-      permission: manage, handler: () => void this.takeStep(s),
+      permission: manage, visible: !s.approval || canApprove, handler: () => void this.takeStep(s),
     }));
     return [
       ...steps,
@@ -132,8 +136,11 @@ export class IndustryDetailPage {
       { label: 'Status', value: this.statusText() }, { label: 'Date', value: r.recordDate },
     ];
     if (t.hasDueDate) items.push({ label: 'Due date', value: r.dueDate ?? null });
-    if (t.partyRole) items.push({ label: t.partyLabel || 'Party', value: r.partyName ?? null, routerLink: r.partyId ? ['/parties', r.partyId] : undefined });
-    if (t.parentType) items.push({ label: t.parentLabel || 'Belongs to', value: r.parentTitle ?? null, routerLink: r.parentId ? ['/industry', this.module(), t.parentType, r.parentId] : undefined });
+    // Links only for pages the person may open (the party page needs core.parties.read, the parent record its own read permission).
+    const partyLink = r.partyId && this.session.hasPermission('core.parties.read') ? ['/parties', r.partyId] : undefined;
+    const parentLink = r.parentId && t.parentType && this.session.hasPermission(`${this.module()}.${t.parentType}.read`) ? ['/industry', this.module(), t.parentType, r.parentId] : undefined;
+    if (t.partyRole) items.push({ label: t.partyLabel || 'Party', value: r.partyName ?? null, routerLink: partyLink });
+    if (t.parentType) items.push({ label: t.parentLabel || 'Belongs to', value: r.parentTitle ?? null, routerLink: parentLink });
     for (const f of t.fields) items.push({ label: f.label, value: detailText(f.type, r.data?.[f.key]) });
     if (t.hasAmount || t.hasLines) items.push({ label: 'Amount', value: this.money(r.amount) });
     items.push({ label: 'Legal entity', value: this.session.me()?.legalEntities.find((e) => e.id === r.legalEntityId)?.name ?? null });

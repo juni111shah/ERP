@@ -11,6 +11,7 @@ import { createPagedList } from '@core/api/paged-list';
 import { EMPTY_GUID, PosRegisterDto, PosRegisterInput, PosRegistersApi } from '@core/api/pos.api';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
@@ -32,6 +33,10 @@ export class PosRegistersPage {
   private readonly registersApi = inject(PosRegistersApi);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
+  private readonly session = inject(SessionStore);
+
+  /** A row opens the edit form, so only for someone who may change registers (there is no read-only view of one). */
+  readonly canManage = computed(() => this.session.hasPermission('pos.registers.manage'));
 
   readonly list = createPagedList<PosRegisterDto>((q) => this.registersApi.list(q));
 
@@ -75,11 +80,12 @@ export class PosRegistersPage {
   }
 
   onRow(reg: PosRegisterDto): void {
-    this.state.edit(reg);
+    if (this.canManage()) this.state.edit(reg);
   }
 
   /** On the server an account left out keeps its value, so clearing one here sends the empty GUID. */
   save(values: Record<string, unknown>): void {
+    if (!this.canManage()) return;
     const body = { ...values };
     for (const key of CLEARABLE_REGISTER_ACCOUNTS) {
       if (!body[key] && this.state.editing()) body[key] = EMPTY_GUID;

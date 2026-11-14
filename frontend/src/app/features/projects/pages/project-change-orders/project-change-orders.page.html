@@ -11,7 +11,7 @@
           @for (c of rows(); track c.id) {
             <tr>
               <td>{{ c.number }}</td>
-              @if (!projectId()) { <td><a [routerLink]="['/projects', c.projectId]" [queryParams]="{ tab: 'risks' }" class="prj-link">{{ projectName(c.projectId) }}</a></td> }
+              @if (!projectId()) { <td>@if ('projects.projects.read' | can) { <a [routerLink]="['/projects', c.projectId]" [queryParams]="{ tab: 'risks' }" class="prj-link">{{ projectName(c.projectId) }}</a> } @else { {{ projectName(c.projectId) }} }</td> }
               <td><span class="prj-strong">{{ c.title }}</span>@if (c.description) { <div class="prj-muted">{{ c.description }}</div> }@if (c.decisionNote) { <div class="prj-muted">Decision: {{ c.decisionNote }}</div> }</td>
               <td class="prj-num">{{ currency() }} {{ c.amountChange | number: '1.2-2' }}</td><td class="prj-num">{{ c.hoursChange | number: '1.0-1' }}</td>
               <td><erp-prj-tag kind="change" [value]="c.status" /></td>
@@ -32,7 +32,7 @@
       @if (!rows().length) { <div class="prj-empty">No change orders yet.</div> }
     </div>
     <erp-record-drawer [title]="state.editing() ? 'Edit change order' : 'New change order'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="co-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="projects.changeorders.manage" testId="co-form" (submitted)="state.submit($event)" (closed)="state.close()" />
     <nz-modal [nzVisible]="deciding() !== null" [nzTitle]="deciding()?.approve ? 'Approve change order' : 'Reject change order'" nzOkText="Confirm" [nzOkDanger]="!deciding()?.approve" (nzOnOk)="confirmDecision()" (nzOnCancel)="deciding.set(null)">
       <ng-container *nzModalContent>
         <p>{{ deciding()?.order?.number }} · {{ deciding()?.order?.title }}. @if (deciding()?.approve) { The project budget will change by {{ currency() }} {{ deciding()?.order?.amountChange | number: '1.2-2' }}. }</p>

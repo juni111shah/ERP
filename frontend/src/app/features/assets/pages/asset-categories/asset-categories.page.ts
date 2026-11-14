@@ -8,6 +8,7 @@ import { AssetCategoriesApi, AssetCategoryDto, DEPRECIATION_METHODS } from '@cor
 import { createPagedList } from '@core/api/paged-list';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
@@ -28,6 +29,9 @@ export class AssetCategoriesPage {
   private readonly categoriesApi = inject(AssetCategoriesApi);
   private readonly accountsApi = inject(AccountsApi);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
+  /** Opening a row edits it, so only someone who may manage categories can open one. */
+  readonly canManage = computed(() => this.session.hasPermission('assets.categories.manage'));
   readonly list = createPagedList((q) => this.categoriesApi.list(q), { sort: 'code' });
   /** "code · name" by account id, so an account already on a category shows its name in the drawer. */
   private readonly accountLabels = signal<Record<string, string>>({});
@@ -64,7 +68,7 @@ export class AssetCategoriesPage {
     loadInto(this.accountLabels, this.accountsApi.list({ page: 1, pageSize: 200, sort: 'code' }), (r) => Object.fromEntries(r.items.map((a) => [a.id, `${a.code} · ${a.name}`])));
   }
 
-  edit(row: AssetCategoryDto): void { this.state.edit(row); }
+  edit(row: AssetCategoryDto): void { if (this.canManage()) this.state.edit(row); }
 
   remove(row: AssetCategoryDto): void {
     this.categoriesApi.delete(row.id).subscribe({

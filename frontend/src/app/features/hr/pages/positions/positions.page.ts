@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { PositionDto, PositionsApi } from '@core/api/hr-people.api';
 import { createPagedList } from '@core/api/paged-list';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -19,17 +20,20 @@ import { MasterDataState } from '@shared/utils/master-data-state';
   imports: [NzModalModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Positions</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search positions" emptyText="No positions yet" (rowClick)="state.edit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search positions" emptyText="No positions yet" (rowClick)="edit($event)">
       <button toolbar *erpHasPermission="'hr.employees.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="position-new"><span nz-icon nzType="plus"></span>New position</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit position' : 'New position'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="position-form" (submitted)="state.submit($event)" (closed)="state.close()">
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="hr.employees.manage" testId="position-form" (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as e) { <div drawerActions style="margin-bottom:12px"><button *erpHasPermission="'hr.employees.manage'" nz-button nzDanger type="button" (click)="remove(e.id)" data-testid="position-delete">Delete</button></div> }
     </erp-record-drawer>`,
 })
 export class PositionsPage {
   private readonly modal = inject(NzModalService);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
+  /** Opening a row edits it, so only someone who may change positions can open one. */
+  readonly canManage = computed(() => this.session.hasPermission('hr.employees.manage'));
   private readonly positionsApi = inject(PositionsApi);
   readonly list = createPagedList((q) => this.positionsApi.list(q), { sort: 'code' });
   readonly state = new MasterDataState<PositionDto>({
@@ -47,6 +51,8 @@ export class PositionsPage {
     { key: 'grade', label: 'Grade', type: 'text', maxLength: 30 },
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ];
+
+  edit(row: PositionDto): void { if (this.canManage()) this.state.edit(row); }
 
   remove(id: string): void {
     deleteWithConfirm(this.modal, this.message, {

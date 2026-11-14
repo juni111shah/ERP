@@ -82,5 +82,5 @@
     </nz-drawer>
     <ng-template #footer>
       <button nz-button (click)="close()">Cancel</button>
-      <button nz-button nzType="primary" [nzLoading]="saving()" (click)="save()" data-testid="party-save" style="margin-inline-start:8px">Save</button>
+      <button *erpHasPermission="'core.parties.write'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save()" data-testid="party-save" style="margin-inline-start:8px">Save</button>
     </ng-template>

@@ -14,6 +14,8 @@ import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { injectWarehouseList, warehouseNameMap } from '../../inventory-warehouses';
 
 const MOVEMENT_KINDS = [{ value: 'receipt', label: 'Receipt' }, { value: 'issue', label: 'Issue' }, { value: 'adjustment', label: 'Adjustment' }, { value: 'transferIn', label: 'Transfer in' }, { value: 'transferOut', label: 'Transfer out' }];
@@ -23,7 +25,7 @@ const MOVEMENT_KINDS = [{ value: 'receipt', label: 'Receipt' }, { value: 'issue'
   selector: 'erp-movements',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, NzInputModule, DecimalPipe, RouterModule, NzButtonModule, NzIconModule, PagedTableComponent, StatusTagComponent, TranslatePipe],
+  imports: [CommonModule, FormsModule, NzInputModule, DecimalPipe, RouterModule, NzButtonModule, NzIconModule, PagedTableComponent, StatusTagComponent, TranslatePipe, HasPermissionDirective, CanPipe],
   styleUrl: './movements.page.scss',
   templateUrl: './movements.page.html',
 })

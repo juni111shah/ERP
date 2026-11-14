@@ -106,11 +106,13 @@
             @for (c of comments(); track c.id) {
               <div class="comment"><b>{{ c.authorName }}</b> <span class="prj-muted">{{ c.createdAt | date: 'medium' }}</span><p>{{ c.text }}</p></div>
             } @empty { <p class="prj-muted">No comments yet.</p> }
-            <div class="row"><textarea nz-input rows="2" [(ngModel)]="newComment" [ngModelOptions]="{ standalone: true }" maxlength="2000" placeholder="Write a comment" aria-label="Comment" data-testid="task-comment"></textarea>
-              <button nz-button type="button" [disabled]="!newComment.trim()" (click)="addComment()" data-testid="task-comment-add">Post</button></div>
+            @if (canComment()) {
+              <div class="row"><textarea nz-input rows="2" [(ngModel)]="newComment" [ngModelOptions]="{ standalone: true }" maxlength="2000" placeholder="Write a comment" aria-label="Comment" data-testid="task-comment"></textarea>
+                <button nz-button type="button" [disabled]="!newComment.trim()" (click)="addComment()" data-testid="task-comment-add">Post</button></div>
+            }
           </section>
 
-          <section><h4>Files</h4><erp-attachments ownerType="projecttask" [ownerId]="t.id" /></section>
+          @if (canSeeFiles()) { <section><h4>Files</h4><erp-attachments ownerType="projecttask" [ownerId]="t.id" writePermission="projects.tasks.manage" /></section> }
         }
       </ng-container>
     </nz-drawer>

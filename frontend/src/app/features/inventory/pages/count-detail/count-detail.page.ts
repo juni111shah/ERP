@@ -10,6 +10,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { CountDetail, CountedQuantityInput, CountLine, CountsApi } from '@core/api/inventory.api';
 import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -38,11 +39,13 @@ export class CountDetailPage {
   private readonly countsApi = inject(CountsApi);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
+  private readonly session = inject(SessionStore);
   readonly count = signal<CountDetail | null>(null);
   readonly counted = signal<CountedMap>({});
   readonly busy = signal(false);
   readonly failed = signal(false);
-  readonly editable = computed(() => ['draft', 'counting'].includes(this.count()?.status ?? ''));
+  /** The sheet can be filled in (inputs, save, post, cancel) while it is open and by someone who may manage counts. */
+  readonly editable = computed(() => this.session.hasPermission('inventory.counts.manage') && ['draft', 'counting'].includes(this.count()?.status ?? ''));
   readonly progress = computed(() => countProgress(this.count()?.lines ?? [], this.counted()));
 
   constructor() { effect(() => { this.fetch(this.id()); }); }

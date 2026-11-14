@@ -9,6 +9,7 @@ import { createPagedList } from '@core/api/paged-list';
 import { displayDate } from '@core/format/display';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ErpLabelPipe } from '@shared/pipes/display.pipes';
 import { countOf } from '@shared/utils/kpi-stats';
 
@@ -20,7 +21,7 @@ const detailOf = (e: { error?: { detail?: unknown } } | null | undefined): strin
   selector: 'erp-messages',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpLabelPipe, StatusTagComponent, PagedTableComponent, FormsModule, NzButtonModule, NzInputModule, NzTagModule],
+  imports: [ErpLabelPipe, StatusTagComponent, PagedTableComponent, HasPermissionDirective, FormsModule, NzButtonModule, NzInputModule, NzTagModule],
   templateUrl: './messages.page.html',
 })
 export class MessagesPage {

@@ -68,7 +68,7 @@ describe('POS return refunds by original tender', () => {
   });
 
   it('warns when a refund to one way is more than it took, unless the person may override', () => {
-    const c = open(['pos.orders.create']);
+    const c = open(['pos.orders.create', 'pos.orders.refund']);
     c.method.set('cash');
     c.rows.set([{ line: { quantity: 1, unitPrice: 80, discountPercent: 0, taxRate: 0, lineTotal: 80, returnedQuantity: 0, returnedAmount: 0 } as never, left: 1, quantity: 1, restock: true }]);
     expect(c.total()).toBe(80);

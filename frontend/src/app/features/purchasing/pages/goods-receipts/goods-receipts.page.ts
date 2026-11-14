@@ -14,6 +14,7 @@ import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 
 /** Goods receipts: the paged list, a receipt's lines in a dialog, and deleting a receipt. */
@@ -33,6 +34,7 @@ import { ErpDatePipe } from '@shared/pipes/display.pipes';
     NzTableModule,
     ErpDatePipe,
     HasPermissionDirective,
+    CanPipe,
     PagedTableComponent,
   ],
   templateUrl: './goods-receipts.page.html',

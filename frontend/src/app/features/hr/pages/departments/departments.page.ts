@@ -6,6 +6,7 @@ import { NzModalModule, NzModalService } from 'ng-zorro-antd/modal';
 import { DepartmentDto, DepartmentsApi } from '@core/api/hr-people.api';
 import { EmployeesApi } from '@core/api/hr.api';
 import { createPagedList } from '@core/api/paged-list';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -22,17 +23,20 @@ import { departmentOptions, employeeOptions } from '../../hr-options';
   imports: [NzModalModule, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Departments</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search departments" emptyText="No departments yet" (rowClick)="state.edit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search departments" emptyText="No departments yet" (rowClick)="edit($event)">
       <button toolbar *erpHasPermission="'hr.employees.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="dept-new"><span nz-icon nzType="plus"></span>New department</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit department' : 'New department'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="dept-form" (submitted)="state.submit($event)" (closed)="state.close()">
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="hr.employees.manage" testId="dept-form" (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as e) { <div drawerActions style="margin-bottom:12px"><button *erpHasPermission="'hr.employees.manage'" nz-button nzDanger type="button" (click)="remove(e.id)" data-testid="dept-delete">Delete</button></div> }
     </erp-record-drawer>`,
 })
 export class DepartmentsPage {
   private readonly modal = inject(NzModalService);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
+  /** Opening a row edits it, so only someone who may change departments can open one. */
+  readonly canManage = computed(() => this.session.hasPermission('hr.employees.manage'));
   private readonly departmentsApi = inject(DepartmentsApi);
   private readonly employeesPage = itemsSignal(inject(EmployeesApi).list({ page: 1, pageSize: 200, sort: 'fullName' }));
   readonly list = createPagedList((q) => this.departmentsApi.list(q), { sort: 'code' });
@@ -53,6 +57,8 @@ export class DepartmentsPage {
     { key: 'headEmployeeId', label: 'Head of department', type: 'select', options: employeeOptions(this.employeesPage().items) },
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ]);
+
+  edit(row: DepartmentDto): void { if (this.canManage()) this.state.edit(row); }
 
   remove(id: string): void {
     deleteWithConfirm(this.modal, this.message, {

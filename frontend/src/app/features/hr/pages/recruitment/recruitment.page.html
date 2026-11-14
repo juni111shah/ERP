@@ -29,10 +29,10 @@
       </nz-tab>
     </nz-tabs>
     <erp-record-drawer [title]="openingState.editing() ? 'Edit vacancy' : 'New vacancy'" [open]="openingState.open()" [fields]="openingFields" [value]="$any(openingState.editing())"
-                       [saving]="openingState.saving()" [errors]="openingState.errors()" testId="opening-form" (submitted)="openingState.submit($event)" (closed)="openingState.close()">
+                       [saving]="openingState.saving()" [errors]="openingState.errors()" writePermission="hr.recruitment.manage" testId="opening-form" (submitted)="openingState.submit($event)" (closed)="openingState.close()">
       @if (openingState.editing(); as o) { <div drawerActions style="margin-bottom:12px"><button *erpHasPermission="'hr.recruitment.manage'" nz-button nzDanger type="button" (click)="removeOpening(o.id)" data-testid="opening-delete">Delete</button></div> }
     </erp-record-drawer>
     <erp-record-drawer [title]="candidateState.editing() ? 'Edit candidate' : 'New candidate'" [open]="candidateState.open()" [fields]="candidateFields()" [value]="$any(candidateState.editing())"
-                       [saving]="candidateState.saving()" [errors]="candidateState.errors()" testId="candidate-form" (submitted)="candidateState.submit($event)" (closed)="candidateState.close()" />
-    <erp-record-drawer title="Hire" [open]="hiring() !== null" [fields]="hireFields()" [saving]="busy()" [errors]="errors()" [width]="460" testId="hire-form" submitLabel="Hire"
+                       [saving]="candidateState.saving()" [errors]="candidateState.errors()" writePermission="hr.recruitment.manage" testId="candidate-form" (submitted)="candidateState.submit($event)" (closed)="candidateState.close()" />
+    <erp-record-drawer title="Hire" [open]="hiring() !== null" [fields]="hireFields()" [saving]="busy()" [errors]="errors()" [width]="460" writePermission="hr.recruitment.manage" testId="hire-form" submitLabel="Hire"
                        (submitted)="hire($event)" (closed)="hiring.set(null)" />

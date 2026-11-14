@@ -12,6 +12,7 @@ import { DEAL_TYPES, DealDto, DealsApi, RealEstateLookups, humanize } from '@cor
 import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
@@ -36,6 +37,9 @@ export class DealsPage {
   private readonly dealsApi = inject(DealsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  private readonly session = inject(SessionStore);
+  /** A row opens the deal drawer: its form saves with deals.edit and its buttons move, invoice, pay or lose the deal. */
+  readonly canOpen = computed(() => ['realestate.deals.edit', 'realestate.deals.invoice', 'realestate.deals.payagent', 'realestate.deals.lose'].some((p) => this.session.hasPermission(p)));
   private readonly accountPage = itemsSignal(inject(AccountsApi).list({ page: 1, pageSize: 200, sort: 'code' }));
   readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;

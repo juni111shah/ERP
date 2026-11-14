@@ -1,4 +1,4 @@
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -51,7 +51,7 @@ const TABS: TabDef[] = [
   selector: 'erp-project-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, RecordDrawerComponent, ProjectTagComponent, LogTimeComponent, TaskDrawerComponent,
+  imports: [ErpDatePipe, DecimalPipe, NgTemplateOutlet, FormsModule, RouterModule, NzButtonModule, NzDropDownModule, NzIconModule, NzInputModule, NzModalModule, RecordDrawerComponent, ProjectTagComponent, LogTimeComponent, TaskDrawerComponent,
     ProjectOverviewComponent, ProjectWorkComponent, ProjectMilestonesComponent, ProjectTimeComponent, ProjectMoneyComponent, ProjectTeamComponent, ProjectControlComponent, ProjectNotesComponent],
   templateUrl: './project-detail.page.html',
   styles: [PRJ_STYLES + `

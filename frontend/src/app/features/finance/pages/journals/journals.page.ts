@@ -23,6 +23,7 @@ import { doneText } from '@core/format/done-text';
 import { asProblem, controlError, problemMessage } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
@@ -76,6 +77,7 @@ export class JournalsPage implements OnInit {
   private readonly router = inject(Router);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
+  private readonly session = inject(SessionStore);
   private readonly lookups = inject(FinanceLookups).load({ entities: true, accounts: true });
 
   readonly entities = this.lookups.entities;
@@ -108,7 +110,8 @@ export class JournalsPage implements OnInit {
   });
   private readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.value });
   readonly totals = computed(() => journalTotals(this.value().lines ?? []));
-  readonly editable = computed(() => !this.journal() || (this.journal()!.status === 'draft' && this.journal()!.sourceType === 'manual'));
+  /** A new or draft manual journal, and the user may write journals: otherwise the drawer is read-only. */
+  readonly editable = computed(() => (!this.journal() || (this.journal()!.status === 'draft' && this.journal()!.sourceType === 'manual')) && this.session.hasPermission('finance.journals.write'));
 
   get lines(): FormArray { return this.form.controls.lines as FormArray; }
   /** A line field the user has tried to save empty; these sit outside nz-form-control, so they need their own red state. */

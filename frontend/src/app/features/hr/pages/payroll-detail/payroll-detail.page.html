@@ -74,5 +74,5 @@
         </nz-table>
       }
       <erp-record-drawer [title]="title()" [open]="mode() !== null" [fields]="fields()" [saving]="busy()" [errors]="errors()" [width]="440"
-                         testId="payroll-action-form" [submitLabel]="mode() === 'pay' ? 'Pay' : mode() === 'void' ? 'Void payroll' : 'Save'" (submitted)="submit($event)" (closed)="mode.set(null)" />
+                         [writePermission]="mode() === 'pay' ? 'hr.payroll.pay' : mode() === 'void' ? 'hr.payroll.post' : 'hr.payroll.manage'" testId="payroll-action-form" [submitLabel]="mode() === 'pay' ? 'Pay' : mode() === 'void' ? 'Void payroll' : 'Save'" (submitted)="submit($event)" (closed)="mode.set(null)" />
     }

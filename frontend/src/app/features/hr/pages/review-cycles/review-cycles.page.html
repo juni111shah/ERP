@@ -1,6 +1,6 @@
 
     <h1 class="erp-page-title">Review cycles</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search cycles" emptyText="No review cycles yet" (rowClick)="state.edit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search cycles" emptyText="No review cycles yet" (rowClick)="edit($event)">
       <button toolbar *erpHasPermission="'hr.reviews.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="cycle-new"><span nz-icon nzType="plus"></span> New cycle</button>
       <ng-template #cell let-row let-column="column" let-value="value">
         @if (column.key === 'name') {
@@ -13,4 +13,4 @@
       </ng-template>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit cycle' : 'New cycle'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="cycle-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="hr.reviews.manage" testId="cycle-form" (submitted)="state.submit($event)" (closed)="state.close()" />

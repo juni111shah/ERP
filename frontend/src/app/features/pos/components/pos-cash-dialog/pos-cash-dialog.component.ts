@@ -11,6 +11,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 import { CashMovementType, PosSessionsApi } from '@core/api/pos.api';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 
 /** A shift the cash can be moved in or out of, as the dialog lists it. */
 export interface CashDialogShift {
@@ -38,6 +39,7 @@ const KINDS: { value: CashMovementType; label: string; hint: string }[] = [
 export class PosCashDialogComponent {
   private readonly sessionsApi = inject(PosSessionsApi);
   private readonly message = inject(NzMessageService);
+  private readonly access = inject(SessionStore);
 
   readonly open = input(false);
   readonly shifts = input<CashDialogShift[]>([]);
@@ -55,7 +57,8 @@ export class PosCashDialogComponent {
 
   readonly hint = computed(() => KINDS.find((k) => k.value === this.type())?.hint ?? '');
   readonly selected = computed(() => this.shifts().find((s) => s.id === this.shiftId()) ?? null);
-  readonly valid = computed(() => !!this.shiftId() && (this.amount() ?? 0) > 0 && !!this.reason().trim());
+  /** Opened only for someone who may move cash; the permission can still be taken away while the dialog is open. */
+  readonly valid = computed(() => this.access.hasPermission('pos.sessions.manage') && !!this.shiftId() &&(this.amount() ?? 0) > 0 && !!this.reason().trim());
 
   constructor() {
     effect(() => {

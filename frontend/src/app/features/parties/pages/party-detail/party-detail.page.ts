@@ -26,7 +26,7 @@ import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
 import { loadRecord } from '@shared/utils/load-record';
 import { formatMoney } from '@features/finance/finance-format';
 import { AllRows, fetchAllRows } from '@shared/utils/kpi-stats';
-import { Transaction, activityLists, customerCards, latestTransactions, transactionLink, vendorCards } from '../../parties-activity';
+import { Transaction, activityLists, customerCards, latestTransactions, transactionLink, transactionPermission, vendorCards } from '../../parties-activity';
 
 /** A customer or vendor: details, sales / purchase cards, recent documents, statement, attachments and the actions for its roles. */
 @Component({
@@ -163,7 +163,13 @@ export class PartyDetailPage implements OnInit {
     });
   }
 
-  viewTransaction(tx: Transaction): void { this.router.navigate(transactionLink(tx)); }
+  /** Whether the person may open the transaction's document page (each finance page has its own read permission). */
+  canOpenTransaction(tx: Transaction): boolean {
+    const permission = transactionPermission(tx);
+    return !!permission && this.session.hasPermission(permission);
+  }
+
+  viewTransaction(tx: Transaction): void { if (this.canOpenTransaction(tx)) void this.router.navigate(transactionLink(tx)); }
 
   private buildActions(p: PartyDetailDto): ActionButton[] {
     const acts: ActionButton[] = [

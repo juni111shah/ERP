@@ -36,7 +36,8 @@ export class MyHrPage {
   private readonly message = inject(NzMessageService);
   private readonly router = inject(Router);
   readonly currency = inject(WorkspaceCurrencyService).currency;
-  readonly canOpenEmployees = inject(SessionStore).hasPermission('hr.employees.manage');
+  private readonly session = inject(SessionStore);
+  readonly canOpenEmployees = computed(() => this.session.hasPermission('hr.employees.manage'));
   readonly me = signal<MyEmployee | null>(null);
   readonly notLinked = signal(false);
   readonly failed = signal(false);

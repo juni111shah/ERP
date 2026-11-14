@@ -21,12 +21,13 @@ import { displayDate, displayLabel } from '@core/format/display';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { CsvExportService } from '@core/services/csv-export.service';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { ErpDatePipe, ErpLabelPipe } from '@shared/pipes/display.pipes';
 import { recordLink } from '@shared/utils/record-links';
-import { AUDIT_CSV_COLUMNS, AuditRange, auditCsvRow, auditRangeStart } from '../../admin-audit';
+import { AUDIT_CSV_COLUMNS, AuditRange, auditCsvRow, auditRangeStart, auditRecordPermission } from '../../admin-audit';
 
 const EXPORT_PAGE = 200;
 const EXPORT_LIMIT = 5000;
@@ -51,6 +52,7 @@ export class AuditPage implements OnInit {
   private readonly message = inject(NzMessageService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly session = inject(SessionStore);
 
   readonly manyFields = MANY_FIELDS;
   readonly list = createPagedList((q) => this.api.list(q), { sort: '-occurredAt' });
@@ -141,7 +143,11 @@ export class AuditPage implements OnInit {
   /** A stored value in words, with a long id shortened (the tooltip has it in full). */
   valueText(value: string | null | undefined): string { return auditIsId(value) ? this.shortId(value!) : auditValue(value); }
   shortId(id: string): string { return id.length > 12 ? `${id.slice(0, 8)}…` : id; }
-  linkOf(e: AuditEvent): unknown[] | null { return recordLink(e.recordType, e.recordId, e.recordKind); }
+  /** The record's page, offered only to people who may open it. */
+  linkOf(e: AuditEvent): unknown[] | null {
+    const permission = auditRecordPermission(e.recordType, e.recordKind);
+    return permission && !this.session.hasPermission(permission) ? null : recordLink(e.recordType, e.recordId, e.recordKind);
+  }
   changeOf(e: AuditEvent): string { return auditSummary(e, (key, fallback) => this.i18n.t(key, fallback)); }
 
   // ---------- drawer ----------

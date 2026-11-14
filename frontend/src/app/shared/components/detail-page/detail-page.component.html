@@ -38,7 +38,7 @@
         <nz-descriptions nzBordered [nzColumn]="2">
           @for (item of descriptions; track item.label) {
             <nz-descriptions-item [nzTitle]="item.label" [nzSpan]="item.span ?? 1">
-              @if (item.routerLink) {
+              @if (item.routerLink && (item.linkPermission | can)) {
                 <a [routerLink]="item.routerLink">{{ item.value }}</a>
               } @else {
                 {{ shown(item.value) }}

@@ -60,10 +60,15 @@
           <div class="prj-bar"><i [style.width.%]="p.totalMilestones ? (p.achievedMilestones / p.totalMilestones) * 100 : 0"></i></div>
           <div class="k-sub">reached</div>
         </div>
-        <a class="kpi link" [routerLink]="[]" [queryParams]="{ tab: 'money' }" data-testid="kpi-unbilled">
+        <ng-template #unbilledKpi>
           <div class="k-label">Ready to bill</div><div class="k-value">{{ currency() }} {{ p.unbilledAmount | number: '1.0-0' }}</div>
           <div class="k-sub">{{ currency() }} {{ p.billedAmount | number: '1.0-0' }} billed so far</div>
-        </a>
+        </ng-template>
+        @if (can('projects.billing.read')) {
+          <a class="kpi link" [routerLink]="[]" [queryParams]="{ tab: 'money' }" data-testid="kpi-unbilled"><ng-container [ngTemplateOutlet]="unbilledKpi"></ng-container></a>
+        } @else {
+          <div class="kpi" data-testid="kpi-unbilled"><ng-container [ngTemplateOutlet]="unbilledKpi"></ng-container></div>
+        }
       </div>
 
       <nav class="tabs" role="tablist" aria-label="Project sections" data-testid="project-tabs">
@@ -87,7 +92,7 @@
 
       <erp-log-time (saved)="reload()" />
       <erp-task-drawer (changed)="reload()" />
-      <erp-record-drawer title="Edit project" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="project" [saving]="state.saving()" [errors]="state.errors()" testId="project-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+      <erp-record-drawer title="Edit project" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="project" [saving]="state.saving()" [errors]="state.errors()" writePermission="projects.projects.manage" testId="project-form" (submitted)="state.submit($event)" (closed)="state.close()" />
 
       <nz-modal [nzVisible]="cloneOpen()" [nzTitle]="p.isTemplate ? 'New project from this template' : 'Clone project'" nzOkText="Create" (nzOnOk)="clone(p)" (nzOnCancel)="cloneOpen.set(false)">
         <ng-container *nzModalContent>

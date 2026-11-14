@@ -52,7 +52,7 @@
           <span nz-icon nzType="check-square"></span>
           {{ 'core.approvals' | translate: 'Approvals' }}
         </a>
-        <a routerLink="/admin/audit" (click)="closed.emit()" class="notif-footer-link">
+        <a *erpHasPermission="'core.audit.read'" routerLink="/admin/audit" (click)="closed.emit()" class="notif-footer-link">
           <span nz-icon nzType="history"></span>
           {{ 'core.audit' | translate: 'Audit Log' }}
         </a>

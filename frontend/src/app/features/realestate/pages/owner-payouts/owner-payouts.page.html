@@ -7,7 +7,7 @@
           @case ('number') { <span class="code-pill">{{ row.number }}</span> }
           @case ('status') { <erp-status [value]="row.status" /> }
           @case ('amount') { <b>{{ row.amount | number: '1.2-2' }}</b> }
-          @case ('bill') { @if (row.billId) { <a [routerLink]="['/finance/bills', row.billId]">Open bill</a> } @else { — } }
+          @case ('bill') { @if (row.billId && ('finance.bills.read' | can)) { <a [routerLink]="['/finance/bills', row.billId]">Open bill</a> } @else if (row.billId) { {{ value }} } @else { — } }
           @case ('actions') {
             @if (row.status === 'posted') {
               <button *erpHasPermission="'realestate.ownerpayouts.manage'" nz-button nzSize="small" nzDanger type="button" (click)="voidIt(row)" data-testid="payout-void">Void</button>
@@ -18,4 +18,4 @@
       </ng-template>
       <button toolbar *erpHasPermission="'realestate.ownerpayouts.manage'" nz-button nzType="primary" (click)="pay.show()" data-testid="payout-new"><span nz-icon nzType="plus"></span>Pay an owner</button>
     </erp-paged-table>
-    <erp-record-drawer title="Pay an owner" submitLabel="Pay" [open]="pay.open()" [fields]="fields()" [saving]="pay.saving()" [errors]="pay.errors()" testId="payout-form" (submitted)="pay.submit($event)" (closed)="pay.close()" />
+    <erp-record-drawer title="Pay an owner" submitLabel="Pay" [open]="pay.open()" [fields]="fields()" [saving]="pay.saving()" [errors]="pay.errors()" writePermission="realestate.ownerpayouts.manage" testId="payout-form" (submitted)="pay.submit($event)" (closed)="pay.close()" />

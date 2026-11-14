@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -6,6 +6,7 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { TAX_KINDS, TaxCodeDto, TaxCodesApi, yesNo } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -21,6 +22,9 @@ import { MasterDataState } from '@shared/utils/master-data-state';
 })
 export class TaxCodesPage {
   private readonly api = inject(TaxCodesApi);
+  private readonly session = inject(SessionStore);
+  /** Rows open the edit drawer only for users who may change tax codes (the table already shows every field). */
+  readonly canWrite = computed(() => this.session.hasPermission('finance.tax.write'));
   readonly list = createPagedList((q) => this.api.list(q), { sort: 'code' });
   readonly state = new MasterDataState<TaxCodeDto>({
     save: (id, body) => (id ? this.api.update(id, body) : this.api.create(body)),
@@ -43,4 +47,6 @@ export class TaxCodesPage {
     { key: 'isDefault', label: 'Default for new documents', type: 'switch', default: false, hint: 'Making this the default clears the previous default.' },
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ];
+
+  edit(row: TaxCodeDto): void { if (this.canWrite()) this.state.edit(row); }
 }

@@ -8,7 +8,7 @@
         <a routerLink="/inventory/stock" nz-button nzType="default">
           <span nz-icon nzType="appstore"></span> {{ 'menu.inventory.stock' | translate: 'Stock on hand' }}
         </a>
-        <a routerLink="/inventory/warehouses" nz-button nzType="default">
+        <a *erpHasPermission="'inventory.warehouses.read'" routerLink="/inventory/warehouses" nz-button nzType="default">
           <span nz-icon nzType="home"></span> {{ 'menu.inventory.warehouses' | translate: 'Warehouses' }}
         </a>
       </div>
@@ -38,7 +38,7 @@
             }
           }
           @case ('journal') {
-            @if (row.journalEntryId) {
+            @if (row.journalEntryId && ('finance.journals.read' | can)) {
               <a [routerLink]="['/finance/journals', row.journalEntryId]" nz-button nzType="link" nzSize="small">
                 <span nz-icon nzType="book"></span> Journal
               </a>

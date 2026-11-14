@@ -24,6 +24,7 @@ import { RecordHistoryComponent } from '@shared/components/record-history/record
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { MasterDataState } from '@shared/utils/master-data-state';
 import { LeaseDepositComponent } from '../../components/lease-deposit/lease-deposit.component';
@@ -37,7 +38,7 @@ type Action = 'terminate' | 'renew';
   selector: 'erp-lease-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatCardComponent, StatePanelComponent, NzIconModule, RecordHistoryComponent, TranslatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
+  imports: [ErpDatePipe, CanPipe, StatCardComponent, StatePanelComponent, NzIconModule, RecordHistoryComponent, TranslatePipe, RouterLink, LeaseDepositComponent, AttachmentsComponent, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzButtonModule, NzCardModule, NzDescriptionsModule, NzGridModule, NzModalModule,
     NzStatisticModule, NzTableModule, NzTagModule],
   styleUrl: './lease-detail.page.scss',
   templateUrl: './lease-detail.page.html',

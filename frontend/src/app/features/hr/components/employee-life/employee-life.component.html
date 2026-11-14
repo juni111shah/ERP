@@ -34,7 +34,7 @@
             </div>
             @for (t of tasks(); track t.id) {
               <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--erp-color-border,#e2e8f0)" data-testid="task-row">
-                <input type="checkbox" [attr.aria-label]="'Done: ' + t.title" [checked]="t.isDone" (change)="toggle(t)" [disabled]="!canManage" />
+                <input type="checkbox" [attr.aria-label]="'Done: ' + t.title" [checked]="t.isDone" (change)="toggle(t)" [disabled]="!canManage()" />
                 <span [style.text-decoration]="t.isDone ? 'line-through' : 'none'" style="flex:1">{{ t.title }}</span>
                 @if (t.dueDate) { <nz-tag [nzColor]="t.overdue ? 'red' : 'default'">{{ t.dueDate | erpDate }}</nz-tag> }
               </div>

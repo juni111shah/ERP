@@ -9,5 +9,5 @@
       <button toolbar *erpHasPermission="'core.partygroups.write'" nz-button nzType="primary" (click)="state.create()" data-testid="pg-new"><span nz-icon nzType="plus"></span> New party group</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit party group' : 'New party group'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="pg-form"
+                       writePermission="core.partygroups.write" [saving]="state.saving()" [errors]="state.errors()" testId="pg-form"
                        (submitted)="state.submit($event)" (closed)="state.close()" />

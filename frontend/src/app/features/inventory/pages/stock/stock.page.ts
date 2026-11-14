@@ -43,7 +43,8 @@ export class StockPage {
   readonly data = signal<StockOnHand | null>(null);
   readonly low = signal<LowStockRow[]>([]);
   readonly failed = signal(false);
-  readonly canWrite = inject(SessionStore).hasPermission('inventory.stock.write');
+  private readonly session = inject(SessionStore);
+  readonly canWrite = computed(() => this.session.hasPermission('inventory.stock.write'));
   /** Low stock is decided per item across all warehouses, so every warehouse row of the item is marked. */
   readonly lowIds = computed(() => new Set(this.low().map((l) => l.itemId)));
   readonly lowOnly = signal(false);
@@ -84,7 +85,7 @@ export class StockPage {
   }
 
   filterWarehouse(id: string | null): void { this.warehouseId.set(id); this.load(); }
-  open(a: StockFormAction): void { this.errors.set(null); this.current.set(a); }
+  open(a: StockFormAction): void { if (!this.canWrite()) return; this.errors.set(null); this.current.set(a); }
 
   submit(values: Record<string, unknown>): void {
     const action = this.current();

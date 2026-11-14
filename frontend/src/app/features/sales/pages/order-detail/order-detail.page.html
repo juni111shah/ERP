@@ -43,12 +43,12 @@
               </span>
             }
             @if (hasDelivered()) {
-              <a *erpHasPermission="'sales.returns.manage'" [routerLink]="['/sales/returns']" [queryParams]="{ order: o.id }" nz-button data-testid="order-return">
+              <a *erpHasPermission="['sales.returns.read', 'sales.returns.manage']; mode: 'all'" [routerLink]="['/sales/returns']" [queryParams]="{ order: o.id }" nz-button data-testid="order-return">
                 <span nz-icon nzType="rollback"></span>Return goods
               </a>
             }
             @if (o.invoicedInvoiceId) {
-              <a [routerLink]="['/finance/invoices', o.invoicedInvoiceId]" nz-button nzType="dashed">
+              <a *erpHasPermission="'finance.invoices.read'" [routerLink]="['/finance/invoices', o.invoicedInvoiceId]" nz-button nzType="dashed">
                 <span nz-icon nzType="file-text"></span>View Accounting Invoice
               </a>
             }
@@ -72,8 +72,10 @@
                 <nz-descriptions-item nzTitle="Customer">{{ o.customerName }}</nz-descriptions-item>
                 <nz-descriptions-item nzTitle="PO / Reference">{{ o.customerReference || '-' }}</nz-descriptions-item>
                 <nz-descriptions-item nzTitle="Origin Quote">
-                  @if (o.quoteId) {
+                  @if (o.quoteId && ('sales.quotes.read' | can)) {
                     <a [routerLink]="['/sales/quotes', o.quoteId]">{{ o.quoteNumber || 'View Quote' }}</a>
+                  } @else if (o.quoteId) {
+                    {{ o.quoteNumber || 'Quote' }}
                   } @else {
                     Direct Order
                   }

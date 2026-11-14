@@ -44,7 +44,7 @@
         <span nz-icon nzType="warning" aria-hidden="true"></span>
         <span class="grow">{{ dirty().size === 1 ? '1 row has' : dirty().size + ' rows have' }} unsaved changes.</span>
         <button nz-button nzSize="small" (click)="discardAll()" data-testid="att-discard-all">Discard</button>
-        <button nz-button nzSize="small" nzType="primary" [nzLoading]="saving()" (click)="saveAll()" data-testid="att-save-all">Save {{ dirty().size === 1 ? 'row' : 'all ' + dirty().size }}</button>
+        @if (canManage()) { <button nz-button nzSize="small" nzType="primary" [nzLoading]="saving()" (click)="saveAll()" data-testid="att-save-all">Save {{ dirty().size === 1 ? 'row' : 'all ' + dirty().size }}</button> }
       </div>
     }
 
@@ -65,7 +65,7 @@
               <th>Paid leave</th>
               <th>Approved leave</th>
               <th>Overtime hrs</th>
-              @if (canManage) { <th><span class="sr">Actions</span></th> }
+              @if (canManage()) { <th><span class="sr">Actions</span></th> }
             </tr>
           </thead>
           <tbody>
@@ -95,10 +95,10 @@
                   }
                   <td>
                     <label class="sr" [for]="'att-' + c.key + '-' + r.employeeNumber">{{ c.label }}, {{ r.employeeName }}</label>
-                    <nz-input-number [nzId]="'att-' + c.key + '-' + r.employeeNumber" [ngModel]="r[c.key]" (ngModelChange)="edit(r, c.key, $event)" [nzMin]="c.min" [nzMax]="c.max ?? 9999" [nzPrecision]="c.precision" [nzStep]="c.step ?? 1" [nzDisabled]="!canManage" style="width:75px" [attr.data-testid]="c.testId ? c.testId + r.employeeNumber : null"></nz-input-number>
+                    <nz-input-number [nzId]="'att-' + c.key + '-' + r.employeeNumber" [ngModel]="r[c.key]" (ngModelChange)="edit(r, c.key, $event)" [nzMin]="c.min" [nzMax]="c.max ?? 9999" [nzPrecision]="c.precision" [nzStep]="c.step ?? 1" [nzDisabled]="!canManage()" style="width:75px" [attr.data-testid]="c.testId ? c.testId + r.employeeNumber : null"></nz-input-number>
                   </td>
                 }
-                @if (canManage) {
+                @if (canManage()) {
                   <td>
                     <div class="row-actions">
                       @if (dirty().has(r.employeeId)) {

@@ -17,6 +17,7 @@ import { PagedTableComponent, TableColumn } from '@shared/components/paged-table
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { ThermalReceiptComponent, ThermalReceiptData } from '@shared/components/thermal-receipt/thermal-receipt.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { askReason } from '@shared/utils/reason-prompt';
 import { tenderName } from '../../pos-cart';
@@ -27,7 +28,7 @@ import { saleReceipt } from '../../pos-receipt';
   selector: 'erp-pos-orders-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatusTagComponent, DecimalPipe, RouterModule, NzAlertModule, NzButtonModule, NzDrawerModule, NzIconModule, NzModalModule, PagedTableComponent, HasPermissionDirective, ThermalReceiptComponent],
+  imports: [ErpDatePipe, StatusTagComponent, DecimalPipe, RouterModule, NzAlertModule, NzButtonModule, NzDrawerModule, NzIconModule, NzModalModule, PagedTableComponent, HasPermissionDirective, CanPipe, ThermalReceiptComponent],
   templateUrl: './pos-orders-list.page.html',
   styleUrl: './pos-orders-list.page.scss',
 })
@@ -110,7 +111,7 @@ export class PosOrdersListPage {
 
   async voidOrder(): Promise<void> {
     const o = this.order();
-    if (!o) return;
+    if (!o || !this.sessionStore.hasPermission('pos.orders.void')) return;
     const reason = await askReason(this.modal, `Void ${o.number}?`, 'Void sale', 'This reverses the money, tax and stock of the whole sale. It only works while its shift is still open. After that, use Return.');
     if (!reason) return;
     this.voiding.set(true);

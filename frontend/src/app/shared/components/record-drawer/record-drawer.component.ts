@@ -18,6 +18,8 @@ import { DynamicFieldsComponent } from '@core/custom-fields/dynamic-field.compon
 import { LookupOption } from '@core/custom-fields/lookup-registry';
 import { applyProblemDetailsToForm, controlError } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
+import { holdsPermission } from '../../directives/has-permission.directive';
 import { FieldSpec, RowColumn, SelectOption, cellOptions, createRecordForm, groupOptions, serialiseField } from './record-form';
 
 export type { FieldSpec, FieldType, RowColumn, SelectOption } from './record-form';
@@ -47,10 +49,18 @@ export class RecordDrawerComponent {
   readonly submitLabel = input('Save');
   readonly width = input(560);
   readonly testId = input('record-form');
+  /**
+   * The permission saving needs (a list: any one of them). Without it the drawer only shows the record: no Save, and Enter does not
+   * submit. Leave it out when the host already decides who may open the drawer to edit.
+   */
+  readonly writePermission = input<string | readonly string[] | null>(null);
   readonly submitted = output<Record<string, unknown>>();
   readonly closed = output<void>();
 
   private readonly meta = inject(CustomFieldMetadataService);
+  private readonly session = inject(SessionStore);
+  /** Follows the session, so access taken away while the drawer is open hides Save at once. */
+  readonly canSave = computed(() => holdsPermission(this.session, this.writePermission()));
   /**
    * Built synchronously from the inputs (a fresh group every time the drawer opens or its record/fields change), so the template
    * never renders controls that do not exist yet. Pass stable `fields` (a constant or a computed), not a new array per change detection.
@@ -114,6 +124,7 @@ export class RecordDrawerComponent {
   err(key: string): string { return controlError(this.form().get(key)); }
 
   submit(): void {
+    if (!this.canSave()) return;
     const form = this.form();
     const visible = this.visibleFields();
     // Hidden fields are not part of the form the user sees, so they must not block saving.

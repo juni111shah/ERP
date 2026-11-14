@@ -25,6 +25,7 @@ import { CreateProjectButtonComponent } from '@shared/components/create-project-
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { loadInto } from '@shared/utils/load-into';
 import { FulfillmentDraftLine, fulfilledPercent, hasNetDelivery, toFulfillmentDraft, toFulfillmentInputs } from '../../sales-fulfillment';
@@ -54,6 +55,7 @@ import { statusChangedText } from '../../sales-status';
     NzDatePickerModule,
     NzSelectModule,
     HasPermissionDirective,
+    CanPipe,
   ],
   templateUrl: './order-detail.page.html',
   styleUrl: './order-detail.page.scss',

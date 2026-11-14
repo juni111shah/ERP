@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -6,6 +6,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { InventoryLookups, WarehouseRow, WarehousesApi } from '@core/api/inventory.api';
 import { createPagedList } from '@core/api/paged-list';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -20,16 +21,19 @@ import { MasterDataState } from '@shared/utils/master-data-state';
   imports: [TranslatePipe, NzToolTipModule, RevealDirective, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, NzButtonModule, NzIconModule],
   template: `
     <h1 class="erp-page-title">Warehouses</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No warehouses yet" (rowClick)="state.edit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No warehouses yet" (rowClick)="edit($event)">
       <button toolbar *erpHasPermission="'inventory.warehouses.write'" nz-button erpReveal data-reveal="on" [attr.aria-label]="'ui.add.newWarehouse' | translate: 'New warehouse'" nz-tooltip [nzTooltipTitle]="'ui.add.newWarehouse' | translate: 'New warehouse'" nzType="primary" (click)="state.create()" data-testid="wh-new"><span nz-icon nzType="plus"></span>New warehouse</button>
     </erp-paged-table>
-    <erp-record-drawer [title]="state.editing() ? 'Edit warehouse' : 'New warehouse'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())" customFieldEntityType="inventory.warehouse" [saving]="state.saving()" [errors]="state.errors()" testId="wh-form"
+    <erp-record-drawer [title]="state.editing() ? 'Edit warehouse' : 'New warehouse'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())" customFieldEntityType="inventory.warehouse" [saving]="state.saving()" [errors]="state.errors()" writePermission="inventory.warehouses.write" testId="wh-form"
                        (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class WarehousesPage {
   private readonly warehousesApi = inject(WarehousesApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(InventoryLookups);
+  private readonly session = inject(SessionStore);
+  /** Opening a row edits it, so only someone who may change warehouses can open one. */
+  readonly canWrite = computed(() => this.session.hasPermission('inventory.warehouses.write'));
   readonly list = createPagedList((q) => this.warehousesApi.list(q), { sort: 'code' });
   readonly state = new MasterDataState<WarehouseRow>({
     save: (id, body) => (id ? this.warehousesApi.update(id, body) : this.warehousesApi.create(body)),
@@ -46,4 +50,6 @@ export class WarehousesPage {
     { key: 'address', label: 'Address', type: 'textarea', maxLength: 500 },
     { key: 'isActive', label: 'Active', type: 'switch', default: true },
   ];
+
+  edit(row: WarehouseRow): void { if (this.canWrite()) this.state.edit(row); }
 }

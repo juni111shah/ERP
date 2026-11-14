@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -10,6 +10,8 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { toIsoDate } from '@core/format/dates';
+import { SessionStore } from '@core/session/session.store';
+import { holdsPermission } from '../../directives/has-permission.directive';
 import { SelectOption } from '../record-drawer/record-drawer.component';
 
 /** One line of the document being returned against: how much of it can still come back. */
@@ -36,8 +38,13 @@ export class ReturnFormComponent {
   readonly warehouses = input<SelectOption[]>([]);
   readonly saving = input(false);
   readonly error = input<string | null>(null);
+  /** The permission creating the return needs (sales.returns.manage or purchasing.returns.manage); without it there is no Create button. */
+  readonly writePermission = input<string | readonly string[] | null>(null);
   readonly submitted = output<ReturnFormValue>();
   readonly closed = output<void>();
+
+  private readonly session = inject(SessionStore);
+  readonly canSave = computed(() => holdsPermission(this.session, this.writePermission()));
 
   date: Date = new Date();
   reason = '';
@@ -68,7 +75,7 @@ export class ReturnFormComponent {
   setRestock(i: number, v: boolean): void { this.restocks.update((r) => r.map((x, n) => (n === i ? v : x))); }
 
   submit(): void {
-    if (!this.valid()) return;
+    if (!this.valid() || !this.canSave()) return;
     this.submitted.emit({
       returnDate: toIsoDate(this.date), reason: this.reason.trim(), notes: this.notes.trim() || null, warehouseId: this.warehouseId,
       lines: this.lines().map((l, i) => ({ key: l.key, quantity: this.quantities()[i] ?? 0, restock: this.restocks()[i] ?? true })).filter((l) => l.quantity > 0),

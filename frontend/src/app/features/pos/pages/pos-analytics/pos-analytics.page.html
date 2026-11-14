@@ -79,7 +79,7 @@
           <section class="panel" data-testid="pos-open-shifts">
             <div class="head">
               <h3>Open shifts</h3>
-              <a nz-button nzType="link" nzSize="small" routerLink="/pos/sessions">All shifts</a>
+              <a *erpHasPermission="'pos.sessions.read'" nz-button nzType="link" nzSize="small" routerLink="/pos/sessions">All shifts</a>
             </div>
             @if (shiftsFailed()) {
               <p class="muted">The open shifts could not be loaded.</p>
@@ -92,7 +92,7 @@
                 </div>
               } @empty {
                 <p class="muted">No shift is open. Open one from the terminal to start selling.</p>
-                <a nz-button routerLink="/pos/terminal"><span nz-icon nzType="shop"></span>Open Terminal</a>
+                <a *erpHasPermission="'pos.orders.create'" nz-button routerLink="/pos/terminal"><span nz-icon nzType="shop"></span>Open Terminal</a>
               }
             } @else {
               <nz-skeleton [nzActive]="true" [nzTitle]="false" [nzParagraph]="{ rows: 3 }" />
@@ -100,7 +100,7 @@
           </section>
         </div>
         <div nz-col [nzXs]="24" [nzLg]="10">
-          <erp-status-counts title="All orders by status" link="/pos/orders" linkLabel="Open orders" emptyText="No counter orders yet."
+          <erp-status-counts title="All orders by status" [link]="('pos.orders.read' | can) ? '/pos/orders' : null" linkLabel="Open orders" emptyText="No counter orders yet."
             [rows]="orders()" [failed]="countsFailed()" (retry)="loadCounts()" testId="pos-order-counts" />
         </div>
       </div>

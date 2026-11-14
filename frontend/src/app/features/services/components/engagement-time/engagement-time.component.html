@@ -18,13 +18,15 @@
                 @if (!e.isBillable) { <span class="muted"> Not billable</span> }
               </td>
               <td>
-                <div class="acts" *erpHasPermission="'services.timeentries.manage'">
+                <div class="acts">
                   @if (!e.isApproved) {
-                    <button nz-button nzSize="small" nzType="primary" type="button" [disabled]="e.consultantName === me()" (click)="approve(e)" data-testid="time-approve">Approve</button>
-                    <button nz-button nzSize="small" type="button" (click)="form.show(e)" data-testid="time-edit">Edit</button>
-                    <button nz-button nzSize="small" nzDanger type="button" nz-popconfirm nzPopconfirmTitle="Delete this time entry?" (nzOnConfirm)="remove(e)" data-testid="time-delete">Delete</button>
+                    <ng-container *erpHasPermission="'services.timeentries.manage'">
+                      <button nz-button nzSize="small" nzType="primary" type="button" [disabled]="e.consultantName === me()" (click)="approve(e)" data-testid="time-approve">Approve</button>
+                      <button nz-button nzSize="small" type="button" (click)="form.show(e)" data-testid="time-edit">Edit</button>
+                      <button nz-button nzSize="small" nzDanger type="button" nz-popconfirm nzPopconfirmTitle="Delete this time entry?" (nzOnConfirm)="remove(e)" data-testid="time-delete">Delete</button>
+                    </ng-container>
                   }
-                  @if (e.invoiceId) { <a [routerLink]="['/finance/invoices', e.invoiceId]" data-testid="time-invoice-link">Invoice</a> }
+                  @if (e.invoiceId) { <a *erpHasPermission="'finance.invoices.read'" [routerLink]="['/finance/invoices', e.invoiceId]" data-testid="time-invoice-link">Invoice</a> }
                 </div>
               </td>
             </tr>
@@ -33,4 +35,4 @@
       </nz-table>
     } @else { <p class="muted">No time has been logged against this engagement.</p> }
     <erp-record-drawer [title]="form.target() ? 'Edit time entry' : 'Log time'" [open]="form.open()" [fields]="fields" [value]="$any(form.target())" [saving]="form.saving()" [errors]="form.errors()"
-                       testId="time-form" (submitted)="form.submit($event)" (closed)="form.close()" />
+                       writePermission="services.timeentries.manage" testId="time-form" (submitted)="form.submit($event)" (closed)="form.close()" />

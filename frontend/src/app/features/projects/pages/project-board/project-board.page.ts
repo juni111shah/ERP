@@ -80,6 +80,8 @@ export class ProjectBoardPage {
   }
 
   canManage(): boolean { return this.session.hasPermission('projects.tasks.manage'); }
+  /** The project page needs read access to projects, which a tasks-only user may not have. */
+  canOpenProject(): boolean { return this.session.hasPermission('projects.projects.read'); }
 
   load(): void {
     const id = this.projectId() || this.pickedProject();

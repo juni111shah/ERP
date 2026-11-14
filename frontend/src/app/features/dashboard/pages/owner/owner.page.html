@@ -25,7 +25,7 @@
             @if (s.cards.length) {
               <div class="erp-stat-grid erp-stat-grid--auto">
                 @for (c of s.cards; track c.key; let i = $index) {
-                  <erp-stat-card [label]="c.label" [value]="c.value" [format]="format(c.format)" [currency]="currencyCode()" [caption]="c.caption ?? null" [link]="c.link ?? null" [tone]="i"
+                  <erp-stat-card [label]="c.label" [value]="c.value" [format]="format(c.format)" [currency]="currencyCode()" [caption]="c.caption ?? null" [link]="link(c.link)" [tone]="i"
                                  [testId]="'owner-card-' + c.key" />
                 }
               </div>

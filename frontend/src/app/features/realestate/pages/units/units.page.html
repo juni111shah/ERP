@@ -28,7 +28,7 @@
                      [tone]="3" />
     </div>
 
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search unit number" emptyText="No units yet" (rowClick)="open($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search unit number" emptyText="No units yet" [clickable]="canOpen()" (rowClick)="canOpen() && open($event)">
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="unit-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
@@ -67,7 +67,7 @@
     </erp-paged-table>
 
     <erp-record-drawer [title]="state.editing() ? 'Unit ' + state.editing()!.unitNumber : 'New unit'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       customFieldEntityType="realestate.unit" [saving]="state.saving()" [errors]="state.errors()" testId="unit-form"
+                       customFieldEntityType="realestate.unit" [saving]="state.saving()" [errors]="state.errors()" writePermission="realestate.units.manage" testId="unit-form"
                        (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as u) {
         <div drawerActions style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px" data-testid="unit-actions">
@@ -88,7 +88,7 @@
         </div>
       }
     </erp-record-drawer>
-    <erp-record-drawer title="Add many units" [open]="bulkOpen()" [fields]="bulkFields" submitLabel="Create units" [saving]="bulkSaving()" [errors]="bulkErrors()" testId="unit-bulk-form"
+    <erp-record-drawer title="Add many units" [open]="bulkOpen()" [fields]="bulkFields" submitLabel="Create units" [saving]="bulkSaving()" [errors]="bulkErrors()" writePermission="realestate.units.manage" testId="unit-bulk-form"
                        (submitted)="bulkCreate($event)" (closed)="bulkOpen.set(false)" />
-    <erp-record-drawer [title]="action()?.title ?? ''" [open]="!!action()" [fields]="action()?.fields ?? noFields" [saving]="actionSaving()" [errors]="actionErrors()" testId="unit-action-form"
+    <erp-record-drawer [title]="action()?.title ?? ''" [open]="!!action()" [fields]="action()?.fields ?? noFields" [saving]="actionSaving()" [errors]="actionErrors()" [writePermission]="action()?.kind === 'reserve' || action()?.kind === 'releaseReservation' ? 'realestate.units.reserve' : 'realestate.units.manage'" testId="unit-action-form"
                        [width]="420" (submitted)="runAction($event)" (closed)="action.set(null)" />

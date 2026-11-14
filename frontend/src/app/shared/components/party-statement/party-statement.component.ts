@@ -20,6 +20,8 @@ export type { PartyLedger, PartyLedgerLine } from '@core/api/party-ledger.api';
 
 const KIND_ROUTES: Record<string, string> = { invoice: '/finance/invoices', creditNote: '/finance/invoices', receipt: '/finance/receipts', bill: '/finance/bills', payment: '/finance/payments' };
 const KIND_LABELS: Record<string, string> = { invoice: 'Invoice', creditNote: 'Credit note', receipt: 'Receipt', bill: 'Bill', payment: 'Payment' };
+/** The read permission of each document's page: without it the number is shown without a link. */
+const KIND_PERMISSIONS: Record<string, string> = { invoice: 'finance.invoices.read', creditNote: 'finance.invoices.read', receipt: 'finance.receipts.read', bill: 'finance.bills.read', payment: 'finance.payments.read' };
 
 /** The server's own explanation of a failed load (detail, else title), if it sent one. */
 function serverMessage(e: { error?: { detail?: string; title?: string } } | null | undefined): string | undefined {
@@ -48,6 +50,8 @@ export class PartyStatementComponent {
   readonly partyName = input<string>('');
 
   readonly emailOpen = signal(false);
+  /** Emailing a statement needs the email permission and the reports permission (the server checks both). */
+  readonly emailPermissions = ['core.email.send', 'finance.reports.read'] as const;
   readonly range = signal<Date[]>([new Date(new Date().getFullYear(), 0, 1), new Date()]);
   readonly emailParams = computed(() => ({ asOf: toIsoDate(this.range()[1]) }));
   readonly data = signal<PartyLedger | null>(null);
@@ -60,7 +64,10 @@ export class PartyStatementComponent {
   private readonly autoLoad = effect(() => { this.partyId(); this.side(); untracked(() => this.load()); });
 
   kindLabel(kind: string): string { return this.i18n.t(`statement.kind.${kind}`, KIND_LABELS[kind] ?? kind); }
-  route(kind: string): string | null { return KIND_ROUTES[kind] ?? null; }
+  route(kind: string): string | null {
+    const permission = KIND_PERMISSIONS[kind];
+    return permission && !this.session.hasPermission(permission) ? null : KIND_ROUTES[kind] ?? null;
+  }
 
   setRange(r: Date[] | null): void {
     if (!r || r.length !== 2 || !r[0] || !r[1]) return;

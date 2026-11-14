@@ -38,7 +38,7 @@
                   </thead>
                   <tbody>
                     @for (tx of txTable.data; track tx.id) {
-                      <tr erpKeyboardClick erpKeyboardClickRole="" style="cursor: pointer;" (click)="viewTransaction(tx)">
+                      <tr [erpKeyboardClick]="canOpenTransaction(tx)" erpKeyboardClickRole="" [style.cursor]="canOpenTransaction(tx) ? 'pointer' : null" (click)="viewTransaction(tx)">
                         <td>{{ tx.type | erpLabel }}</td>
                         <td><span class="code-pill">{{ tx.number }}</span></td>
                         <td style="white-space: nowrap;">{{ tx.date | erpDate }}</td>
@@ -80,7 +80,7 @@
                   </thead>
                   <tbody>
                     @for (tx of txTable.data; track tx.id) {
-                      <tr erpKeyboardClick erpKeyboardClickRole="" style="cursor: pointer;" (click)="viewTransaction(tx)">
+                      <tr [erpKeyboardClick]="canOpenTransaction(tx)" erpKeyboardClickRole="" [style.cursor]="canOpenTransaction(tx) ? 'pointer' : null" (click)="viewTransaction(tx)">
                         <td>{{ tx.type | erpLabel }}</td>
                         <td><span class="code-pill">{{ tx.number }}</span></td>
                         <td style="white-space: nowrap;">{{ tx.date | erpDate }}</td>
@@ -107,7 +107,7 @@
           @if (canDocuments()) {
             <nz-tab [nzTitle]="'party.documents' | translate: 'Documents'">
               <ng-template nz-tab>
-                <div style="padding: 16px;" data-testid="party-documents-tab"><erp-attachments ownerType="party" [ownerId]="party()!.id" /></div>
+                <div style="padding: 16px;" data-testid="party-documents-tab"><erp-attachments ownerType="party" [ownerId]="party()!.id" writePermission="core.parties.write" /></div>
               </ng-template>
             </nz-tab>
           }

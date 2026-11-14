@@ -3,7 +3,7 @@
       <erp-stat-card label="Active projects" [value]="kpis()?.activeProjects ?? 0" format="number" [caption]="'of ' + (kpis()?.totalProjects ?? 0) + ' live projects'" [tone]="0" />
       <erp-stat-card label="Need attention" [value]="(kpis()?.atRiskProjects ?? 0) + (kpis()?.offTrackProjects ?? 0)" format="number" [caption]="(kpis()?.offTrackProjects ?? 0) + ' off track · ' + (kpis()?.overdueTasks ?? 0) + ' overdue tasks'" [tone]="(kpis()?.offTrackProjects ?? 0) > 0 ? 'danger' : 'warning'" />
       <erp-stat-card label="Budget" [value]="kpis()?.totalBudget ?? 0" format="money" [caption]="'cost so far ' + currency() + ' ' + ((kpis()?.totalCost ?? 0) | number: '1.0-0')" [tone]="3" />
-      <erp-stat-card label="Ready to bill" [value]="kpis()?.unbilledAmount ?? 0" format="money" [caption]="((kpis()?.totalLoggedHours ?? 0) | number: '1.1-1') + ' h logged in total'" [tone]="4" link="/projects/billing" />
+      <erp-stat-card label="Ready to bill" [value]="kpis()?.unbilledAmount ?? 0" format="money" [caption]="((kpis()?.totalLoggedHours ?? 0) | number: '1.1-1') + ' h logged in total'" [tone]="4" [link]="('projects.billing.read' | can) ? '/projects/billing' : null" />
     </div>
 
     <div class="prj-toolbar views">
@@ -90,7 +90,7 @@
     </ng-template>
 
     <erp-record-drawer [title]="state.editing() ? 'Edit project' : 'New project'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="project"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="project-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="projects.projects.manage" testId="project-form" (submitted)="state.submit($event)" (closed)="state.close()" />
 
     <nz-modal [nzVisible]="cloning() !== null" [nzTitle]="cloning()?.fromTemplate ? 'New project from a template' : 'Clone project'" nzOkText="Create" [nzOkLoading]="busy()" (nzOnOk)="clone()" (nzOnCancel)="cloning.set(null)">
       <ng-container *nzModalContent>

@@ -5,13 +5,14 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { ManufacturingKpiApi, ManufacturingKpisDto } from '@core/api/manufacturing.api';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { CanPipe } from '@shared/pipes/can.pipe';
 
 /** Manufacturing analytics: the month's work orders, output, yield and cost KPIs. */
 @Component({
   selector: 'erp-manufacturing-analytics-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NzButtonModule, NzIconModule, StatCardComponent, StatePanelComponent],
+  imports: [CanPipe, NzButtonModule, NzIconModule, StatCardComponent, StatePanelComponent],
   templateUrl: './manufacturing-analytics.page.html',
   styleUrl: './manufacturing-analytics.page.scss',
 })

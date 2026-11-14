@@ -69,7 +69,7 @@
       @if (editable()) {
         @if (journal()?.id) { <button *erpHasPermission="'finance.journals.write'" nz-button nzDanger (click)="remove()" style="margin-inline-start:8px" data-testid="j-delete">Delete</button> }
         <button *erpHasPermission="'finance.journals.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="j-save">Save draft</button>
-        <button *erpHasPermission="'finance.journals.post'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save(true)" style="margin-inline-start:8px" data-testid="j-post">Save and post</button>
+        <button *erpHasPermission="['finance.journals.write', 'finance.journals.post']; mode: 'all'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save(true)" style="margin-inline-start:8px" data-testid="j-post">Save and post</button>
       }
     </ng-template>
 

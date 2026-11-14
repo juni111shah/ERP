@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzMessageService } from 'ng-zorro-antd/message';
@@ -6,6 +6,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { createPagedList } from '@core/api/paged-list';
 import { PRIORITIES, PmScheduleDto, PmSchedulesApi, RealEstateLookups, humanize } from '@core/api/realestate.api';
 import { I18nService } from '@core/i18n/i18n.service';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -24,6 +25,9 @@ export class PmSchedulesPage {
   private readonly schedulesApi = inject(PmSchedulesApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  private readonly session = inject(SessionStore);
+  /** A row opens the edit drawer, so only people who may change schedules can open it. */
+  readonly canManage = computed(() => this.session.hasPermission('realestate.pm.manage'));
   readonly list = createPagedList((q) => this.schedulesApi.list(q), { sort: 'nextDue' });
   readonly state = new MasterDataState<PmScheduleDto>({
     save: (id, body) => (id ? this.schedulesApi.update(id, body) : this.schedulesApi.create(body)), reload: () => this.list.reload(), message: this.message, entityName: 'Schedule',

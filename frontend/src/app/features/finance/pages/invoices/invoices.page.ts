@@ -28,6 +28,7 @@ import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { SuccessToastService } from '@core/services/success-toast.service';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
@@ -90,6 +91,7 @@ export class InvoicesPage implements OnInit {
   private readonly leaseLinksApi = inject(InvoiceLeaseLinksApi);
   private readonly lookups = inject(FinanceLookups).load({ entities: true, taxCodes: true });
   private readonly workspaceCurrency = inject(WorkspaceCurrencyService).currency;
+  private readonly session = inject(SessionStore);
 
   readonly entities = this.lookups.entities;
   readonly taxes = this.lookups.activeTaxes;
@@ -144,7 +146,8 @@ export class InvoicesPage implements OnInit {
   private readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.value });
   readonly totals = computed(() => taxedLineTotals(this.value().lines ?? [], this.taxes()));
   readonly sheetData = computed(() => { const i = this.invoice(); return i ? { ...i, lines: i.lines.map((l) => ({ ...l, taxCodeId: l.taxCodeId ?? null })) } : null; });
-  readonly editable = computed(() => !this.invoice() || this.invoice()!.status === 'draft');
+  /** A new or draft invoice, and the user may write invoices: otherwise the drawer is read-only. */
+  readonly editable = computed(() => (!this.invoice() || this.invoice()!.status === 'draft') && this.session.hasPermission('finance.invoices.write'));
   readonly title = computed(() => this.invoice() ? `${this.invoice()!.isCreditNote ? 'Credit note' : 'Invoice'} ${this.invoice()!.number}` : 'New invoice');
   private readonly dueDate: TermsDueDate;
 

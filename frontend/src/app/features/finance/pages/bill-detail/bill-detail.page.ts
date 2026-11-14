@@ -53,7 +53,7 @@ export class BillDetailPage implements OnInit {
 
   actions = computed((): ActionButton[] => { const bil = this.bill(); return bil ? this.buildActions(bil) : []; });
   kpiCards = computed((): KpiCard[] => { const bil = this.bill(); return bil ? paymentKpis(bil, this.balance(), this.daysOverdue()) : []; });
-  descriptions = computed((): DescriptionItem[] => { const bil = this.bill(); return bil ? billDescriptions(bil) : []; });
+  descriptions = computed((): DescriptionItem[] => { const bil = this.bill(); return bil ? billDescriptions(bil, this.session.hasPermission('core.parties.read')) : []; });
 
   money(v: number): string { return formatMoney(v, this.bill()?.currencyCode); }
 
@@ -119,9 +119,9 @@ export class BillDetailPage implements OnInit {
 }
 
 /** Vendor, dates and currency; approval, vendor reference and notes when there are any. */
-function billDescriptions(bil: BillDetailDto): DescriptionItem[] {
+function billDescriptions(bil: BillDetailDto, partyLink: boolean): DescriptionItem[] {
   const items: DescriptionItem[] = [
-    { label: 'Vendor', value: bil.partyName, routerLink: ['/parties', bil.partyId] },
+    { label: 'Vendor', value: bil.partyName, routerLink: partyLink ? ['/parties', bil.partyId] : undefined },
     { label: 'Bill Date', value: displayDate(bil.billDate) },
     { label: 'Due Date', value: displayDate(bil.dueDate) },
     { label: 'Currency', value: bil.currencyCode },

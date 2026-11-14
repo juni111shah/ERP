@@ -12,11 +12,13 @@ import { FinanceDocumentsApi, PaymentDetailDto } from '@core/api/finance-documen
 import { problemMessage } from '@core/http/problem-details';
 import { tNow } from '@core/i18n/translate-now';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { ActionButton, DescriptionItem, DetailPageComponent, KpiCard } from '@shared/components/detail-page/detail-page.component';
 import { EmailDocumentDrawerComponent } from '@shared/components/email-document-drawer/email-document-drawer.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { SuccessPanelComponent } from '@shared/components/success-panel/success-panel.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { loadRecord } from '@shared/utils/load-record';
 import { askReason } from '@shared/utils/reason-prompt';
 import { formatMoney } from '../../finance-format';
@@ -28,7 +30,7 @@ const PAYMENT_PAGE: SettlementPageSpec = { listRoute: '/finance/payments', permi
 @Component({
   selector: 'erp-payment-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, NzButtonModuleForPanel, NzModalModule, NzSpinModule, NzTableModule, TranslatePipe, DetailPageComponent, EmailDocumentDrawerComponent, StatePanelComponent, SuccessPanelComponent, HasPermissionDirective],
+  imports: [CommonModule, RouterLink, NzButtonModuleForPanel, NzModalModule, NzSpinModule, NzTableModule, TranslatePipe, DetailPageComponent, EmailDocumentDrawerComponent, StatePanelComponent, SuccessPanelComponent, HasPermissionDirective, CanPipe],
   templateUrl: './payment-detail.page.html',
 })
 export class PaymentDetailPage implements OnInit {
@@ -38,6 +40,7 @@ export class PaymentDetailPage implements OnInit {
   private readonly api = inject(PaymentsApi);
   private readonly documentsApi = inject(FinanceDocumentsApi);
   private readonly modal = inject(NzModalService);
+  private readonly session = inject(SessionStore);
 
   readonly emailOpen = signal(false);
   /** Arrived here straight after recording the money: the outcome stays on the page until it is closed or the person leaves. */
@@ -59,7 +62,7 @@ export class PaymentDetailPage implements OnInit {
 
   actions = computed((): ActionButton[] => { const pay = this.payment(); return pay ? settlementActions(pay, PAYMENT_PAGE, this.router, () => this.voidPayment(), () => this.emailOpen.set(true)) : []; });
   kpiCards = computed((): KpiCard[] => { const pay = this.payment(); return pay ? settlementKpis(pay, PAYMENT_PAGE) : []; });
-  descriptions = computed((): DescriptionItem[] => { const pay = this.payment(); return pay ? settlementDescriptions(pay, PAYMENT_PAGE) : []; });
+  descriptions = computed((): DescriptionItem[] => { const pay = this.payment(); return pay ? settlementDescriptions(pay, PAYMENT_PAGE, this.session.hasPermission('core.parties.read')) : []; });
 
   money(v: number): string { return formatMoney(v, this.payment()?.currencyCode); }
 

@@ -24,7 +24,7 @@ import { RecordFormContext, recordFieldSpecs, toFormValue, toRecordInput } from 
   imports: [RecordDrawerComponent],
   template: `
     <erp-record-drawer [title]="title()" [open]="open()" [fields]="fields()" [value]="formValue()" [saving]="saving()" [errors]="errors()" [width]="880"
-                       testId="industry-form" (submitted)="submit($event)" (closed)="closed.emit()" />`,
+                       [writePermission]="writePermission()" testId="industry-form" (submitted)="submit($event)" (closed)="closed.emit()" />`,
 })
 export class IndustryRecordFormComponent {
   readonly module = input.required<string>();
@@ -56,6 +56,8 @@ export class IndustryRecordFormComponent {
   }));
   readonly fields = computed(() => recordFieldSpecs(this.type(), this.context()));
   readonly formValue = computed(() => { const r = this.record(); return r ? toFormValue(r, this.type()) : null; });
+  /** Creating and editing a record of this type need the type's manage permission. */
+  readonly writePermission = computed(() => `${this.module()}.${this.type().key}.manage`);
 
   /** The pick lists the person may read: active business units, active items and the workspace's units; a list that cannot be loaded stays empty. */
   constructor() {

@@ -7,6 +7,7 @@ import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { displayNote } from '@core/i18n/translate-now';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { daysOverdue, formatMoney, humanizeSource, invoiceStatusLabel, taxNameFor, taxRegLabelFor } from '../../finance-format';
 
 /** The invoice fields the sheet renders (a subset of InvoiceDto, so the list drawer and the detail page can share it). */
@@ -24,7 +25,7 @@ interface SheetRow { seq: number; description: string; quantity: number; price: 
   selector: 'erp-invoice-sheet',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, ErpDatePipe, StatusTagComponent, RouterLink, NzTagModule],
+  imports: [TranslatePipe, ErpDatePipe, CanPipe, StatusTagComponent, RouterLink, NzTagModule],
   styleUrl: './invoice-sheet.component.scss',
   templateUrl: './invoice-sheet.component.html',
 })

@@ -21,4 +21,4 @@
     }
     <erp-record-drawer [title]="state.editing()?.id ? ('coa.editAccount' | translate: 'Edit account') : ('coa.newAccount' | translate: 'New account')" [open]="state.open()" [fields]="fields()"
                        [value]="$any(state.editing())" customFieldEntityType="account"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="account-form" (submitted)="state.submit($event)" (closed)="closeForm()" />
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="finance.accounts.write" testId="account-form" (submitted)="state.submit($event)" (closed)="closeForm()" />

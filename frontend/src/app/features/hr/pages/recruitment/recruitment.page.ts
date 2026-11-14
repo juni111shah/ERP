@@ -11,6 +11,7 @@ import { CANDIDATE_STAGES, CandidateDto, CandidateRow, CandidatesApi, Checklists
 import { createPagedList } from '@core/api/paged-list';
 import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
@@ -37,6 +38,9 @@ export class RecruitmentPage {
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
   private readonly router = inject(Router);
+  private readonly session = inject(SessionStore);
+  /** Opening a vacancy or candidate edits it, so only someone who may manage recruitment can open one. */
+  readonly canManage = computed(() => this.session.hasPermission('hr.recruitment.manage'));
   private readonly entityPage = itemsSignal(inject(LegalEntitiesApi).list({ page: 1, pageSize: 100 }));
   private readonly templatePage = itemsSignal(inject(ChecklistsApi).list({ page: 1, pageSize: 100, filters: [{ field: 'kind', op: 'eq', value: 'onboarding' }] }));
 
@@ -97,7 +101,7 @@ export class RecruitmentPage {
   stageLabel(s: string): string { return optionLabel(CANDIDATE_STAGES, s); }
   next(stage: string): string | undefined { return NEXT[stage]; }
 
-  openOpening(row: OpeningRow): void { this.openingsApi.detail(row.id).subscribe((o) => this.openingState.edit(o)); }
+  openOpening(row: OpeningRow): void { if (this.canManage()) this.openingsApi.detail(row.id).subscribe((o) => this.openingState.edit(o)); }
   removeOpening(id: string): void {
     const deletedTitle = this.openingState.editing()?.title;
     this.modal.confirm({
@@ -109,7 +113,7 @@ export class RecruitmentPage {
     });
   }
 
-  openCandidate(row: CandidateRow): void { this.candidatesApi.detail(row.id).subscribe((c) => this.candidateState.edit(c)); }
+  openCandidate(row: CandidateRow): void { if (this.canManage()) this.candidatesApi.detail(row.id).subscribe((c) => this.candidateState.edit(c)); }
 
   /** Moves the candidate to `stage`; a rejection asks first. */
   move(c: CandidateRow, stage: string): void {
@@ -130,7 +134,7 @@ export class RecruitmentPage {
       next: (r) => {
         this.busy.set(false); this.hiring.set(null); this.candidates.reload(); this.openings.reload();
         this.message.success(`${c.fullName} is now employee ${r.employeeNumber}${r.tasksCreated ? ` with ${r.tasksCreated} onboarding tasks` : ''}`);
-        void this.router.navigate(['/hr/employees']);
+        if (this.session.hasPermission('hr.employees.read')) void this.router.navigate(['/hr/employees']);
       },
       error: (e) => { this.busy.set(false); const p = asProblem(e); this.errors.set(p); this.message.error(p?.detail ?? p?.title ?? 'Could not hire'); },
     });

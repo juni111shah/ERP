@@ -51,7 +51,7 @@
                   </button>
                 }
                 @if (row.convertedPurchaseOrderId) {
-                  <a [routerLink]="['/purchasing/orders', row.convertedPurchaseOrderId]" nz-button nzType="link" nzSize="small">
+                  <a *erpHasPermission="'purchasing.orders.read'" [routerLink]="['/purchasing/orders', row.convertedPurchaseOrderId]" nz-button nzType="link" nzSize="small">
                     View PO
                   </a>
                 }

@@ -28,7 +28,7 @@
             <div><erp-status [value]="d.status" [label]="label(d.status)" />
               @if (d.decisionComment) { <span>{{ d.decisionComment }}</span> }</div>
           }
-          @if (canDecide()) { <input aria-label="Comment for the decision (optional)" nz-input placeholder="Comment for the decision (optional)" [(ngModel)]="comment" maxlength="500" data-testid="leave-comment" /> }
+          @if (canDecide() && ('hr.leave.approve' | can)) { <input aria-label="Comment for the decision (optional)" nz-input placeholder="Comment for the decision (optional)" [(ngModel)]="comment" maxlength="500" data-testid="leave-comment" /> }
         </div>
       </ng-container>
     </nz-drawer>

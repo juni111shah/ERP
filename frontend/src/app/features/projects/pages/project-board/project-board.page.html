@@ -37,7 +37,9 @@
                     <article class="card erp-lift" cdkDrag [cdkDragData]="t" [cdkDragDisabled]="!canManage()" [attr.data-testid]="'card-' + t.number" tabindex="0" (click)="drawer()?.open(t.id)" (keydown.enter)="drawer()?.open(t.id)">
                       <div class="top"><span class="num">{{ t.number }}</span><erp-prj-tag kind="priority" [value]="t.priority" /></div>
                       <div class="title">@if (t.parentTaskId) { <span class="prj-muted" title="Subtask">↳ </span> }{{ t.title }}</div>
-                      @if (!projectId() && group() !== 'project') { <a class="project" [routerLink]="['/projects', t.projectId]" [queryParams]="{ tab: 'tasks' }" (click)="$event.stopPropagation()">{{ t.projectName }}</a> }
+                      @if (!projectId() && group() !== 'project') {
+                        @if (canOpenProject()) { <a class="project" [routerLink]="['/projects', t.projectId]" [queryParams]="{ tab: 'tasks' }" (click)="$event.stopPropagation()">{{ t.projectName }}</a> } @else { <span class="project">{{ t.projectName }}</span> }
+                      }
                       <div class="meta">
                         @if (t.assignedTo) { <span class="who" [title]="t.assignedTo">{{ initials(t.assignedTo) }}</span> }
                         @if (t.dueDate) { <span [class.late]="isLate(t)">{{ t.dueDate | erpDate }}</span> }

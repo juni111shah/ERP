@@ -18,4 +18,4 @@
       </ng-template>
     </erp-paged-table>
     <erp-record-drawer [title]="mode() === 'create' ? 'New loan or advance' : 'Pay out the loan'" [open]="mode() !== null" [fields]="fields()" [saving]="saving()" [errors]="errors()" [width]="460"
-                       testId="loan-form" [submitLabel]="mode() === 'create' ? 'Save' : 'Pay out'" (submitted)="submit($event)" (closed)="mode.set(null)" />
+                       [writePermission]="mode() === 'create' ? 'hr.payroll.manage' : 'hr.payroll.pay'" testId="loan-form" [submitLabel]="mode() === 'create' ? 'Save' : 'Pay out'" (submitted)="submit($event)" (closed)="mode.set(null)" />

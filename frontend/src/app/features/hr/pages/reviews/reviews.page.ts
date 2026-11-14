@@ -12,6 +12,7 @@ import { CompetencyDto, EmployeeSummary, EmployeesApi, RATINGS, ReviewCycleDto, 
 import { createPagedList } from '@core/api/paged-list';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -34,6 +35,7 @@ export class ReviewsPage {
   private readonly employeesApi = inject(EmployeesApi);
   private readonly cyclesApi = inject(ReviewCyclesApi);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
   readonly ratings = RATINGS;
   readonly employees = signal<EmployeeSummary[]>([]);
   readonly cycles = signal<ReviewCycleDto[]>([]);
@@ -56,7 +58,8 @@ export class ReviewsPage {
   readonly busy = signal(false);
   readonly employeeName = signal('');
   readonly competencies = signal<CompetencyDto[]>([]);
-  readonly locked = computed(() => this.status() !== 'draft');
+  /** Only a draft can be changed, and only by someone who may manage reviews (hr.reviews.manage). */
+  readonly locked = computed(() => this.status() !== 'draft' || !this.session.hasPermission('hr.reviews.manage'));
 
   employeeId: string | null = null;
   cycleId: string | null = null;

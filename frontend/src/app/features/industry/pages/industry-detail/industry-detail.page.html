@@ -13,10 +13,10 @@
             @if (actionError(); as e) {
               <nz-alert class="section" nzType="error" nzShowIcon [nzMessage]="e" nzCloseable (nzOnClose)="actionError.set(null)" data-testid="industry-action-error"></nz-alert>
             }
-            @if (r.invoiceId || r.billId) {
+            @if ((r.invoiceId && ('finance.invoices.read' | can)) || (r.billId && ('finance.bills.read' | can))) {
               <div class="section links">
-                @if (r.invoiceId) { <a [routerLink]="['/finance/invoices', r.invoiceId]" data-testid="industry-invoice-link">{{ 'View the invoice' | translate: 'View the invoice' }}</a> }
-                @if (r.billId) { <a [routerLink]="['/finance/bills', r.billId]" data-testid="industry-bill-link">{{ 'View the bill' | translate: 'View the bill' }}</a> }
+                @if (r.invoiceId && ('finance.invoices.read' | can)) { <a [routerLink]="['/finance/invoices', r.invoiceId]" data-testid="industry-invoice-link">{{ 'View the invoice' | translate: 'View the invoice' }}</a> }
+                @if (r.billId && ('finance.bills.read' | can)) { <a [routerLink]="['/finance/bills', r.billId]" data-testid="industry-bill-link">{{ 'View the bill' | translate: 'View the bill' }}</a> }
               </div>
             }
             @if (t.hasLines) {
@@ -45,7 +45,7 @@
                             } @else { <span class="muted">{{ l.completedQuantity | number: '1.0-4' }} / {{ l.quantity | number: '1.0-4' }}</span> }
                           </td>
                         }
-                        <td>@if (l.invoiceId) { <a [routerLink]="['/finance/invoices', l.invoiceId]">View</a> } @else { <span class="muted">—</span> }</td>
+                        <td>@if (l.invoiceId && ('finance.invoices.read' | can)) { <a [routerLink]="['/finance/invoices', l.invoiceId]">View</a> } @else if (l.invoiceId) { <span class="muted">{{ 'Invoiced' | translate: 'Invoiced' }}</span> } @else { <span class="muted">—</span> }</td>
                       </tr>
                     }
                   </tbody>

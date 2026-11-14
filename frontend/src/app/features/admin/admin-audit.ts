@@ -1,5 +1,32 @@
 import { AuditEvent } from '@core/api/admin.api';
 
+/**
+ * The read permission of the page each audited record type opens (the route guard of that page). The audit log offers "Open record"
+ * only to people who hold it; a type not listed here has no extra check.
+ */
+const RECORD_READ_PERMISSIONS: Record<string, (kind?: string | null) => string> = {
+  Party: () => 'core.parties.read',
+  Invoice: () => 'finance.invoices.read',
+  Bill: () => 'finance.bills.read',
+  JournalEntry: () => 'finance.journals.read',
+  Settlement: (kind) => (kind === '1' || kind === 'Issued' ? 'finance.payments.read' : 'finance.receipts.read'),
+  SalesQuote: () => 'sales.quotes.read',
+  SalesOrder: () => 'sales.orders.read',
+  PurchaseOrder: () => 'purchasing.orders.read',
+  PosOrder: () => 'pos.orders.read',
+  Project: () => 'projects.projects.read',
+  StockCount: () => 'inventory.counts.read',
+  PayrollRun: () => 'hr.payroll.read',
+  Property: () => 'realestate.properties.read',
+  Lease: () => 'realestate.leases.read',
+  Acquisition: () => 'realestate.acquisitions.read',
+};
+
+/** The permission needed to open the page of an audited record, or null when the page has no check of its own. */
+export function auditRecordPermission(recordType: string, kind?: string | null): string | null {
+  return RECORD_READ_PERMISSIONS[recordType]?.(kind) ?? null;
+}
+
 /** The time ranges the audit log can be narrowed to. */
 export type AuditRange = 'all' | 'today' | '7' | '30';
 

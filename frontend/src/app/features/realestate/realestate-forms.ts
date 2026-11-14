@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { OWNERSHIPS, PAYMENT_PLANS, PROPERTY_TYPES, RealEstateLookups } from '@core/api/realestate.api';
 import { toIsoDate } from '@core/format/dates';
 import { I18nService } from '@core/i18n/i18n.service';
+import { SessionStore } from '@core/session/session.store';
 import { FieldSpec } from '@shared/components/record-drawer/record-drawer.component';
 
 /** Field specs for the property form (shared by the list and the detail page). */
@@ -47,6 +48,7 @@ const recordText = (key: string) => (r: Record<string, unknown>): string | undef
  */
 export function leaseFields(lookups: RealEstateLookups, editing: boolean): FieldSpec[] {
   const i18n = inject(I18nService);
+  const session = inject(SessionStore);
   return [
     { key: 'unitId', label: 'Unit', type: 'lookup', lookup: lookups.availableUnit, required: true, hint: 'Only vacant or reserved units are listed.', currentLabel: recordText('unitNumber') },
     { key: 'lesseePartyId', label: 'Tenant', type: 'lookup', lookup: lookups.party('customer'), required: true, currentLabel: recordText('tenantName') },
@@ -64,6 +66,7 @@ export function leaseFields(lookups: RealEstateLookups, editing: boolean): Field
     { key: 'graceDays', label: 'Rent-free days', type: 'number', min: 0, precision: 0, default: 0, hint: 'Billing starts after the free period.' },
     { key: 'noticePeriodDays', label: 'Notice period (days)', type: 'number', min: 0, max: 365, precision: 0, default: 90 },
     { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 2000 },
-    ...(editing ? [] : [{ key: 'activateNow', label: 'Activate now', type: 'switch', default: false } as FieldSpec]),
+    // A lease activated on creation needs realestate.leases.activate (CreateLeaseCommand), so only those users see the switch.
+    ...(editing ? [] : [{ key: 'activateNow', label: 'Activate now', type: 'switch', default: false, hidden: () => !session.hasPermission('realestate.leases.activate') } as FieldSpec]),
   ];
 }

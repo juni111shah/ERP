@@ -19,7 +19,7 @@
         @if (has('weeks')) { <nz-input-number [(ngModel)]="weeks" [nzMin]="1" [nzMax]="52" [nzPrecision]="0"></nz-input-number> <span>weeks</span> }
         @if (has('days')) { <nz-input-number [(ngModel)]="days" [nzMin]="1" [nzMax]="3650" [nzPrecision]="0"></nz-input-number> <span>days idle</span> }
         @if (has('months')) { <nz-input-number [(ngModel)]="months" [nzMin]="1" [nzMax]="36" [nzPrecision]="0"></nz-input-number> <span>months</span> }
-        <button nz-button nzType="primary" [nzLoading]="loading()" (click)="run()" data-testid="report-run">Run</button>
+        <button *erpHasPermission="runPermission()" nz-button nzType="primary" [nzLoading]="loading()" (click)="run()" data-testid="report-run">Run</button>
         <span class="spacer"></span>
         @if (def()!.action; as a) { <button *erpHasPermission="a.permission" nz-button [disabled]="!data() || !entity()" (click)="runAction()" data-testid="report-action">{{ a.label }}</button> }
         <button nz-button (click)="csv()" [disabled]="!data()" data-testid="report-csv"><span nz-icon nzType="download"></span>CSV</button>

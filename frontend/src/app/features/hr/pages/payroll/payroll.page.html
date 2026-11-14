@@ -25,5 +25,5 @@
       </ng-template>
       <button toolbar *erpHasPermission="'hr.payroll.manage'" nz-button nzType="primary" (click)="drawer.set(true)" data-testid="payroll-new"><span nz-icon nzType="plus"></span>Generate payroll</button>
     </erp-paged-table>
-    <erp-record-drawer title="Generate payroll" [open]="drawer()" [fields]="fields()" [saving]="saving()" [errors]="errors()" [width]="440" testId="payroll-form" submitLabel="Generate"
+    <erp-record-drawer title="Generate payroll" [open]="drawer()" [fields]="fields()" [saving]="saving()" [errors]="errors()" [width]="440" writePermission="hr.payroll.manage" testId="payroll-form" submitLabel="Generate"
                        (submitted)="generate($event)" (closed)="drawer.set(false)" />

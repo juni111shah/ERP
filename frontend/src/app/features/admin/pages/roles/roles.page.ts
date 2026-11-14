@@ -12,6 +12,7 @@ import { PermissionDefinition, RoleDto, RolesApi } from '@core/api/admin.api';
 import { createPagedList } from '@core/api/paged-list';
 import { doneText } from '@core/format/done-text';
 import { controlError } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { revealErrors } from '@shared/forms/form-validation';
@@ -43,7 +44,9 @@ export class RolesPage {
   readonly editing = signal<RoleDto | null>(null);
   readonly selected = signal<ReadonlySet<string>>(new Set());
   readonly permissions = signal<PermissionDefinition[]>([]);
-  readonly readOnly = computed(() => !!this.editing()?.isBuiltIn);
+  private readonly session = inject(SessionStore);
+  /** Built-in roles cannot change, and nobody without core.roles.write may change any role: the drawer then only shows it. */
+  readonly readOnly = computed(() => !!this.editing()?.isBuiltIn || !this.session.hasPermission('core.roles.write'));
   readonly groups = computed(() => groupPermissions(this.permissions()));
   readonly form = this.fb.nonNullable.group({ name: ['', [Validators.required, Validators.maxLength(100)]], description: [''] });
 
@@ -65,6 +68,7 @@ export class RolesPage {
   }
 
   save(): void {
+    if (this.readOnly()) return;
     if (this.form.invalid) { revealErrors(this.form, { touchAll: true }); return; }
     const v = this.form.getRawValue();
     const body = { name: v.name, description: v.description || null, permissions: [...this.selected()] };

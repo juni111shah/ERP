@@ -28,7 +28,7 @@
                      [tone]="3" />
     </div>
 
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search title or channel" emptyText="No listings yet" (rowClick)="state.edit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search title or channel" emptyText="No listings yet" [clickable]="canManage()" (rowClick)="canManage() && state.edit($event)">
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="listing-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
@@ -70,7 +70,7 @@
       </ng-template>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Listing' : 'New listing'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="listing-form" (submitted)="state.submit($event)" (closed)="state.close()">
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="realestate.crm.manage" testId="listing-form" (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as l) {
         <div drawerActions style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px" data-testid="listing-actions">
           <erp-status-tag [status]="l.status" />

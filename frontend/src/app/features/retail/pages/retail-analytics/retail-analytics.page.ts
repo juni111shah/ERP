@@ -5,6 +5,7 @@ import { NzCardModule } from 'ng-zorro-antd/card';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { RetailKpiApi, RetailKpiSummaryDto } from '@core/api/retail.api';
+import { SessionStore } from '@core/session/session.store';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 
@@ -20,6 +21,12 @@ import { StatePanelComponent } from '@shared/components/state-panel/state-panel.
 export class RetailAnalyticsPageComponent implements OnInit {
   private readonly kpiApi = inject(RetailKpiApi);
   private readonly router = inject(Router);
+  private readonly session = inject(SessionStore);
+
+  /** Each card links to its list only for someone who may open that list. */
+  readonly storesLink = computed(() => (this.session.hasPermission('retail.stores.read') ? '/retail/stores' : null));
+  readonly priceListsLink = computed(() => (this.session.hasPermission('retail.pricelists.read') ? '/retail/pricelists' : null));
+  readonly promotionsLink = computed(() => (this.session.hasPermission('retail.promotions.read') ? '/retail/promotions' : null));
 
   readonly kpi = signal<RetailKpiSummaryDto | null>(null);
   readonly loading = signal(false);
@@ -44,6 +51,7 @@ export class RetailAnalyticsPageComponent implements OnInit {
   }
 
   goToStores(): void {
+    if (!this.storesLink()) return;
     void this.router.navigateByUrl('/retail/stores');
   }
 }

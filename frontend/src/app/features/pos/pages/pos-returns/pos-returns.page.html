@@ -1,6 +1,6 @@
 
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search return, receipt, customer, cashier" emptyText="No returns yet. Take one from the terminal, against the receipt." exportFilename="pos-returns" (rowClick)="open($event)">
-      <a toolbar *erpHasPermission="'pos.orders.refund'" routerLink="/pos/terminal" nz-button nzType="primary" data-testid="pos-open-terminal"><span nz-icon nzType="rollback"></span>Take a return</a>
+      <a toolbar *erpHasPermission="['pos.orders.refund', 'pos.orders.create']; mode: 'all'" routerLink="/pos/terminal" nz-button nzType="primary" data-testid="pos-open-terminal"><span nz-icon nzType="rollback"></span>Take a return</a>
       <ng-template #cell let-r let-column="column" let-value="value">
         @if (column.key === 'number') {
           <strong class="nowrap">{{ r.number }}</strong>
@@ -25,7 +25,9 @@
             <div class="kv"><span>Customer</span><span>{{ r.customerName }}</span></div>
             <div class="kv"><span>Cashier</span><span>{{ r.cashierName }}</span></div>
             <div class="kv"><span>Reason</span><span>{{ r.reason }}</span></div>
-            @if (r.creditNoteNumber) { <div class="kv"><span>Credit note</span><a [routerLink]="['/finance/invoices', r.creditNoteId]">{{ r.creditNoteNumber }}</a></div> }
+            @if (r.creditNoteNumber) {
+              <div class="kv"><span>Credit note</span>@if ('finance.invoices.read' | can) { <a [routerLink]="['/finance/invoices', r.creditNoteId]">{{ r.creditNoteNumber }}</a> } @else { <span>{{ r.creditNoteNumber }}</span> }</div>
+            }
           </div>
           <h4>Items</h4>
           @for (l of r.lines; track l.id) {

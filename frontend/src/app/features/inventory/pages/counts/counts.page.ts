@@ -22,7 +22,7 @@ import { injectWarehouseList, warehouseNameMap } from '../../inventory-warehouse
     <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search count number or memo" emptyText="No stock counts yet. Start one to compare what is on the shelf with the system." (rowClick)="open($event)">
       <button toolbar *erpHasPermission="'inventory.counts.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="count-new"><span nz-icon nzType="plus"></span>New count</button>
     </erp-paged-table>
-    <erp-record-drawer title="New stock count" [open]="state.open()" [fields]="fields" [value]="null" [saving]="state.saving()" [errors]="state.errors()" testId="count-form"
+    <erp-record-drawer title="New stock count" [open]="state.open()" [fields]="fields" [value]="null" [saving]="state.saving()" [errors]="state.errors()" writePermission="inventory.counts.manage" testId="count-form"
                        (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class CountsPage {

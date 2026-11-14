@@ -69,4 +69,4 @@
       </ng-template>
     </erp-paged-table>
     <erp-record-drawer title="New lease" [open]="state.open()" [fields]="fields" customFieldEntityType="realestate.lease" [saving]="state.saving()" [errors]="state.errors()"
-                       testId="lease-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                       writePermission="realestate.leases.create" testId="lease-form" (submitted)="state.submit($event)" (closed)="state.close()" />

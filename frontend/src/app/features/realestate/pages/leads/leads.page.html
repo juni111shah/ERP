@@ -39,7 +39,7 @@
       </div>
     }
 
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, phone, email" emptyText="No leads yet" (rowClick)="state.edit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, phone, email" emptyText="No leads yet" [clickable]="canManage()" (rowClick)="canManage() && state.edit($event)">
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All stages" [ngModel]="selectedStage()" (ngModelChange)="filterStage($event)" data-testid="lead-stage-filter">
         @for (s of stages; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
@@ -86,7 +86,7 @@
       </ng-template>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? state.editing()!.name : 'New lead'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="lead-form" (submitted)="state.submit($event)" (closed)="state.close()">
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="realestate.crm.manage" testId="lead-form" (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as l) {
         <div drawerActions style="margin-bottom:16px" data-testid="lead-actions">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -105,7 +105,7 @@
         </div>
       }
     </erp-record-drawer>
-    <erp-record-drawer title="Mark lead as lost" [open]="losing() !== null" [fields]="lostFields" [saving]="busy()" [errors]="errors()" [width]="420" testId="lead-lost-form"
+    <erp-record-drawer title="Mark lead as lost" [open]="losing() !== null" [fields]="lostFields" [saving]="busy()" [errors]="errors()" [width]="420" writePermission="realestate.crm.manage" testId="lead-lost-form"
                        submitLabel="Mark as lost" (submitted)="lose($event)" (closed)="losing.set(null)" />
-    <erp-record-drawer title="Convert to deal" [open]="converting() !== null" [fields]="convertFields()" [saving]="busy()" [errors]="errors()" [width]="420" testId="lead-convert-form"
+    <erp-record-drawer title="Convert to deal" [open]="converting() !== null" [fields]="convertFields()" [saving]="busy()" [errors]="errors()" [width]="420" writePermission="realestate.crm.manage" testId="lead-convert-form"
                        submitLabel="Convert" (submitted)="convert($event)" (closed)="converting.set(null)" />

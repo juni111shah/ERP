@@ -96,7 +96,7 @@
         </section>
       }
     }
-    <erp-record-drawer [title]="asking() ? 'Ask for ' + asking()!.name : ''" [open]="!!asking()" [fields]="fields" [value]="askValue()" [saving]="saving()" [errors]="errors()" submitLabel="Send request" testId="billing-request-form"
+    <erp-record-drawer [title]="asking() ? 'Ask for ' + asking()!.name : ''" [open]="!!asking()" [fields]="fields" [value]="askValue()" [saving]="saving()" [errors]="errors()" submitLabel="Send request" writePermission="core.billing.manage" testId="billing-request-form"
                        (submitted)="send($event)" (closed)="asking.set(null)">
       <p drawerActions style="margin:0 0 16px;color:var(--erp-color-text-muted)">Our team confirms the change with you. Nothing changes until they do.</p>
     </erp-record-drawer>

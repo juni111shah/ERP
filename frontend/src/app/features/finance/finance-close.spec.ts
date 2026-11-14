@@ -133,7 +133,7 @@ describe('cash flow report', () => {
 
 describe('approvals', () => {
   it('shows the level a request waits at and its steps', () => {
-    const http = setup(['core.settings.read']);
+    const http = setup(['core.settings.read', 'finance.bills.approve']);
     const f = TestBed.createComponent(ApprovalsPage);
     f.detectChanges();
     const req = { id: 'r1', documentType: 'bill', subject: 'Bill 77', requestedBy: 'u2', requestedAt: '2026-03-01T00:00:00Z', status: 'pending', currentLevel: 2, currentApproverPermission: 'finance.bills.approve',
@@ -142,7 +142,7 @@ describe('approvals', () => {
     f.detectChanges();
     const root = f.nativeElement as HTMLElement;
     expect(root.querySelector('[data-testid="approval-level"]')?.textContent).toContain('Level 2 of 2');
-    // Without the core decide permission the buttons still show: the server checks the permission of the current level.
+    // Holding the current level's permission is enough, without the core decide permission (the server checks the level's permission).
     expect(root.querySelector('[data-testid="approve"]')).not.toBeNull();
     f.componentInstance.showSteps(req as never);
     http.expectOne((r) => r.url.endsWith('/approvals/r1')).flush(req);

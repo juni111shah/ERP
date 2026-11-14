@@ -13,6 +13,7 @@ import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
@@ -40,6 +41,9 @@ export class UnitsPage {
   private readonly unitsApi = inject(UnitsApi);
   private readonly message = inject(NzMessageService);
   private readonly lookups = inject(RealEstateLookups);
+  private readonly session = inject(SessionStore);
+  /** A row opens the unit drawer: its form saves with units.manage, reserve / release need units.reserve. */
+  readonly canOpen = computed(() => this.session.hasPermission('realestate.units.manage') || this.session.hasPermission('realestate.units.reserve'));
   readonly currency = inject(WorkspaceCurrencyService).currency;
   readonly humanize = humanize;
   readonly statuses = STATUSES;

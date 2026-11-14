@@ -29,10 +29,10 @@
     <ng-template #footer>
       <button nz-button (click)="close()">Close</button>
       @if (!done()) {
-        <button nz-button (click)="doPreview()" [disabled]="!terminationDate || busy()" data-testid="term-preview">Preview settlement</button>
-        <button nz-button nzType="primary" nzDanger (click)="confirm()" [disabled]="!terminationDate || busy()" data-testid="term-confirm">End employment</button>
+        <button *erpHasPermission="'hr.payroll.read'" nz-button (click)="doPreview()" [disabled]="!terminationDate || busy()" data-testid="term-preview">Preview settlement</button>
+        <button *erpHasPermission="'hr.employees.manage'" nz-button nzType="primary" nzDanger (click)="confirm()" [disabled]="!terminationDate || busy()" data-testid="term-confirm">End employment</button>
       } @else {
         @if (preview()?.settlementRunId) { <span style="margin-inline-end:8px">A settlement already exists.</span> }
-        @else { <button nz-button nzType="primary" (click)="settle()" [disabled]="busy()" data-testid="term-settle">Prepare final settlement</button> }
+        @else { <button *erpHasPermission="'hr.payroll.manage'" nz-button nzType="primary" (click)="settle()" [disabled]="busy()" data-testid="term-settle">Prepare final settlement</button> }
       }
     </ng-template>

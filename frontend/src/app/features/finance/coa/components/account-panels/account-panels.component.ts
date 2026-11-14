@@ -8,6 +8,7 @@ import { AccountCategoryDto, AccountNodeDto, AccountSubcategoryDto } from '@core
 import { problemMessage } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { ExpandSearchComponent } from '@shared/components/expand-search/expand-search.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { RevealDirective } from '@shared/directives/reveal.directive';
@@ -42,6 +43,7 @@ const SUB_LABELS: Record<string, string> = {
 })
 export class AccountPanelsComponent {
   readonly store = inject(AccountTreeStore);
+  private readonly session = inject(SessionStore);
   private readonly i18n = inject(I18nService);
   private readonly message = inject(NzMessageService);
   private readonly injector = inject(Injector);
@@ -78,6 +80,8 @@ export class AccountPanelsComponent {
 
   /** Edit from a row, the owner card or the details drawer; the drawer gives way to the form and returns if it is cancelled. */
   onEdit(a: AccountNodeDto): void {
+    // A double-click on a row also lands here: only users who may edit the chart get the form.
+    if (!this.session.hasPermission('finance.accounts.write')) return;
     if (this.store.detail()?.id === a.id) this.store.suspendDetail();
     this.edit.emit(a);
   }

@@ -25,7 +25,7 @@ const BUSINESS_UNIT_KINDS = ['branch', 'store', 'site', 'department', 'warehouse
       <button toolbar *erpHasPermission="'core.businessunits.write'" nz-button nzType="primary" (click)="state.create()" data-testid="bu-new"><span nz-icon nzType="plus"></span> New business unit</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit business unit' : 'New business unit'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       customFieldEntityType="businessunit" [saving]="state.saving()" [errors]="state.errors()" testId="bu-form"
+                       customFieldEntityType="businessunit" writePermission="core.businessunits.write" [saving]="state.saving()" [errors]="state.errors()" testId="bu-form"
                        (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class BusinessUnitsPage {

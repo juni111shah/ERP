@@ -9,6 +9,7 @@ import { AccountsApi, CoaNumbering } from '@core/api/admin.api';
 import { problemMessage } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 
 /**
@@ -27,14 +28,15 @@ export class CoaNumberingEditorComponent {
   private readonly api = inject(AccountsApi);
   private readonly message = inject(NzMessageService);
   private readonly i18n = inject(I18nService);
+  private readonly session = inject(SessionStore);
   readonly mode = signal<'free' | 'hierarchical'>('free');
   readonly segments = signal<number[]>([4, 2, 2]);
   readonly separator = signal('-');
   readonly saving = signal(false);
   private readonly saved = signal<CoaNumbering | null>(null);
 
-  /** The template's single switch for a read-only editor; always editable for now. */
-  readonly canEdit = computed(() => true);
+  /** The template's single switch for a read-only editor: saving needs core.settings.write (PUT finance/coa-numbering). */
+  readonly canEdit = computed(() => this.session.hasPermission('core.settings.write'));
   readonly length = computed(() => this.segments().reduce((a, b) => a + b, 0) + (this.segments().length - 1) * this.separator().length);
   readonly pattern = computed(() => this.segments().map((s) => '0'.repeat(s)).join(this.separator()));
   readonly canSave = computed(() => {

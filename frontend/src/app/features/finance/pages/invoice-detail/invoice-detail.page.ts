@@ -27,6 +27,7 @@ import { StatePanelComponent } from '@shared/components/state-panel/state-panel.
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { SuccessPanelComponent } from '@shared/components/success-panel/success-panel.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { loadRecord } from '@shared/utils/load-record';
 import { askReason } from '@shared/utils/reason-prompt';
 import { InvoiceSheetComponent } from '../../components/invoice-sheet/invoice-sheet.component';
@@ -59,6 +60,7 @@ interface InvoiceOutcome { kind: 'issued' | 'sent'; title: string; detail: strin
     StatusTagComponent,
     SuccessPanelComponent,
     HasPermissionDirective,
+    CanPipe,
     InvoiceSheetComponent,
   ],
   styleUrl: './invoice-detail.page.scss',
@@ -216,7 +218,7 @@ export class InvoiceDetailPage implements OnInit {
       { label: 'Void', icon: 'stop', danger: true, permission: 'finance.invoices.void', visible: inv.status === 'issued' && inv.paid === 0, handler: () => this.voidInvoice() },
       { label: 'Delete', icon: 'delete', danger: true, permission: 'finance.invoices.write', visible: inv.status === 'draft', handler: () => this.deleteDraft() },
       { label: 'Duplicate', icon: 'copy', permission: 'finance.invoices.write', handler: () => this.duplicate() },
-      { label: 'View Journal', icon: 'book', visible: !!inv.journalEntryId, handler: () => this.viewJournal(inv.journalEntryId!) },
+      { label: 'View Journal', icon: 'book', permission: 'finance.journals.read', visible: !!inv.journalEntryId, handler: () => this.viewJournal(inv.journalEntryId!) },
       { label: 'Print', icon: 'printer', handler: () => this.print(inv.id) },
       { label: 'Email', icon: 'mail', permission: 'core.email.send', visible: inv.status !== 'draft' && inv.status !== 'voided' && inv.status !== 'pendingApproval', handler: () => this.email() },
     ];
@@ -226,7 +228,7 @@ export class InvoiceDetailPage implements OnInit {
     const h = this.extras()?.header;
     const items: DescriptionItem[] = [];
     if (h) items.push({ label: 'Company', value: h.legalEntityName || h.organizationName });
-    items.push({ label: 'Customer', value: inv.partyName || 'Customer', routerLink: ['/parties', inv.partyId] });
+    items.push({ label: 'Customer', value: inv.partyName || 'Customer', routerLink: this.session.hasPermission('core.parties.read') ? ['/parties', inv.partyId] : undefined });
     if (this.issuedBy()) items.push({ label: 'Issued by', value: this.issuedBy() });
     const link = this.leaseLink();
     if (link) {

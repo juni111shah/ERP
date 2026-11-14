@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -30,7 +30,8 @@ export class ProjectNotesComponent {
   private readonly api = inject(ProjectsExtraApi);
   private readonly msg = inject(NzMessageService);
   private readonly session = inject(SessionStore);
-  readonly views = [{ key: 'discussion', label: 'Discussion' }, { key: 'files', label: 'Files' }, { key: 'activity', label: 'Activity' }];
+  /** Files needs read access to attachments; the tab is left out without it. */
+  readonly views = computed(() => [{ key: 'discussion', label: 'Discussion' }, ...(this.session.hasPermission('core.attachments.read') ? [{ key: 'files', label: 'Files' }] : []), { key: 'activity', label: 'Activity' }]);
   readonly view = signal('discussion');
   readonly comments = signal<CommentDto[]>([]);
   readonly activity = signal<ActivityDto[]>([]);
@@ -43,6 +44,7 @@ export class ProjectNotesComponent {
     loadOrFallback(this.activity, this.api.activity(this.projectId()), []);
   }
 
+  canSeeFiles(): boolean { return this.session.hasPermission('core.attachments.read'); }
   /** Authors delete their own comments; project managers delete any. */
   canDelete(c: CommentDto): boolean { return c.userId === this.session.me()?.user?.id || this.session.hasPermission('projects.projects.manage'); }
 

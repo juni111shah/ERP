@@ -83,5 +83,7 @@
     </nz-drawer>
     <ng-template #footer>
       <button nz-button type="button" (click)="closed.emit()">{{ 'common.cancel' | translate: 'Cancel' }}</button>
-      <button nz-button nzType="primary" type="button" [nzLoading]="saving()" (click)="submit()" style="margin-inline-start:8px" [attr.data-testid]="testId() + '-save'">{{ submitLabel() === 'Save' ? ('common.save' | translate: 'Save') : submitLabel() }}</button>
+      @if (canSave()) {
+        <button nz-button nzType="primary" type="button" [nzLoading]="saving()" (click)="submit()" style="margin-inline-start:8px" [attr.data-testid]="testId() + '-save'">{{ submitLabel() === 'Save' ? ('common.save' | translate: 'Save') : submitLabel() }}</button>
+      }
     </ng-template>

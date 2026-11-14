@@ -16,6 +16,7 @@ import { PagedTableComponent, TableColumn } from '@shared/components/paged-table
 import { FieldSpec, RecordDrawerComponent, SelectOption } from '@shared/components/record-drawer/record-drawer.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ActionFormState } from '@shared/utils/action-form-state';
 import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
 import { loadInto } from '@shared/utils/load-into';
@@ -32,7 +33,7 @@ function payoutBody(p: Record<string, unknown>): Record<string, unknown> {
   selector: 'erp-owner-payouts',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, NzButtonModule, NzIconModule, NzModalModule, HasPermissionDirective, PagedTableComponent, RecordDrawerComponent, StatusTagComponent],
+  imports: [DecimalPipe, RouterLink, NzButtonModule, NzIconModule, NzModalModule, HasPermissionDirective, CanPipe, PagedTableComponent, RecordDrawerComponent, StatusTagComponent],
   templateUrl: './owner-payouts.page.html',
 })
 export class OwnerPayoutsPage {

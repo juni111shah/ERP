@@ -54,8 +54,8 @@
     <ng-template #noStock>
       @if (lowOnly()) { <span>These items have no stock in any warehouse.</span> }
       @else if (data()?.rows?.length) { <span>No stock matches this search.</span> }
-      @else { <erp-state-panel title="No stock yet" hint="Receive stock to get started." icon="inbox" [actionLabel]="canWrite ? 'Receive stock' : null" (action)="open('receive')" /> }
+      @else { <erp-state-panel title="No stock yet" hint="Receive stock to get started." icon="inbox" [actionLabel]="canWrite() ? 'Receive stock' : null" (action)="open('receive')" /> }
     </ng-template>
     }
-    <erp-record-drawer [title]="title()" [open]="current() !== null" [fields]="fields()" [value]="null" [saving]="saving()" [errors]="errors()" testId="stock-form" [width]="480"
+    <erp-record-drawer [title]="title()" [open]="current() !== null" [fields]="fields()" [value]="null" [saving]="saving()" [errors]="errors()" writePermission="inventory.stock.write" testId="stock-form" [width]="480"
                        (submitted)="submit($event)" (closed)="current.set(null)" />

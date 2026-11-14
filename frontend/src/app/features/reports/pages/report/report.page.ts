@@ -19,7 +19,7 @@ import { StatCardComponent } from '@shared/components/stat-card/stat-card.compon
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { RevealDirective } from '@shared/directives/reveal.directive';
-import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef, ReportRow } from '../../report-registry';
+import { LEDGER_REPORT_LINKS, REPORTS, ReportColumn, ReportDef, ReportRow, reportPermission } from '../../report-registry';
 
 /** A cell as the table shows it: money and numbers formatted, dates in the display format. */
 function cellText(v: unknown, c: ReportColumn): string {
@@ -63,7 +63,10 @@ export class ReportPage {
   private readonly session = inject(SessionStore);
   readonly slug = toSignal(inject(ActivatedRoute).paramMap.pipe(map((p) => p.get('slug'))), { initialValue: null });
   readonly def = computed<ReportDef | null>(() => REPORTS.find((r) => r.slug === this.slug()) ?? null);
-  readonly available = computed(() => REPORTS.filter((r) => !r.module || this.session.isModuleEnabled(r.module)));
+  /** Reports of enabled modules whose endpoint the user may read. */
+  readonly available = computed(() => REPORTS.filter((r) => (!r.module || this.session.isModuleEnabled(r.module)) && this.session.hasPermission(reportPermission(r))));
+  /** The open report's read permission (gates Run). */
+  readonly runPermission = computed(() => { const d = this.def(); return d ? reportPermission(d) : null; });
   readonly ledgerLinks = LEDGER_REPORT_LINKS;
   from: Date | null = new Date(new Date().getFullYear(), 0, 1);
   to: Date | null = new Date();
@@ -86,7 +89,7 @@ export class ReportPage {
 
   constructor() {
     // Open with figures, not an empty page, unless the report first needs a choice from the user.
-    effect(() => { this.entity(); if (this.def() && !this.def()!.filters.includes('owner')) untracked(() => this.run()); });
+    effect(() => { this.entity(); if (this.def() && !this.def()!.filters.includes('owner') && this.session.hasPermission(reportPermission(this.def()!))) untracked(() => this.run()); });
   }
 
   searchOwners(term: string): void { this.api.searchParties(term).subscribe((r) => this.owners.set(r.items)); }

@@ -20,4 +20,4 @@
       </ng-container>
     </nz-drawer>
     <erp-record-drawer [title]="editing() ? 'Edit document' : 'Add document'" [open]="form()" [fields]="fields" [value]="$any(editing())" [saving]="saving()" [errors]="errors()" [width]="440"
-                       testId="doc-form" (submitted)="save($event)" (closed)="form.set(false)" />
+                       writePermission="hr.employees.manage" testId="doc-form" (submitted)="save($event)" (closed)="form.set(false)" />

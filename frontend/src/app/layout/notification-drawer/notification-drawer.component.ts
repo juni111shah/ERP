@@ -5,6 +5,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NotificationDto, NotificationsApi } from '@core/api/notifications.api';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { KeyboardClickDirective } from '@shared/directives/keyboard-click.directive';
 import { notificationAge, notificationIcon } from './notification-format';
 
@@ -13,7 +14,7 @@ import { notificationAge, notificationIcon } from './notification-format';
   selector: 'erp-notification-drawer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KeyboardClickDirective, TranslatePipe, DatePipe, RouterLink, NzButtonModule, NzIconModule],
+  imports: [KeyboardClickDirective, HasPermissionDirective, TranslatePipe, DatePipe, RouterLink, NzButtonModule, NzIconModule],
   styleUrl: './notification-drawer.component.scss',
   templateUrl: './notification-drawer.component.html',
 })

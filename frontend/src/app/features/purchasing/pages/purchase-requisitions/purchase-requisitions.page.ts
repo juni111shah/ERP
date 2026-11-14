@@ -24,6 +24,7 @@ import { displayLabel } from '@core/format/display';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { SessionStore } from '@core/session/session.store';
 import { ApprovalStateComponent } from '@shared/components/approval-state/approval-state.component';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
@@ -87,6 +88,7 @@ export class PurchaseRequisitionsPage {
   private readonly reqsApi = inject(PurchaseRequisitionsApi);
   private readonly lookups = inject(PurchasingLookups);
   private readonly currencyService = inject(WorkspaceCurrencyService);
+  private readonly session = inject(SessionStore);
 
   readonly currency = this.currencyService.currency;
   readonly list = createPagedList((q) => this.reqsApi.list(q), { sort: 'number' });
@@ -218,7 +220,7 @@ export class PurchaseRequisitionsPage {
         this.message.success(`${req.number} converted to purchase order ${po.number}`);
         this.convertModalVisible.set(false);
         this.list.reload();
-        this.router.navigate(['/purchasing/orders', po.id]);
+        if (this.session.hasPermission('purchasing.orders.read')) this.router.navigate(['/purchasing/orders', po.id]);
       },
       error: (err) => {
         this.converting.set(false);

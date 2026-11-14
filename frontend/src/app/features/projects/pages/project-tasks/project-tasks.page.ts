@@ -65,6 +65,8 @@ export class ProjectTasksPage {
 
   setView(key: string): void { this.view.set(key); this.list.setPage(1); }
   canManage(): boolean { return this.session.hasPermission('projects.tasks.manage'); }
+  /** The project page needs read access to projects, which a tasks-only user may not have. */
+  canOpenProject(): boolean { return this.session.hasPermission('projects.projects.read'); }
   moves(t: TaskDto): StatusOption[] { return taskOptions(t.status); }
   isLate(t: TaskDto): boolean { return !!t.dueDate && t.dueDate < isoToday() && t.status !== 'done' && t.status !== 'cancelled'; }
 

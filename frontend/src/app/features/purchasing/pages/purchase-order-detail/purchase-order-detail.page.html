@@ -46,17 +46,17 @@
               </span>
             }
             @for (billId of o.billIds ?? []; track billId; let n = $index) {
-              <a [routerLink]="['/finance/bills', billId]" nz-button nzType="dashed" data-testid="po-bill-link">
+              <a *erpHasPermission="'finance.bills.read'" [routerLink]="['/finance/bills', billId]" nz-button nzType="dashed" data-testid="po-bill-link">
                 <span nz-icon nzType="file-text"></span>Bill {{ n + 1 }}
               </a>
             }
             @if (hasReceived()) {
-              <a *erpHasPermission="'purchasing.returns.manage'" [routerLink]="['/purchasing/returns']" [queryParams]="{ order: o.id }" nz-button data-testid="po-return">
+              <a *erpHasPermission="['purchasing.returns.read', 'purchasing.returns.manage']; mode: 'all'" [routerLink]="['/purchasing/returns']" [queryParams]="{ order: o.id }" nz-button data-testid="po-return">
                 <span nz-icon nzType="rollback"></span>Return goods
               </a>
             }
             @if (o.invoicedBillId && !(o.billIds?.length)) {
-              <a [routerLink]="['/finance/bills', o.invoicedBillId]" nz-button nzType="dashed">
+              <a *erpHasPermission="'finance.bills.read'" [routerLink]="['/finance/bills', o.invoicedBillId]" nz-button nzType="dashed">
                 <span nz-icon nzType="file-text"></span>View Vendor Bill
               </a>
             }

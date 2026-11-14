@@ -90,10 +90,10 @@
             <footer class="keys" aria-label="Keyboard shortcuts">
               <span><kbd>F2</kbd> Scan</span>
               <span><kbd>F3</kbd> Customer</span>
-              <span><kbd>F4</kbd> Discount</span>
+              @if (discountLimit() > 0) { <span><kbd>F4</kbd> Discount</span> }
               <span><kbd>F6</kbd> Hold</span>
               <span><kbd>F7</kbd> Held sales</span>
-              <span><kbd>F8</kbd> Return</span>
+              @if (canReturn()) { <span><kbd>F8</kbd> Return</span> }
               <span><kbd>F9</kbd> Pay</span>
               <span><kbd>↑↓</kbd> Line</span>
               <span><kbd>+ −</kbd> Qty</span>
@@ -111,7 +111,7 @@
               <button nz-button type="button" (click)="startHeld()" data-testid="pos-held" [disabled]="!registerId()">
                 <span nz-icon nzType="pause-circle"></span>Held @if (heldCount()) { <b class="count" data-testid="pos-held-count">{{ heldCount() }}</b> }
               </button>
-              <button *erpHasPermission="'pos.orders.refund'" nz-button type="button" (click)="startReturn()" [disabled]="!session()" data-testid="pos-return"><span nz-icon nzType="rollback"></span>Return</button>
+              <button *erpHasPermission="['pos.orders.refund', 'pos.orders.read']; mode: 'all'" nz-button type="button" (click)="startReturn()" [disabled]="!session()" data-testid="pos-return"><span nz-icon nzType="rollback"></span>Return</button>
             </div>
 
             <div class="lines" #linesBox>
@@ -160,13 +160,14 @@
               <div class="sum-row"><span>Tax</span><span class="num" data-testid="pos-tax-total">{{ currency() }} {{ totals().tax | number:'1.2-2' }}</span></div>
               <div class="grand"><span>Total</span><span class="num" data-testid="pos-total">{{ currency() }} {{ totals().total | number:'1.2-2' }}</span></div>
               <div class="sum-actions">
-                <button nz-button nzSize="large" type="button" [disabled]="!cart().length" (click)="startDiscount()" data-testid="pos-discount"><span nz-icon nzType="percentage"></span>Discount</button>
+                <button nz-button nzSize="large" type="button" [disabled]="!cart().length || discountLimit() <= 0" (click)="startDiscount()" data-testid="pos-discount"><span nz-icon nzType="percentage"></span>Discount</button>
                 <button nz-button nzSize="large" type="button" [disabled]="!cart().length || !session() || holding()" (click)="holdSale()" data-testid="pos-hold"><span nz-icon nzType="pause-circle"></span>Hold</button>
               </div>
-              <button *erpHasPermission="'pos.orders.create'" nz-button nzType="primary" nzBlock nzSize="large" class="pay" type="button" data-testid="pos-pay" [disabled]="!cart().length || !session() || promoStale() || promoBusy()" (click)="startPayment()">
+              <button *erpHasPermission="'pos.orders.create'" nz-button nzType="primary" nzBlock nzSize="large" class="pay" type="button" data-testid="pos-pay" [disabled]="!cart().length || !session() || promoStale() || promoBusy() || needsOverride()" (click)="startPayment()">
                 <span nz-icon nzType="credit-card"></span> Pay {{ currency() }} {{ totals().total | number:'1.2-2' }} <kbd>F9</kbd>
               </button>
               @if (!session() && cart().length) { <p class="hint" data-testid="pos-pay-hint">Open a shift to take payment.</p> }
+              @if (needsOverride()) { <p class="hint" role="alert" data-testid="pos-pay-override">A discount or price on this ticket needs a manager. Change those lines, or ask someone who may approve them.</p> }
             </div>
           </section>
         </div>
@@ -189,14 +190,14 @@
           @if (receipt(); as rc) { <erp-thermal-receipt [receipt]="rc" /> }
         </ng-container>
         <ng-template #receiptFooter>
-          <a nz-button nzSize="large" [href]="receiptPrintUrl()" target="_blank" rel="noopener" data-testid="pos-print"><span nz-icon nzType="printer"></span>Print</a>
-          @if (receiptOrderId(); as orderId) { <a nz-button nzSize="large" [routerLink]="['/pos/orders', orderId]" data-testid="pos-view-order">View order</a> }
+          <a *erpHasPermission="'pos.orders.read'" nz-button nzSize="large" [href]="receiptPrintUrl()" target="_blank" rel="noopener" data-testid="pos-print"><span nz-icon nzType="printer"></span>Print</a>
+          @if (receiptOrderId(); as orderId) { <a *erpHasPermission="'pos.orders.read'" nz-button nzSize="large" [routerLink]="['/pos/orders', orderId]" data-testid="pos-view-order">View order</a> }
           <button #newSale nz-button nzType="primary" nzSize="large" (click)="finishReceipt()" data-testid="pos-new-sale">New sale</button>
         </ng-template>
       </nz-modal>
 
       <!-- Open shift -->
-      <nz-modal [nzVisible]="openShiftOpen()" nzTitle="Open shift" nzOkText="Open shift" [nzOkLoading]="shiftBusy()" [nzOkDisabled]="openFloat() === null" (nzAfterOpen)="focusField('pos-open-float')" (nzOnCancel)="openShiftOpen.set(false)" (nzOnOk)="submitOpenShift()">
+      <nz-modal [nzVisible]="openShiftOpen()" nzTitle="Open shift" nzOkText="Open shift" [nzOkLoading]="shiftBusy()" [nzOkDisabled]="openFloat() === null || !('pos.sessions.manage' | can)" (nzAfterOpen)="focusField('pos-open-float')" (nzOnCancel)="openShiftOpen.set(false)" (nzOnOk)="submitOpenShift()">
         <ng-container *nzModalContent>
           <div class="stack">
             <div>
@@ -213,7 +214,7 @@
       </nz-modal>
 
       <!-- Close shift -->
-      <nz-modal [nzVisible]="closeShiftOpen()" nzTitle="Close shift" nzOkText="Close shift" nzOkDanger [nzOkLoading]="shiftBusy()" [nzOkDisabled]="closeCash_() === null" [nzWidth]="480" (nzAfterOpen)="focusField('pos-close-cash')" (nzOnCancel)="closeShiftOpen.set(false)" (nzOnOk)="submitCloseShift()">
+      <nz-modal [nzVisible]="closeShiftOpen()" nzTitle="Close shift" nzOkText="Close shift" nzOkDanger [nzOkLoading]="shiftBusy()" [nzOkDisabled]="closeCash_() === null || !('pos.sessions.manage' | can)" [nzWidth]="480" (nzAfterOpen)="focusField('pos-close-cash')" (nzOnCancel)="closeShiftOpen.set(false)" (nzOnOk)="submitCloseShift()">
         <ng-container *nzModalContent>
           @if (session(); as s) {
             <div class="stack">
@@ -315,7 +316,7 @@
       </nz-modal>
 
       <!-- Other item -->
-      <nz-modal [nzVisible]="openItemOpen()" nzTitle="Other item" nzOkText="Add to ticket" [nzOkDisabled]="!openItemName().trim() || openItemPrice() <= 0" (nzOnCancel)="openItemOpen.set(false); focusScan()" (nzOnOk)="addOpenItem()">
+      <nz-modal [nzVisible]="openItemOpen()" nzTitle="Other item" nzOkText="Add to ticket" [nzOkDisabled]="!openItemName().trim() || openItemPrice() <= 0 || !canOverridePrice()" (nzOnCancel)="openItemOpen.set(false); focusScan()" (nzOnOk)="addOpenItem()">
         <ng-container *nzModalContent>
           <div class="stack">
             <div>

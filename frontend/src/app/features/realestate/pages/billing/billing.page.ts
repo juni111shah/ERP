@@ -13,13 +13,15 @@ import { asProblem } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 
 /** Rent billing: invoices every rent instalment that has fallen due by the chosen date. Safe to run again: invoiced instalments are skipped. */
 @Component({
   selector: 'erp-billing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzAlertModule, NzModalModule, StatCardComponent, StatePanelComponent],
+  imports: [FormsModule, RouterLink, NzButtonModule, NzDatePickerModule, NzAlertModule, NzModalModule, StatCardComponent, StatePanelComponent, HasPermissionDirective, CanPipe],
   styleUrl: './billing.page.scss',
   templateUrl: './billing.page.html',
 })

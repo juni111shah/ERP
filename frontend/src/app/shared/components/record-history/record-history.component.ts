@@ -1,10 +1,11 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzSkeletonModule } from 'ng-zorro-antd/skeleton';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { HistoryEntry, RecordHistoryApi } from '@core/api/record-history.api';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 
 /** Entries fetched per "more" click. */
 const PAGE_SIZE = 20;
@@ -28,13 +29,20 @@ export class RecordHistoryComponent {
   readonly recordType = input.required<string>();
   readonly recordId = input.required<string>();
   private readonly historyApi = inject(RecordHistoryApi);
+  private readonly session = inject(SessionStore);
+  /** GET /audit/record needs the audit permission; without it nothing is asked. */
+  readonly canRead = computed(() => this.session.hasPermission('core.audit.read'));
   readonly entries = signal<HistoryEntry[]>([]);
   readonly loading = signal(false);
   readonly hasMore = signal(false);
   private page = 1;
 
   constructor() {
-    effect(() => { this.recordType(); this.recordId(); this.page = 1; this.entries.set([]); this.load(); });
+    effect(() => {
+      this.recordType(); this.recordId();
+      const allowed = this.canRead();
+      untracked(() => { this.page = 1; this.entries.set([]); this.hasMore.set(false); if (allowed) this.load(); });
+    });
   }
 
   more(): void { this.page++; this.load(); }

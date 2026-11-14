@@ -38,7 +38,7 @@
             <thead><tr><th>Person</th><th>Project</th><th>From</th><th>To</th><th class="prj-num">Hours / week</th><th></th></tr></thead>
             <tbody>
               @for (a of allocations(); track a.id) {
-                <tr><td>{{ a.userName }}</td><td><a class="prj-link" [routerLink]="['/projects', a.projectId]" [queryParams]="{ tab: 'team' }">{{ projectName(a.projectId) }}</a></td><td>{{ a.fromDate | erpDate }}</td><td>{{ a.toDate | erpDate }}</td><td class="prj-num">{{ a.hoursPerWeek | number: '1.0-1' }}</td>
+                <tr><td>{{ a.userName }}</td><td>@if (canOpenProject()) { <a class="prj-link" [routerLink]="['/projects', a.projectId]" [queryParams]="{ tab: 'team' }">{{ projectName(a.projectId) }}</a> } @else { {{ projectName(a.projectId) }} }</td><td>{{ a.fromDate | erpDate }}</td><td>{{ a.toDate | erpDate }}</td><td class="prj-num">{{ a.hoursPerWeek | number: '1.0-1' }}</td>
                   <td class="prj-num"><ng-container *erpHasPermission="'projects.team.manage'"><button nz-button nzSize="small" (click)="allocState.edit(a)">Edit</button> <button nz-button nzSize="small" nzDanger (click)="removeAlloc(a)">Delete</button></ng-container></td></tr>
               } @empty { <tr><td colspan="6" class="prj-empty">Nobody is allocated yet.</td></tr> }
             </tbody>
@@ -64,6 +64,6 @@
         </div>
       }
     }
-    <erp-record-drawer [title]="rateState.editing() ? 'Edit rate' : 'New rate'" [open]="rateState.open()" [fields]="rateFields()" [value]="$any(rateState.editing())" [saving]="rateState.saving()" [errors]="rateState.errors()" testId="rate-form" (submitted)="rateState.submit($event)" (closed)="rateState.close()" />
-    <erp-record-drawer [title]="allocState.editing() ? 'Edit allocation' : 'New allocation'" [open]="allocState.open()" [fields]="allocFields()" [value]="$any(allocState.editing())" [saving]="allocState.saving()" [errors]="allocState.errors()" testId="alloc-form" (submitted)="allocState.submit($event)" (closed)="allocState.close()" />
+    <erp-record-drawer [title]="rateState.editing() ? 'Edit rate' : 'New rate'" [open]="rateState.open()" [fields]="rateFields()" [value]="$any(rateState.editing())" [saving]="rateState.saving()" [errors]="rateState.errors()" writePermission="projects.rates.manage" testId="rate-form" (submitted)="rateState.submit($event)" (closed)="rateState.close()" />
+    <erp-record-drawer [title]="allocState.editing() ? 'Edit allocation' : 'New allocation'" [open]="allocState.open()" [fields]="allocFields()" [value]="$any(allocState.editing())" [saving]="allocState.saving()" [errors]="allocState.errors()" writePermission="projects.team.manage" testId="alloc-form" (submitted)="allocState.submit($event)" (closed)="allocState.close()" />
   

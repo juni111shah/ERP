@@ -12,6 +12,7 @@ import { ChangeOrderDto, ChangeOrderInput, ProjectsExtraApi } from '@core/api/pr
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { MasterDataState } from '@shared/utils/master-data-state';
 import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
 import { injectOpenProjects, projectNameIn, projectOptions } from '../../projects-lookups';
@@ -22,7 +23,7 @@ import { errorText, PRJ_STYLES } from '../../projects-ui';
   selector: 'erp-project-change-orders',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputModule, NzModalModule, NzTableModule, RecordDrawerComponent, HasPermissionDirective, ProjectTagComponent],
+  imports: [DecimalPipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzInputModule, NzModalModule, NzTableModule, RecordDrawerComponent, HasPermissionDirective, CanPipe, ProjectTagComponent],
   templateUrl: './project-change-orders.page.html',
   styles: [PRJ_STYLES],
 })

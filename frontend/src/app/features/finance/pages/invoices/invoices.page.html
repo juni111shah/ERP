@@ -67,7 +67,7 @@
       }
       @if (editable()) {
         <button *erpHasPermission="'finance.invoices.write'" nz-button [nzLoading]="saving()" (click)="save(false)" style="margin-inline-start:8px" data-testid="inv-save">Save draft</button>
-        <button *erpHasPermission="'finance.invoices.issue'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save(true)" style="margin-inline-start:8px" data-testid="inv-issue">Save and issue</button>
+        <button *erpHasPermission="['finance.invoices.write', 'finance.invoices.issue']; mode: 'all'" nz-button nzType="primary" [nzLoading]="saving()" (click)="save(true)" style="margin-inline-start:8px" data-testid="inv-issue">Save and issue</button>
       }
     </ng-template>
 

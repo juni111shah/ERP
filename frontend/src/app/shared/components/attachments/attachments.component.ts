@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
@@ -12,7 +12,8 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { AttachmentItem, AttachmentsApi } from '@core/api/attachments.api';
 import { doneText } from '@core/format/done-text';
 import { asProblem } from '@core/http/problem-details';
-import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { SessionStore } from '@core/session/session.store';
+import { holdsPermission } from '../../directives/has-permission.directive';
 import { ErpDatePipe, ErpLabelPipe } from '../../pipes/display.pipes';
 import { saveBlob } from '../../utils/save-blob';
 import { RowActionsComponent } from '../row-actions/row-actions.component';
@@ -22,19 +23,28 @@ import { attachmentUploadForm, expiryTone } from './attachment-expiry';
 export type { AttachmentItem } from '@core/api/attachments.api';
 export { daysUntil, expiryTone } from './attachment-expiry';
 
-/** Documents of one record: list, upload (with category and optional expiry), download and delete. <erp-attachments ownerType="lease" [ownerId]="id" /> */
+/**
+ * Documents of one record: list, upload (with category and optional expiry), download and delete. <erp-attachments ownerType="lease" [ownerId]="id" />
+ * Listing needs `core.attachments.read`; upload and delete need `core.attachments.write` and the owner record's own write permission,
+ * which the host passes as `writePermission` (the server checks both).
+ */
 @Component({
   selector: 'erp-attachments',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RowActionsComponent, ErpLabelPipe, ErpDatePipe, TableToolsComponent, DatePipe, FormsModule, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzTableModule, NzTagModule],
+  imports: [RowActionsComponent, ErpLabelPipe, ErpDatePipe, TableToolsComponent, DatePipe, FormsModule, NzButtonModule, NzDatePickerModule, NzIconModule, NzInputModule, NzTableModule, NzTagModule],
   templateUrl: './attachments.component.html',
 })
 export class AttachmentsComponent {
   readonly ownerType = input.required<string>();
   readonly ownerId = input.required<string>();
+  /** The owner record's write permission (for example 'realestate.leases.write'), needed with core.attachments.write to upload or delete. */
+  readonly writePermission = input<string | readonly string[] | null>(null);
   private readonly attachmentsApi = inject(AttachmentsApi);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
+  readonly canRead = computed(() => this.session.hasPermission('core.attachments.read'));
+  readonly canWrite = computed(() => this.session.hasPermission('core.attachments.write') && holdsPermission(this.session, this.writePermission()));
   readonly items = signal<AttachmentItem[]>([]);
   readonly q = signal('');
   /** Client-side filter: GET /attachments only takes the owner. */
@@ -43,7 +53,7 @@ export class AttachmentsComponent {
   category = '';
   expires: Date | null = null;
 
-  constructor() { effect(() => { this.ownerType(); this.ownerId(); this.load(); }); }
+  constructor() { effect(() => { this.ownerType(); this.ownerId(); if (this.canRead()) untracked(() => this.load()); }); }
 
   tone(date: string): string { return expiryTone(date); }
 

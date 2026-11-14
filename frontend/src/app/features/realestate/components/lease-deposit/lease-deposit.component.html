@@ -16,4 +16,4 @@
       }
     </nz-card>
     <erp-record-drawer [title]="mode() === 'record' ? 'Record security deposit' : 'Settle security deposit'" [open]="mode() !== null" [fields]="fields()" [saving]="saving()" [errors]="errors()" [width]="480"
-                       testId="deposit-form" (submitted)="submit($event)" (closed)="mode.set(null)" />
+                       writePermission="realestate.deposits.manage" testId="deposit-form" (submitted)="submit($event)" (closed)="mode.set(null)" />

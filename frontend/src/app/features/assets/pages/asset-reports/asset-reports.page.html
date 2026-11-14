@@ -27,7 +27,7 @@
           <tbody>
             @for (row of r.rows; track row.assetId) {
               <tr>
-                <td><a [routerLink]="['/assets/register', row.assetId]">{{ row.number }}</a></td><td>{{ row.name }}</td><td>{{ row.categoryName }}</td><td>{{ fmt(row.capitalisedOn) }}</td>
+                <td>@if ('assets.register.read' | can) { <a [routerLink]="['/assets/register', row.assetId]">{{ row.number }}</a> } @else { {{ row.number }} }</td><td>{{ row.name }}</td><td>{{ row.categoryName }}</td><td>{{ fmt(row.capitalisedOn) }}</td>
                 <td class="r">{{ row.cost | number: '1.2-2' }}</td><td class="r">{{ row.accumulatedDepreciation | number: '1.2-2' }}</td><td class="r">{{ row.netBookValue | number: '1.2-2' }}</td>
               </tr>
             }

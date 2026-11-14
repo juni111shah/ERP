@@ -15,6 +15,7 @@ import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ActionFormState } from '@shared/utils/action-form-state';
 import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
 import { MONTH_OPTIONS, periodLabel, previousMonth } from '../../asset-periods';
@@ -31,7 +32,7 @@ function runResult(run: DepreciationRunDto): string {
   selector: 'erp-depreciation',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, NzButtonModule, NzIconModule, NzModalModule, NzTableModule, HasPermissionDirective, PagedTableComponent, RecordDrawerComponent],
+  imports: [DecimalPipe, RouterLink, NzButtonModule, NzIconModule, NzModalModule, NzTableModule, HasPermissionDirective, CanPipe, PagedTableComponent, RecordDrawerComponent],
   styleUrl: './depreciation.page.scss',
   templateUrl: './depreciation.page.html',
 })

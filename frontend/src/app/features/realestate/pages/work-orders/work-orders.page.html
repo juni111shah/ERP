@@ -1,6 +1,6 @@
 
     <h1 class="erp-page-title">Work orders</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search issue or category" emptyText="No work orders yet" (rowClick)="state.edit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search issue or category" emptyText="No work orders yet" [clickable]="canOpen()" (rowClick)="canOpen() && state.edit($event)">
       <nz-select toolbar style="width:170px" nzAllowClear nzPlaceHolder="All statuses" [ngModel]="null" (ngModelChange)="filterStatus($event)" data-testid="wo-status-filter">
         @for (s of statuses; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
@@ -21,7 +21,7 @@
     </erp-paged-table>
 
     <erp-record-drawer [title]="state.editing() ? (state.editing()!.number ?? 'Work order') : 'New work order'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       customFieldEntityType="realestate.workorder" [saving]="state.saving()" [errors]="state.errors()" testId="wo-form"
+                       customFieldEntityType="realestate.workorder" [saving]="state.saving()" [errors]="state.errors()" [writePermission]="state.editing() ? 'realestate.workorders.edit' : 'realestate.workorders.create'" testId="wo-form"
                        (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as w) {
         <div drawerActions style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px" data-testid="wo-actions">
@@ -36,7 +36,7 @@
         </div>
       }
     </erp-record-drawer>
-    <erp-record-drawer title="Cost basis" [open]="costBasisFor() !== null" [fields]="costBasisFields" [value]="$any(costBasisFor())" [saving]="moveSaving()" [errors]="moveErrors()" [width]="460" testId="wo-cost-basis-form"
+    <erp-record-drawer title="Cost basis" [open]="costBasisFor() !== null" [fields]="costBasisFields" [value]="$any(costBasisFor())" [saving]="moveSaving()" [errors]="moveErrors()" [width]="460" writePermission="realestate.workorders.edit" testId="wo-cost-basis-form"
                        (submitted)="saveCostBasis($event)" (closed)="costBasisFor.set(null)" />
-    <erp-record-drawer title="Complete work order" [open]="completing() !== null" [fields]="completeFields" [saving]="moveSaving()" [errors]="moveErrors()" [width]="420" testId="wo-complete-form"
+    <erp-record-drawer title="Complete work order" [open]="completing() !== null" [fields]="completeFields" [saving]="moveSaving()" [errors]="moveErrors()" [width]="420" writePermission="realestate.workorders.complete" testId="wo-complete-form"
                        submitLabel="Complete" (submitted)="complete($event)" (closed)="completing.set(null)" />

@@ -19,6 +19,7 @@ import { ActionButton, DescriptionItem, DetailPageComponent, KpiCard } from '@sh
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ActionFormState } from '@shared/utils/action-form-state';
 import { defaultLegalEntityId, legalEntityOptions } from '@shared/utils/entity-options';
 import { MasterDataState } from '@shared/utils/master-data-state';
@@ -31,7 +32,7 @@ import { AssetLookups } from '../../asset-lookups';
   selector: 'erp-asset-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, NzCardModule, NzModalModule, NzSpinModule, NzTableModule, DetailPageComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent],
+  imports: [DecimalPipe, RouterLink, NzCardModule, NzModalModule, NzSpinModule, NzTableModule, DetailPageComponent, RecordDrawerComponent, StatePanelComponent, StatusTagComponent, CanPipe],
   providers: [AssetLookups],
   styleUrl: './asset-detail.page.scss',
   templateUrl: './asset-detail.page.html',
@@ -81,9 +82,9 @@ export class AssetDetailPage implements OnInit {
       { label: 'Dispose', icon: 'export', permission: 'assets.register.dispose', visible: a.status === 'capitalised' || a.status === 'fullyDepreciated', handler: () => this.dispose.show(a) },
       { label: 'Edit', icon: 'edit', permission: 'assets.register.manage', visible: a.status === 'draft', handler: () => this.edit.edit(a) },
       { label: 'Delete', icon: 'delete', danger: true, permission: 'assets.register.manage', visible: a.status === 'draft', handler: () => this.confirmDelete(a) },
-      { label: 'Capitalisation journal', icon: 'book', visible: !!a.capitalisationJournalId, handler: () => this.router.navigate(['/finance/journals', a.capitalisationJournalId]) },
-      { label: 'Source bill', icon: 'file-text', visible: !!a.sourceBillId, handler: () => this.router.navigate(['/finance/bills', a.sourceBillId]) },
-      { label: 'Disposal journal', icon: 'book', visible: !!a.disposalJournalId, handler: () => this.router.navigate(['/finance/journals', a.disposalJournalId]) },
+      { label: 'Capitalisation journal', icon: 'book', permission: 'finance.journals.read', visible: !!a.capitalisationJournalId, handler: () => this.router.navigate(['/finance/journals', a.capitalisationJournalId]) },
+      { label: 'Source bill', icon: 'file-text', permission: 'finance.bills.read', visible: !!a.sourceBillId, handler: () => this.router.navigate(['/finance/bills', a.sourceBillId]) },
+      { label: 'Disposal journal', icon: 'book', permission: 'finance.journals.read', visible: !!a.disposalJournalId, handler: () => this.router.navigate(['/finance/journals', a.disposalJournalId]) },
     ];
   });
 

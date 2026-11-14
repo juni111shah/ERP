@@ -10,6 +10,8 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { SettlementPreview, TerminationApi } from '@core/api/hr-people.api';
 import { toIsoDate } from '@core/format/dates';
 import { asProblem } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { monthName } from '../../hr-format';
 
 /** A picked date as the API takes it (the local calendar day), or null. */
@@ -20,7 +22,7 @@ const iso = (d: Date | null): string | null => (d ? toIsoDate(d) : null);
   selector: 'erp-terminate-dialog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, NzButtonModule, NzDatePickerModule, NzInputModule, NzModalModule],
+  imports: [DecimalPipe, FormsModule, HasPermissionDirective, NzButtonModule, NzDatePickerModule, NzInputModule, NzModalModule],
   styleUrl: './terminate-dialog.component.scss',
   templateUrl: './terminate-dialog.component.html',
 })
@@ -28,6 +30,7 @@ export class TerminateDialogComponent {
   private readonly terminationApi = inject(TerminationApi);
   private readonly message = inject(NzMessageService);
   private readonly router = inject(Router);
+  private readonly session = inject(SessionStore);
   readonly employeeId = input.required<string>();
   readonly employeeName = input('');
   readonly open = input(false);
@@ -51,7 +54,7 @@ export class TerminateDialogComponent {
       if (!this.open() || !ended) return;
       untracked(() => {
         this.done.set(true);
-        this.loadPreview(ended, null);
+        if (this.session.hasPermission('hr.payroll.read')) this.loadPreview(ended, null);
       });
     });
   }
@@ -72,7 +75,7 @@ export class TerminateDialogComponent {
   settle(): void {
     this.busy.set(true); this.error.set(null);
     this.terminationApi.finalSettlement(this.employeeId()).subscribe({
-      next: (run) => { this.busy.set(false); this.message.success(`Final settlement prepared: payroll ${run.number}`); this.closed.emit(); this.done.set(false); void this.router.navigate(['/hr/payroll', run.id]); },
+      next: (run) => { this.busy.set(false); this.message.success(`Final settlement prepared: payroll ${run.number}`); this.closed.emit(); this.done.set(false); if (this.session.hasPermission('hr.payroll.read')) void this.router.navigate(['/hr/payroll', run.id]); },
       error: (e) => { this.busy.set(false); this.error.set(asProblem(e)?.detail ?? 'Could not prepare the final settlement'); },
     });
   }

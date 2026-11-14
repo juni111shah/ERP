@@ -41,6 +41,7 @@
           <erp-state-panel kind="error" title="This list could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="loadOccasions()" />
         } @else { <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 4 }"></nz-skeleton> }
       </nz-tab>
+      @if (canSeeLiability()) {
       <nz-tab nzTitle="End-of-service liability">
         @if (gratuity(); as g) {
           <p>Total liability <b data-testid="gratuity-total">{{ currency() }} {{ g.totalLiability | number: '1.2-2' }}</b> @if (g.rule) { <span class="muted">· {{ g.rule }}</span> }</p>
@@ -52,4 +53,5 @@
           <erp-state-panel title="This report is not available" hint="It needs access to pay figures, or the employer's country has no end-of-service rule." icon="lock" />
         } @else { <nz-skeleton [nzActive]="true" [nzParagraph]="{ rows: 4 }"></nz-skeleton> }
       </nz-tab>
+      }
     </nz-tabs>

@@ -32,5 +32,7 @@
     </nz-drawer>
     <ng-template #footer>
       <button nz-button type="button" (click)="closed.emit()">Cancel</button>
-      <button nz-button nzType="primary" type="button" [nzLoading]="saving()" [disabled]="!valid()" (click)="submit()" style="margin-inline-start:8px" data-testid="return-save">Create return</button>
+      @if (canSave()) {
+        <button nz-button nzType="primary" type="button" [nzLoading]="saving()" [disabled]="!valid()" (click)="submit()" style="margin-inline-start:8px" data-testid="return-save">Create return</button>
+      }
     </ng-template>

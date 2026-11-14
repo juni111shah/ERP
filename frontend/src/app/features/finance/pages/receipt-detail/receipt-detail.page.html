@@ -8,12 +8,12 @@
         <erp-success-panel [title]="recordedTitle()" [detail]="recordedDetail()" [celebrate]="firstPayment()" (dismissed)="justRecorded.set(false)">
           <a actions nz-button nzType="primary" [href]="'/print/receipt/' + r.id" target="_blank" rel="noopener" data-testid="success-print">Print receipt</a>
           <button actions *erpHasPermission="'core.email.send'" nz-button type="button" (click)="emailOpen.set(true)" data-testid="success-email">Email receipt</button>
-          <a actions nz-button [routerLink]="['/finance/receipts']" [queryParams]="{ new: 1 }" data-testid="success-another">Record another</a>
+          <a actions *erpHasPermission="'finance.receipts.write'" nz-button [routerLink]="['/finance/receipts']" [queryParams]="{ new: 1 }" data-testid="success-another">Record another</a>
           <span loop>
             @if (r.unallocated > 0) {
               {{ money(r.unallocated) }} {{ 'ui.success.notAppliedYet' | translate: 'is not applied to an invoice yet.' }}
-              <a [routerLink]="['/finance/receipts']" [queryParams]="{ open: r.id }" data-testid="success-loop">{{ 'ui.success.applyIt' | translate: 'Apply it' }}</a>
-            } @else {
+              <a *erpHasPermission="'finance.receipts.write'" [routerLink]="['/finance/receipts']" [queryParams]="{ open: r.id }" data-testid="success-loop">{{ 'ui.success.applyIt' | translate: 'Apply it' }}</a>
+            } @else if ('core.parties.read' | can) {
               <a [routerLink]="['/parties', r.partyId]" data-testid="success-loop">{{ 'ui.success.seeWhatOwes' | translate: 'See what this customer still owes' }}</a>
             }
           </span>
@@ -45,7 +45,7 @@
               <tbody>
                 @for (alloc of allocTable.data; track alloc.id) {
                   <tr>
-                    <td><a [routerLink]="['/finance/invoices', alloc.invoiceId]">{{ alloc.invoiceNumber }}</a></td>
+                    <td>@if ('finance.invoices.read' | can) { <a [routerLink]="['/finance/invoices', alloc.invoiceId]">{{ alloc.invoiceNumber }}</a> } @else { {{ alloc.invoiceNumber }} }</td>
                     <td style="text-align: end;">{{ money(alloc.amount) }}</td>
                   </tr>
                 }

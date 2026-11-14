@@ -1,6 +1,9 @@
 import { Routes } from '@angular/router';
 import { anyPermissionGuard, authGuard, founderLandingGuard, guestOnlyGuard, industryRecordGuard, moduleEnabledGuard, permissionGuard, platformAdminGuard, signedOutGuard } from '@core/guards/access.guards';
 
+/** The report hub lists only the reports a person may run (finance, stock or stock-vs-ledger, see reports/report-registry.ts). */
+const REPORT_READ = ['finance.reports.read', 'inventory.stock.read', 'inventory.reconciliation.read'];
+
 /** A route to the placeholder page with its title. */
 const placeholder = (title: string) => ({ loadComponent: () => import('@features/common/pages/placeholder/placeholder.page').then((m) => m.PlaceholderPage), data: { title } });
 
@@ -111,7 +114,7 @@ export const routes: Routes = [
       { path: 'finance/journals', canMatch: [permissionGuard('finance.journals.read')], loadComponent: () => import('@features/finance/pages/journals/journals.page').then((m) => m.JournalsPage) },
       { path: 'finance/journals/:id', canMatch: [permissionGuard('finance.journals.read')], loadComponent: () => import('@features/finance/pages/journal-detail/journal-detail.page').then((m) => m.JournalDetailPage) },
       { path: 'finance/reports', canMatch: [permissionGuard('finance.reports.read')], loadComponent: () => import('@features/finance/pages/ledger-reports/ledger-reports.page').then((m) => m.LedgerReportsPage) },
-      { path: 'finance/year-end', canMatch: [anyPermissionGuard('finance.yearend.close', 'finance.yearend.reopen')], loadComponent: () => import('@features/finance/pages/year-end/year-end.page').then((m) => m.YearEndPage) },
+      { path: 'finance/year-end', canMatch: [permissionGuard('finance.reports.read'), anyPermissionGuard('finance.yearend.close', 'finance.yearend.reopen')], loadComponent: () => import('@features/finance/pages/year-end/year-end.page').then((m) => m.YearEndPage) },
       { path: 'finance/opening-balances', canMatch: [permissionGuard('finance.journals.read')], loadComponent: () => import('@features/finance/pages/opening-balances/opening-balances.page').then((m) => m.OpeningBalancesPage) },
       { path: 'finance/invoices', canMatch: [permissionGuard('finance.invoices.read')], loadComponent: () => import('@features/finance/pages/invoices/invoices.page').then((m) => m.InvoicesPage) },
       { path: 'finance/invoices/:id', canMatch: [permissionGuard('finance.invoices.read')], loadComponent: () => import('@features/finance/pages/invoice-detail/invoice-detail.page').then((m) => m.InvoiceDetailPage) },
@@ -124,8 +127,8 @@ export const routes: Routes = [
       { path: 'finance/payments', canMatch: [permissionGuard('finance.payments.read')], loadComponent: () => import('@features/finance/pages/payments/payments.page').then((m) => m.PaymentsPage) },
       { path: 'finance/payments/:id', canMatch: [permissionGuard('finance.payments.read')], loadComponent: () => import('@features/finance/pages/payment-detail/payment-detail.page').then((m) => m.PaymentDetailPage) },
       { path: 'admin/approval-rules', canMatch: [permissionGuard('core.settings.read')], loadComponent: () => import('@features/admin/pages/approval-rules/approval-rules.page').then((m) => m.ApprovalRulesPage) },
-      { path: 'reports', canMatch: [permissionGuard('finance.reports.read')], loadComponent: () => import('@features/reports/pages/report/report.page').then((m) => m.ReportPage) },
-      { path: 'reports/:slug', canMatch: [permissionGuard('finance.reports.read')], loadComponent: () => import('@features/reports/pages/report/report.page').then((m) => m.ReportPage) },
+      { path: 'reports', canMatch: [anyPermissionGuard(...REPORT_READ)], loadComponent: () => import('@features/reports/pages/report/report.page').then((m) => m.ReportPage) },
+      { path: 'reports/:slug', canMatch: [anyPermissionGuard(...REPORT_READ)], loadComponent: () => import('@features/reports/pages/report/report.page').then((m) => m.ReportPage) },
       { path: 'finance/tax-codes', canMatch: [permissionGuard('finance.tax.read')], loadComponent: () => import('@features/finance/pages/tax-codes/tax-codes.page').then((m) => m.TaxCodesPage) },
       { path: 'admin/legal-entities', canMatch: [permissionGuard('core.entities.read')], loadComponent: () => import('@features/admin/pages/legal-entities/legal-entities.page').then((m) => m.LegalEntitiesPage) },
       { path: 'admin/party-groups', canMatch: [permissionGuard('core.partygroups.read')], loadComponent: () => import('@features/admin/pages/party-groups/party-groups.page').then((m) => m.PartyGroupsPage) },
@@ -173,7 +176,7 @@ export const routes: Routes = [
           { path: 'expenses', canMatch: [permissionGuard('projects.expenses.read')], loadComponent: () => import('@features/projects/pages/project-expenses/project-expenses.page').then((m) => m.ProjectExpensesPage) },
           { path: 'approvals', canMatch: [anyPermissionGuard('projects.timesheets.approve', 'projects.expenses.approve')], loadComponent: () => import('@features/projects/pages/project-approvals/project-approvals.page').then((m) => m.ProjectApprovalsPage) },
           { path: 'reports', canMatch: [permissionGuard('projects.reports.read')], loadComponent: () => import('@features/projects/pages/project-reports/project-reports.page').then((m) => m.ProjectReportsPage) },
-          { path: 'resources', canMatch: [anyPermissionGuard('projects.team.manage', 'projects.rates.read')], loadComponent: () => import('@features/projects/pages/project-resources/project-resources.page').then((m) => m.ProjectResourcesPage) },
+          { path: 'resources', canMatch: [anyPermissionGuard('projects.projects.read', 'projects.team.manage', 'projects.rates.read')], loadComponent: () => import('@features/projects/pages/project-resources/project-resources.page').then((m) => m.ProjectResourcesPage) },
           { path: 'change-orders', canMatch: [permissionGuard('projects.changeorders.read')], loadComponent: () => import('@features/projects/pages/project-change-orders/project-change-orders.page').then((m) => m.ProjectChangeOrdersPage) },
           { path: 'risks', canMatch: [permissionGuard('projects.risks.read')], loadComponent: () => import('@features/projects/pages/project-risks/project-risks.page').then((m) => m.ProjectRisksPage) },
           { path: ':id/plan', pathMatch: 'full', redirectTo: ({ params }) => '/projects/' + params['id'] + '?tab=tasks' },

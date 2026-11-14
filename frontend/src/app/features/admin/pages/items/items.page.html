@@ -25,5 +25,5 @@
       </ng-template>
       <button toolbar *erpHasPermission="'core.items.write'" nz-button nzType="primary" (click)="state.create()" data-testid="item-new"><span nz-icon nzType="plus"></span>New item</button>
     </erp-paged-table>
-    <erp-record-drawer [title]="state.editing() ? 'Edit item' : 'New item'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="item"
+    <erp-record-drawer [title]="state.editing() ? 'Edit item' : 'New item'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="item" writePermission="core.items.write"
                        [saving]="state.saving()" [errors]="state.errors()" testId="item-form" (submitted)="state.submit($event)" (closed)="state.close()" />

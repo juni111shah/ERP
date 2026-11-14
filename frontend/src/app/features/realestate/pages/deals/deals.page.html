@@ -1,6 +1,6 @@
 
     <h1 class="erp-page-title">Deals</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search client" emptyText="No deals yet" (rowClick)="state.edit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search client" emptyText="No deals yet" [clickable]="canOpen()" (rowClick)="canOpen() && state.edit($event)">
       <nz-select toolbar style="width:170px" nzAllowClear nzPlaceHolder="All stages" [ngModel]="null" (ngModelChange)="filterStage($event)" data-testid="deal-stage-filter">
         @for (s of stages; track s) { <nz-option [nzValue]="s" [nzLabel]="humanize(s)"></nz-option> }
       </nz-select>
@@ -21,7 +21,7 @@
     </erp-paged-table>
 
     <erp-record-drawer [title]="state.editing() ? (state.editing()!.number ?? 'Deal') : 'New deal'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       customFieldEntityType="realestate.deal" [saving]="state.saving()" [errors]="state.errors()" testId="deal-form"
+                       customFieldEntityType="realestate.deal" [saving]="state.saving()" [errors]="state.errors()" [writePermission]="state.editing() ? 'realestate.deals.edit' : 'realestate.deals.create'" testId="deal-form"
                        (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as d) {
         <div drawerActions style="margin-bottom:16px" data-testid="deal-actions">
@@ -37,7 +37,7 @@
         </div>
       }
     </erp-record-drawer>
-    <erp-record-drawer title="Pay agent" [open]="payOpen() !== null" [fields]="payFields()" [saving]="moveSaving()" [errors]="moveErrors()" [width]="420" testId="deal-pay-form"
+    <erp-record-drawer title="Pay agent" [open]="payOpen() !== null" [fields]="payFields()" [saving]="moveSaving()" [errors]="moveErrors()" [width]="420" writePermission="realestate.deals.payagent" testId="deal-pay-form"
                        submitLabel="Pay" (submitted)="payAgent($event)" (closed)="payOpen.set(null)" />
-    <erp-record-drawer title="Mark deal as lost" [open]="losing() !== null" [fields]="lostFields" [saving]="moveSaving()" [errors]="moveErrors()" [width]="420" testId="deal-lost-form"
+    <erp-record-drawer title="Mark deal as lost" [open]="losing() !== null" [fields]="lostFields" [saving]="moveSaving()" [errors]="moveErrors()" [width]="420" writePermission="realestate.deals.lose" testId="deal-lost-form"
                        submitLabel="Mark as lost" (submitted)="lose($event)" (closed)="losing.set(null)" />

@@ -30,7 +30,10 @@
           <div class="tags" data-testid="pos-order-detail">
             <erp-status [value]="o.status" />
             <erp-status [value]="o.paymentStatus" />
-            @if (o.invoiceNumber) { <a class="doc" [routerLink]="['/finance/invoices', o.invoiceId]" data-testid="pos-order-invoice">Invoice {{ o.invoiceNumber }}</a> }
+            @if (o.invoiceNumber) {
+              @if ('finance.invoices.read' | can) { <a class="doc" [routerLink]="['/finance/invoices', o.invoiceId]" data-testid="pos-order-invoice">Invoice {{ o.invoiceNumber }}</a> }
+              @else { <span class="doc" data-testid="pos-order-invoice">Invoice {{ o.invoiceNumber }}</span> }
+            }
           </div>
           @if (o.returnedTotal > 0) {
             <nz-alert nzType="info" nzShowIcon [nzMessage]="'Returned so far: ' + currency() + ' ' + (o.returnedTotal | number:'1.2-2')" class="block"></nz-alert>
@@ -63,7 +66,7 @@
           <div class="foot">
             <a [href]="'/print/pos-receipt/' + o.id" target="_blank" rel="noopener" nz-button data-testid="pos-order-print"><span nz-icon nzType="printer"></span>Receipt</a>
             @if (canReturn()) {
-              <a *erpHasPermission="'pos.orders.refund'" nz-button [routerLink]="['/pos/terminal']" [queryParams]="{ return: o.number }" data-testid="pos-order-return"><span nz-icon nzType="rollback"></span>Return</a>
+              <a *erpHasPermission="['pos.orders.refund', 'pos.orders.create']; mode: 'all'" nz-button [routerLink]="['/pos/terminal']" [queryParams]="{ return: o.number }" data-testid="pos-order-return"><span nz-icon nzType="rollback"></span>Return</a>
             }
             @if (o.status === 'completed' && !o.returnedTotal) {
               <button *erpHasPermission="'pos.orders.void'" nz-button nzDanger type="button" [nzLoading]="voiding()" (click)="voidOrder()" data-testid="pos-order-void"><span nz-icon nzType="stop"></span>Void</button>

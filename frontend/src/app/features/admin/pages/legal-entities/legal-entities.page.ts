@@ -25,7 +25,7 @@ import { MasterDataState } from '@shared/utils/master-data-state';
       <button toolbar *erpHasPermission="'core.entities.write'" nz-button nzType="primary" (click)="state.create()" data-testid="entity-new"><span nz-icon nzType="plus"></span> New legal entity</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit legal entity' : 'New legal entity'" [open]="state.open()" [fields]="fields()" [value]="$any(editValue())"
-                       customFieldEntityType="legalentity" [saving]="state.saving()" [errors]="state.errors()" testId="entity-form"
+                       customFieldEntityType="legalentity" writePermission="core.entities.write" [saving]="state.saving()" [errors]="state.errors()" testId="entity-form"
                        (submitted)="state.submit($event)" (closed)="state.close()" />`,
 })
 export class LegalEntitiesPage {

@@ -21,6 +21,7 @@ import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-draw
 import { RecordHistoryComponent } from '@shared/components/record-history/record-history.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { itemsSignal } from '@shared/utils/items-signal';
 import { accountOptions, bankAccounts } from '@shared/utils/payment-accounts';
@@ -35,7 +36,7 @@ const SCHEDULE_PAGE_SIZE = 12;
   selector: 'erp-acquisition-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, StatCardComponent, RecordHistoryComponent, TranslatePipe, DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzAlertModule, NzButtonModule, NzCardModule, NzDescriptionsModule, NzModalModule, NzTableModule, NzTabsModule, PaginationBarComponent],
+  imports: [ErpDatePipe, CanPipe, StatCardComponent, RecordHistoryComponent, TranslatePipe, DecimalPipe, RouterLink, RecordDrawerComponent, HasPermissionDirective, StatusTagComponent, NzAlertModule, NzButtonModule, NzCardModule, NzDescriptionsModule, NzModalModule, NzTableModule, NzTabsModule, PaginationBarComponent],
   templateUrl: './acquisition-detail.page.html',
 })
 export class AcquisitionDetailPage {

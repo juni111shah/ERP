@@ -6,7 +6,7 @@
         @switch (column.key) {
           @case ('status') { <erp-status [value]="row.reopenedAt ? 'reopened' : 'closed'" [label]="row.reopenedAt ? 'Reopened' : 'Closed'" /> }
           @case ('netResult') { <b>{{ row.netResult | number: '1.2-2' }}</b> }
-          @case ('journal') { @if (row.journalEntryId) { <a [routerLink]="['/finance/journals', row.journalEntryId]">Open entry</a> } @else { — } }
+          @case ('journal') { @if (row.journalEntryId && ('finance.journals.read' | can)) { <a [routerLink]="['/finance/journals', row.journalEntryId]">Open entry</a> } @else { — } }
           @case ('actions') {
             @if (canReopen(row)) {
               <button *erpHasPermission="'finance.yearend.reopen'" nz-button nzSize="small" nzDanger type="button" (click)="reopenForm.show(row)" data-testid="year-reopen">Reopen</button>
@@ -18,6 +18,6 @@
       <button toolbar *erpHasPermission="'finance.yearend.close'" nz-button nzType="primary" (click)="closeForm.show()" data-testid="year-close"><span nz-icon nzType="lock"></span>Close a year</button>
     </erp-paged-table>
     <erp-record-drawer title="Close a fiscal year" submitLabel="Close year" [open]="closeForm.open()" [fields]="closeFields()" [saving]="closeForm.saving()" [errors]="closeForm.errors()"
-                       testId="year-close-form" (submitted)="closeForm.submit($event)" (closed)="closeForm.close()" />
+                       writePermission="finance.yearend.close" testId="year-close-form" (submitted)="closeForm.submit($event)" (closed)="closeForm.close()" />
     <erp-record-drawer title="Reopen a fiscal year" submitLabel="Reopen year" [open]="reopenForm.open()" [fields]="reopenFields" [saving]="reopenForm.saving()" [errors]="reopenForm.errors()"
-                       testId="year-reopen-form" (submitted)="reopenForm.submit($event)" (closed)="reopenForm.close()" />
+                       writePermission="finance.yearend.reopen" testId="year-reopen-form" (submitted)="reopenForm.submit($event)" (closed)="reopenForm.close()" />

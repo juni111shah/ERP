@@ -13,4 +13,4 @@
       <button toolbar *erpHasPermission="'assets.register.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="asset-new"><span nz-icon nzType="plus"></span>New asset</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit asset' : 'New asset'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="asset-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="assets.register.manage" testId="asset-form" (submitted)="state.submit($event)" (closed)="state.close()" />

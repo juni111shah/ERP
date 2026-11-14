@@ -14,6 +14,8 @@ import { SimpleChartComponent } from '@shared/components/simple-chart/simple-cha
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { countByStatus, StatusCount, StatusCountsComponent } from '@shared/components/status-counts/status-counts.component';
 import { dayChart, hourChart, ORDER_STATUSES, RANGES, RangeKey, reportPeriod } from '../../pos-analytics';
 import { tenderName } from '../../pos-cart';
@@ -23,7 +25,7 @@ import { tenderName } from '../../pos-cart';
   selector: 'erp-pos-analytics',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, NgTemplateOutlet, FormsModule, RouterModule, NzButtonModule, NzDatePickerModule, NzGridModule, NzIconModule, NzSelectModule, NzSkeletonModule, ErpDatePipe, SimpleChartComponent, StatCardComponent, StatePanelComponent, StatusCountsComponent],
+  imports: [DecimalPipe, NgTemplateOutlet, FormsModule, RouterModule, NzButtonModule, NzDatePickerModule, NzGridModule, NzIconModule, NzSelectModule, NzSkeletonModule, ErpDatePipe, HasPermissionDirective, CanPipe, SimpleChartComponent, StatCardComponent, StatePanelComponent, StatusCountsComponent],
   templateUrl: './pos-analytics.page.html',
   styleUrl: './pos-analytics.page.scss',
 })

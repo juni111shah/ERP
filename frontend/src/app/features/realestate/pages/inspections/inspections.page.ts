@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
@@ -18,6 +18,7 @@ import { toIsoDate } from '@core/format/dates';
 import { doneText } from '@core/format/done-text';
 import { fromIsoDate } from '@core/format/from-iso-date';
 import { asProblem } from '@core/http/problem-details';
+import { SessionStore } from '@core/session/session.store';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
@@ -54,7 +55,11 @@ export class InspectionsPage {
   ];
   readonly drawer = signal(false);
   readonly id = signal<string | null>(null);
-  readonly locked = signal(false);
+  private readonly session = inject(SessionStore);
+  /** A completed inspection is final. */
+  private readonly completed = signal(false);
+  /** Read-only: completed, or the person may only read inspections (saving and completing need inspections.manage). */
+  readonly locked = computed(() => this.completed() || !this.session.hasPermission('realestate.inspections.manage'));
   readonly saving = signal(false);
   readonly items = signal<InspectionItem[]>([]);
   readonly propertyOptions = signal<LookupOption[]>([]);
@@ -73,7 +78,7 @@ export class InspectionsPage {
   searchUnit(term: string): void { this.lookups.unit(term).subscribe((o) => this.unitOptions.set(o)); }
 
   create(): void {
-    this.id.set(null); this.locked.set(false); this.propertyId = null; this.unitId = null; this.kind = 'routine'; this.date = new Date(); this.inspector = '';
+    this.id.set(null); this.completed.set(false); this.propertyId = null; this.unitId = null; this.kind = 'routine'; this.date = new Date(); this.inspector = '';
     this.items.set([newItem()]);
     this.searchProperty(''); this.searchUnit('');
     this.drawer.set(true);
@@ -81,7 +86,7 @@ export class InspectionsPage {
 
   open(id: string): void {
     this.inspectionsApi.detail(id).subscribe((d: InspectionDetail) => {
-      this.id.set(d.id); this.locked.set(d.status === 'completed'); this.propertyId = d.propertyId; this.unitId = d.unitId ?? null; this.kind = d.kind; this.inspector = d.inspector ?? '';
+      this.id.set(d.id); this.completed.set(d.status === 'completed'); this.propertyId = d.propertyId; this.unitId = d.unitId ?? null; this.kind = d.kind; this.inspector = d.inspector ?? '';
       this.date = fromIsoDate(d.inspectionDate);
       this.propertyOptions.set([{ value: d.propertyId, label: d.propertyName }]);
       this.unitOptions.set(d.unitId ? [{ value: d.unitId, label: `${this.i18n.t('ui.re.unit', 'Unit')} ${d.unitNumber}` }] : []);

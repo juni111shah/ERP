@@ -14,7 +14,7 @@
                      [loading]="staffLoading()"
                      [caption]="stats().onLeave ? stats().onLeave + ' more on leave' : 'at work, not on leave'"
                      [tone]="1" />
-      @if (canSeePay) {
+      @if (canSeePay()) {
         <erp-stat-card label="Monthly gross pay"
                        [value]="stats().totalGross"
                        format="money"
@@ -30,7 +30,7 @@
                      [tone]="3" />
     </div>
 
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search name, designation or department" emptyText="No employees yet" (rowClick)="open($event)">
+    <erp-paged-table [list]="list" [columns]="columns()" searchPlaceholder="Search name, designation or department" emptyText="No employees yet" (rowClick)="open($event)">
       <nz-select toolbar style="width:160px" nzAllowClear nzPlaceHolder="All statuses" (ngModelChange)="filterStatus($event)" [ngModel]="null" data-testid="emp-status-filter">
         @for (s of statuses; track s.value) { <nz-option [nzValue]="s.value" [nzLabel]="s.label"></nz-option> }
       </nz-select>
@@ -69,10 +69,10 @@
       </ng-template>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? state.editing()!.fullName : 'New employee'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" customFieldEntityType="hr.employee"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="emp-form" (submitted)="state.submit($event)" (closed)="state.close()">
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="hr.employees.manage" testId="emp-form" (submitted)="state.submit($event)" (closed)="state.close()">
       @if (state.editing(); as e) {
         <div drawerActions style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
-        <p data-testid="emp-summary" style="flex-basis:100%;margin:0">@if (canSeePay) { Gross <b>{{ currency() }} {{ e.grossMonthly | number: '1.2-2' }}</b> {{ 'ui.hr.aMonth' | translate: 'a month' }} · }{{ 'ui.hr.service' | translate: 'service' }} {{ e.serviceYears.toFixed(1) }} {{ 'ui.hr.years' | translate: 'years' }}@if (canSeePay) { · {{ 'ui.hr.eosAccrued' | translate: 'end-of-service accrued' }} <b>{{ currency() }} {{ e.gratuityAccrued | number: '1.2-2' }}</b> }</p>
+        <p data-testid="emp-summary" style="flex-basis:100%;margin:0">@if (canSeePay()) { Gross <b>{{ currency() }} {{ e.grossMonthly | number: '1.2-2' }}</b> {{ 'ui.hr.aMonth' | translate: 'a month' }} · }{{ 'ui.hr.service' | translate: 'service' }} {{ e.serviceYears.toFixed(1) }} {{ 'ui.hr.years' | translate: 'years' }}@if (canSeePay()) { · {{ 'ui.hr.eosAccrued' | translate: 'end-of-service accrued' }} <b>{{ currency() }} {{ e.gratuityAccrued | number: '1.2-2' }}</b> }</p>
           <button nz-button (click)="lifeFor.set(e)" data-testid="emp-life"><span nz-icon nzType="audit"></span>History and tasks</button>
           <button nz-button (click)="docsFor.set(e)" data-testid="emp-docs"><span nz-icon nzType="file-text"></span>Documents</button>
           @if (e.status !== 'terminated') {

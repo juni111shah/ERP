@@ -13,10 +13,10 @@
               <div class="row">
                 <div class="label">{{ s.label }} @if (s.description) { <small>{{ s.description }}</small> }</div>
                 @switch (s.type) {
-                  @case ('bool') { <nz-switch [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.aria-label]="s.label" [attr.data-testid]="'setting-' + s.key"></nz-switch> }
-                  @case ('text') { <input nz-input style="width:260px" [attr.aria-label]="s.label" [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
-                  @case ('string') { <input nz-input style="width:260px" [attr.aria-label]="s.label" [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
-                  @default { <nz-input-number [ngModel]="draft()[s.key] ?? null" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key"></nz-input-number> }
+                  @case ('bool') { <nz-switch [ngModel]="draft()[s.key]" (ngModelChange)="set(s.key, $event)" [nzDisabled]="!canWrite(g.module)" [attr.aria-label]="s.label" [attr.data-testid]="'setting-' + s.key"></nz-switch> }
+                  @case ('text') { <input nz-input style="width:260px" [attr.aria-label]="s.label" [ngModel]="draft()[s.key]" [disabled]="!canWrite(g.module)" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
+                  @case ('string') { <input nz-input style="width:260px" [attr.aria-label]="s.label" [ngModel]="draft()[s.key]" [disabled]="!canWrite(g.module)" (ngModelChange)="set(s.key, $event)" [attr.data-testid]="'setting-' + s.key" /> }
+                  @default { <nz-input-number [ngModel]="draft()[s.key] ?? null" (ngModelChange)="set(s.key, $event)" [nzDisabled]="!canWrite(g.module)" [attr.data-testid]="'setting-' + s.key"></nz-input-number> }
                 }
               </div>
             }
@@ -24,9 +24,9 @@
         } @empty {
           <erp-state-panel title="No settings to change" hint="None of the enabled modules has a setting." icon="setting" />
         }
-        @if (groups().length) {
+        @if (canSaveAny()) {
           <div class="actions">
-            <button *erpHasPermission="'core.settings.write'" nz-button nzType="primary" [disabled]="!dirty()" [nzLoading]="saving()" (click)="save()" data-testid="settings-save">Save settings</button>
+            <button nz-button nzType="primary" [disabled]="!dirty()" [nzLoading]="saving()" (click)="save()" data-testid="settings-save">Save settings</button>
           </div>
         }
       }

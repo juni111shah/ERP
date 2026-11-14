@@ -13,6 +13,7 @@ import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { PageTitleService } from '@core/services/page-title.service';
 import { SessionStore } from '@core/session/session.store';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { CanPipe } from '../../pipes/can.pipe';
 import { RevealDirective } from '../../directives/reveal.directive';
 import { RecordHistoryComponent } from '../record-history/record-history.component';
 import { StatCardComponent, StatTone } from '../stat-card/stat-card.component';
@@ -43,7 +44,8 @@ export interface ActionButton {
   icon: string;
   type?: 'primary' | 'default' | 'dashed' | 'link' | 'text';
   danger?: boolean;
-  permission?: string;
+  /** The permission the action's API call needs (a list: any one of them); the button is hidden without it. */
+  permission?: string | readonly string[];
   visible?: boolean;
   /** Create/Add action: icon-first with the label revealed on hover / keyboard focus, plus a tooltip and aria-label. */
   reveal?: boolean;
@@ -57,6 +59,8 @@ export interface DescriptionItem {
   value: string | number | null;
   span?: number;
   routerLink?: string[];
+  /** The read permission of the page `routerLink` opens; without it the value shows as plain text. */
+  linkPermission?: string | readonly string[];
 }
 
 /**
@@ -70,7 +74,7 @@ export interface DescriptionItem {
     CommonModule, RouterLink,
     NzButtonModule, NzCardModule, NzDescriptionsModule,
     NzIconModule, NzTabsModule, NzTagModule,
-    HasPermissionDirective, RevealDirective, NzToolTipModule, RecordHistoryComponent
+    HasPermissionDirective, CanPipe, RevealDirective, NzToolTipModule, RecordHistoryComponent
   ],
   styleUrl: './detail-page.component.scss',
   templateUrl: './detail-page.component.html'

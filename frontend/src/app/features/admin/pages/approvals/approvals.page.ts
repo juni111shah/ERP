@@ -18,6 +18,7 @@ import { AdminApi, ApprovalDto } from '@core/api/admin.api';
 import { doneText } from '@core/format/done-text';
 import { controlError, problemMessage } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
 import { TableToolsComponent, matchText } from '@shared/components/table-tools/table-tools.component';
@@ -39,6 +40,7 @@ export class ApprovalsPage {
   private readonly api = inject(AdminApi);
   private readonly message = inject(NzMessageService);
   private readonly fb = inject(FormBuilder);
+  private readonly session = inject(SessionStore);
   readonly tab = signal(0);
   readonly rows = signal<ApprovalDto[]>([]);
   readonly q = signal('');
@@ -54,6 +56,21 @@ export class ApprovalsPage {
   readonly detail = signal<ApprovalDto | null>(null);
 
   constructor() { this.load(); }
+
+  /**
+   * Whether this person may approve or reject the request now, by the same rule as the server: it is pending, someone else raised it,
+   * this person holds the permission of the level whose turn it is (core.approvals.decide when none is named) and has not decided
+   * an earlier level of it. "Waiting for me" falls back to the person's own requests when nothing waits for them, so this matters.
+   */
+  canDecide(a: ApprovalDto): boolean {
+    const me = this.session.me()?.user.id;
+    return a.status === 'pending' && !!me && a.requestedBy !== me
+      && this.session.hasPermission(a.currentApproverPermission || 'core.approvals.decide')
+      && !(a.steps ?? []).some((s) => s.decidedBy === me);
+  }
+
+  /** Only the person who raised a pending request may withdraw it. */
+  canWithdraw(a: ApprovalDto): boolean { return a.status === 'pending' && a.requestedBy === this.session.me()?.user.id; }
 
   /** How many levels the request has (steps that were cancelled or never reached still count). */
   levels(a: ApprovalDto): number { return a.steps?.length ?? 0; }

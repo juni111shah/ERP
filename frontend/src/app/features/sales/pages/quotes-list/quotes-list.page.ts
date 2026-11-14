@@ -22,6 +22,7 @@ import { toUtcIsoDate } from '@core/format/dates';
 import { doneText } from '@core/format/done-text';
 import { problemMessage } from '@core/http/problem-details';
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
+import { SessionStore } from '@core/session/session.store';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { StatusTagComponent } from '@shared/components/status-tag/status-tag.component';
@@ -88,6 +89,7 @@ export class QuotesListPage {
   private readonly kpiApi = inject(SalesKpiApi);
   private readonly lookups = inject(SalesLookups);
   private readonly currencyService = inject(WorkspaceCurrencyService);
+  private readonly session = inject(SessionStore);
 
   readonly currency = this.currencyService.currency;
   readonly list = createPagedList((q) => this.quotesApi.list(q), { sort: 'number' });
@@ -233,7 +235,7 @@ export class QuotesListPage {
         this.message.success(`Quote converted into sales order ${order.number}`);
         this.list.reload();
         this.loadKpis();
-        this.router.navigate(['/sales/orders', order.id]);
+        if (this.session.hasPermission('sales.orders.read')) this.router.navigate(['/sales/orders', order.id]);
       },
       error: (err) => this.message.error(problemMessage(err, 'Failed to convert quote')),
     });

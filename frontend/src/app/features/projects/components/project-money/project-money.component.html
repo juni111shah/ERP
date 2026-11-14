@@ -43,7 +43,7 @@
           <thead><tr><th>Number</th><th>Date</th><th>Due</th><th>Status</th><th class="prj-num">Total</th><th class="prj-num">Paid</th></tr></thead>
           <tbody>
             @for (i of invoices(); track i.id) {
-              <tr><td><a class="prj-link" [routerLink]="['/finance/invoices', i.id]">{{ i.number }}</a></td><td>{{ i.date | erpDate }}</td><td>{{ i.dueDate | erpDate }}</td><td>{{ label(i.status) }}</td><td class="prj-num">{{ i.total | number: '1.2-2' }}</td><td class="prj-num">{{ i.paid | number: '1.2-2' }}</td></tr>
+              <tr><td>@if (canOpenInvoice()) { <a class="prj-link" [routerLink]="['/finance/invoices', i.id]">{{ i.number }}</a> } @else { {{ i.number }} }</td><td>{{ i.date | erpDate }}</td><td>{{ i.dueDate | erpDate }}</td><td>{{ label(i.status) }}</td><td class="prj-num">{{ i.total | number: '1.2-2' }}</td><td class="prj-num">{{ i.paid | number: '1.2-2' }}</td></tr>
             } @empty { <tr><td colspan="6" class="prj-empty">Nothing invoiced yet.</td></tr> }
           </tbody>
         </table>

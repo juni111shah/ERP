@@ -16,7 +16,7 @@ import { ActionButton, DescriptionItem, DetailPageComponent, KpiCard } from '@sh
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { loadRecord } from '@shared/utils/load-record';
 import { askReason } from '@shared/utils/reason-prompt';
-import { journalSourceLink, printDocument } from '../../finance-documents';
+import { journalSourceLink, journalSourcePermission, printDocument } from '../../finance-documents';
 import { formatMoney } from '../../finance-format';
 
 /** A journal entry: its lines and totals; a manual entry can be posted, edited, deleted or reversed here, a document's journal links to its source. */
@@ -121,7 +121,8 @@ export class JournalDetailPage implements OnInit {
       { label: 'Delete', icon: 'delete', danger: true, permission: 'finance.journals.write', visible: draft, handler: () => this.deleteJournal() },
       { label: 'Reverse', icon: 'rollback', danger: true, permission: 'finance.journals.reverse', visible: jrn.status === 'posted' && manual, handler: () => this.reverseJournal() },
       { label: 'Print', icon: 'printer', handler: () => printDocument('journal', jrn.id) },
-      { label: 'View Source', icon: 'link', visible: !!jrn.sourceType && !!jrn.sourceId, handler: () => this.viewSource(jrn.sourceType!, jrn.sourceId!) },
+      // Shown only when the source has a page and the user may open it (its route's read permission).
+      { label: 'View Source', icon: 'link', permission: journalSourcePermission(jrn.sourceType ?? '') ?? undefined, visible: !!jrn.sourceType && !!jrn.sourceId && !!journalSourcePermission(jrn.sourceType), handler: () => this.viewSource(jrn.sourceType!, jrn.sourceId!) },
     ];
   }
 

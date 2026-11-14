@@ -161,7 +161,8 @@ export class OpportunitiesPipelinePageComponent implements OnInit {
     this.reloadAll();
   }
 
-  canManage(): boolean { return this.session.hasPermission('crm.opportunities.manage'); }
+  /** Follows live access changes: the board's drag and drop, the move buttons and the empty-state action. */
+  readonly canManage = computed(() => this.session.hasPermission('crm.opportunities.manage'));
   deals_(n: number, kind = ''): string { return dealsText(n, kind); }
   stageName(stage: string): string { return displayLabel(stage); }
   movesOf(d: OpportunitySummaryDto): OpportunityStage[] { return STAGE_MOVES[d.stage] ?? []; }

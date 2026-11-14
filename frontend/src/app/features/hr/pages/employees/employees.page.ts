@@ -59,22 +59,22 @@ export class EmployeesPage {
 
   readonly initials = initials;
   /** Without hr.salary.read the API sends no pay figures, so the page shows none instead of zeros. */
-  readonly canSeePay = this.session.hasPermission('hr.salary.read');
-  readonly columns: TableColumn<EmployeeSummary>[] = [
+  readonly canSeePay = computed(() => this.session.hasPermission('hr.salary.read'));
+  readonly columns = computed<TableColumn<EmployeeSummary>[]>(() => [
     { key: 'number', label: 'No.', sortField: 'number', width: '110px' },
     { key: 'fullName', label: 'Name', sortField: 'fullName' },
     { key: 'designation', label: 'Designation' },
     { key: 'department', label: 'Department' },
     { key: 'joinDate', label: 'Joined', sortField: 'joinDate', width: '120px' },
-    ...(this.canSeePay ? [{ key: 'grossMonthly', label: 'Gross / month', align: 'right', value: (e) => e.grossMonthly?.toLocaleString() ?? '' } as TableColumn<EmployeeSummary>] : []),
+    ...(this.canSeePay() ? [{ key: 'grossMonthly', label: 'Gross / month', align: 'right', value: (e) => e.grossMonthly?.toLocaleString() ?? '' } as TableColumn<EmployeeSummary>] : []),
     { key: 'status', label: 'Status', sortField: 'status', width: '110px', filterField: 'status', filterOptions: EMPLOYEE_STATUSES },
-  ];
+  ]);
   readonly docsFor = signal<EmployeeDto | null>(null);
   readonly lifeFor = signal<EmployeeDto | null>(null);
   readonly terminateFor = signal<EmployeeDto | null>(null);
 
   readonly fields = computed<FieldSpec[]>(() => {
-    const pay = this.canSeePay ? employeePayFields() : [];
+    const pay = this.canSeePay() ? employeePayFields() : [];
     const lists = { entities: this.entityPage().items, departments: this.departmentPage().items, positions: this.positionPage().items, staff: this.staff().items, users: this.userList() };
     return employeeFields(lists, this.state.editing()?.id, pay);
   });

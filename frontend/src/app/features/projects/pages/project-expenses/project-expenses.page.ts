@@ -14,6 +14,7 @@ import { AttachmentsComponent } from '@shared/components/attachments/attachments
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { MasterDataState } from '@shared/utils/master-data-state';
 import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
 import { injectOpenProjects, injectProjectsConfig, injectProjectUsers, projectOptions, userOptions } from '../../projects-lookups';
@@ -25,7 +26,7 @@ import { APPROVAL_STATUSES, errorText, filterOptions, PRJ_STYLES } from '../../p
   selector: 'erp-project-expenses',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterModule, NzButtonModule, NzIconModule, NzTagModule, NzModalModule, AttachmentsComponent, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, ProjectTagComponent],
+  imports: [DecimalPipe, RouterModule, NzButtonModule, NzIconModule, NzTagModule, NzModalModule, AttachmentsComponent, PagedTableComponent, RecordDrawerComponent, HasPermissionDirective, CanPipe, ProjectTagComponent],
   templateUrl: './project-expenses.page.html',
   styles: [PRJ_STYLES + '.acts { display:inline-flex; gap:4px; }'],
 })

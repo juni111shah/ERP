@@ -34,7 +34,9 @@ export class AttendancePage {
   private readonly attendanceApi = inject(AttendanceApi);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
-  readonly canManage = inject(SessionStore).hasPermission('hr.attendance.manage');
+  private readonly session = inject(SessionStore);
+  /** Entering, saving and clearing figures need hr.attendance.manage; it follows live access changes. */
+  readonly canManage = computed(() => this.session.hasPermission('hr.attendance.manage'));
   readonly inputs = GRID_INPUTS;
   readonly exception = hasException;
   month: Date = new Date();

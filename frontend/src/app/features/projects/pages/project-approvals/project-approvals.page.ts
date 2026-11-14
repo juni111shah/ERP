@@ -48,6 +48,9 @@ export class ProjectApprovalsPage {
 
   readonly canTime = computed(() => this.session.hasPermission('projects.timesheets.approve'));
   readonly canCost = computed(() => this.session.hasPermission('projects.expenses.approve'));
+  /** Approve and reject need the approve permission of the list on screen. */
+  readonly canDecide = computed(() => (this.active() === 'time' ? this.canTime() : this.canCost()));
+  readonly canOpenProject = computed(() => this.session.hasPermission('projects.projects.read'));
   readonly active = computed<'time' | 'expenses'>(() => { const t = this.tab(); return (t === 'expenses' && this.canCost()) || !this.canTime() ? 'expenses' : 'time'; });
 
   readonly lines = computed<ApprovalLine[]>(() => (this.active() === 'time' ? timeApprovalLines(this.time()) : expenseApprovalLines(this.costs())));

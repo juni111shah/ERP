@@ -77,7 +77,7 @@ export class WorkOrderDetailPage implements OnInit {
     success: () => doneText('completed', 'Work order', this.order()?.workOrderNumber), done: () => this.load(false), message: this.message, failure: 'Could not complete the work order',
   });
 
-  readonly canManage = () => this.session.hasPermission(MANAGE);
+  readonly canManage = computed(() => this.session.hasPermission(MANAGE));
   private readonly issuedOptions = computed(() => issuedItemOptions(this.order()));
   readonly issueFields = computed<FieldSpec[]>(() => issueFieldSpecs(componentItemOptions(this.components())));
   readonly returnFields = computed<FieldSpec[]>(() => returnFieldSpecs(this.issuedOptions()));

@@ -38,5 +38,5 @@
       </nz-card>
       <nz-card *erpHasPermission="'core.audit.read'" style="margin-top:16px" [nzTitle]="'history.title' | translate: 'History'"><erp-record-history recordType="Property" [recordId]="s.property.id" /></nz-card>
       <erp-record-drawer title="Edit property" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())" customFieldEntityType="realestate.property"
-                         [saving]="state.saving()" [errors]="state.errors()" testId="property-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                         [saving]="state.saving()" [errors]="state.errors()" writePermission="realestate.properties.manage" testId="property-form" (submitted)="state.submit($event)" (closed)="state.close()" />
     }

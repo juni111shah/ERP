@@ -19,6 +19,7 @@ import { TranslatePipe } from '@core/i18n/translate.pipe';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { StatCardComponent } from '@shared/components/stat-card/stat-card.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { RevealDirective } from '@shared/directives/reveal.directive';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -63,6 +64,7 @@ function budgetLines(rows: Row[]): { accountId: string; month: number; amount: n
     PagedTableComponent,
     StatCardComponent,
     HasPermissionDirective,
+    CanPipe,
     RevealDirective,
   ],
   styleUrl: './budgets.page.scss',

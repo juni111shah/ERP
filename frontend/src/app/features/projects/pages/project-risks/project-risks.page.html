@@ -17,7 +17,7 @@
             <tr>
               <td><erp-prj-tag kind="riskKind" [value]="r.kind" /></td>
               <td><span class="prj-strong">{{ r.title }}</span>@if (r.notes) { <div class="prj-muted">{{ r.notes }}</div> }</td>
-              @if (!projectId()) { <td><a [routerLink]="['/projects', r.projectId]" [queryParams]="{ tab: 'risks' }" class="prj-link">{{ projectName(r.projectId) }}</a></td> }
+              @if (!projectId()) { <td>@if ('projects.projects.read' | can) { <a [routerLink]="['/projects', r.projectId]" [queryParams]="{ tab: 'risks' }" class="prj-link">{{ projectName(r.projectId) }}</a> } @else { {{ projectName(r.projectId) }} }</td> }
               <td><erp-prj-tag kind="severity" [value]="r.severity" /></td><td><erp-prj-tag kind="risk" [value]="r.status" /></td>
               <td>{{ r.ownerName }}</td><td [class.prj-danger]="overdue(r)">{{ r.dueDate | erpDate }}</td>
               <td class="prj-num"><ng-container *erpHasPermission="'projects.risks.manage'"><button nz-button nzSize="small" (click)="state.edit(r)" [attr.data-testid]="'risk-edit-' + r.id">Edit</button> <button nz-button nzSize="small" nzDanger (click)="remove(r)">Delete</button></ng-container></td>
@@ -28,5 +28,5 @@
       @if (!visible().length) { <div class="prj-empty">{{ rows().length ? 'Nothing matches this filter.' : 'Nothing logged yet.' }}</div> }
     </div>
     <erp-record-drawer [title]="state.editing() ? 'Edit risk or issue' : 'Log a risk or issue'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="risk-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="projects.risks.manage" testId="risk-form" (submitted)="state.submit($event)" (closed)="state.close()" />
   

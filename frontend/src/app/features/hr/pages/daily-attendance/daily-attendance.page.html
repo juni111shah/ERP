@@ -32,7 +32,7 @@
     }
 
     <erp-record-drawer [title]="editing() ? 'Edit day' : 'Add a day'" [open]="form()" [fields]="fields()" [value]="$any(editing())" [saving]="busy()" [errors]="errors()" [width]="440"
-                       testId="daily-form" (submitted)="save($event)" (closed)="form.set(false)" />
+                       writePermission="hr.attendance.manage" testId="daily-form" (submitted)="save($event)" (closed)="form.set(false)" />
 
     <nz-modal [nzVisible]="importOpen()" nzTitle="Import attendance" [nzWidth]="560" nzOkText="Import" [nzOkLoading]="busy()" (nzOnOk)="runImport()" (nzOnCancel)="importOpen.set(false)">
       <ng-container *nzModalContent>

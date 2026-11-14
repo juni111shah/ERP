@@ -10,6 +10,7 @@ import { ACCOUNT_TYPES, AccountDto, AccountNodeDto, AccountsApi, CoaNumbering } 
 import { asProblem } from '@core/http/problem-details';
 import { I18nService } from '@core/i18n/i18n.service';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { MasterDataState } from '@shared/utils/master-data-state';
@@ -37,6 +38,7 @@ export class AccountsPage {
   private readonly tree = inject(AccountTreeStore);
   private readonly i18n = inject(I18nService);
   private readonly message = inject(NzMessageService);
+  private readonly session = inject(SessionStore);
   private readonly listView = viewChild(AccountsListComponent);
   readonly view = signal<CoaView>(localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'panels');
   /** type and parent a new account starts with (from the panel "Add account" / "Add sub-account" buttons) */
@@ -113,7 +115,11 @@ export class AccountsPage {
     localStorage.setItem(VIEW_KEY, view);
   }
 
+  /** The account form saves through the write endpoints, so it opens only for users who hold finance.accounts.write. */
+  private canWrite(): boolean { return this.session.hasPermission('finance.accounts.write'); }
+
   newAccount(request: CoaCreateRequest | null): void {
+    if (!this.canWrite()) return;
     this.prefill.set(request);
     this.savedId = null;
     this.suggested.set(null);
@@ -127,6 +133,7 @@ export class AccountsPage {
   }
 
   editAccount(account: AccountDraft): void {
+    if (!this.canWrite()) return;
     this.prefill.set(null);
     this.suggested.set(null);
     this.savedId = null;
@@ -135,6 +142,7 @@ export class AccountsPage {
 
   /** Panel rows carry no custom fields, so the full account is fetched before the drawer opens. */
   editNode(node: AccountNodeDto): void {
+    if (!this.canWrite()) return;
     const parentLabel = this.parentLabel(node);
     this.tree.account(node.id).subscribe({
       next: (account) => this.editAccount({ ...account, _parentLabel: parentLabel } as AccountDto),

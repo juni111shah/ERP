@@ -53,6 +53,7 @@ export class ProjectResourcesPage {
 
   readonly canTeam = computed(() => this.session.hasPermission('projects.team.manage') || this.session.hasPermission('projects.projects.read'));
   readonly canRates = computed(() => this.session.hasPermission('projects.rates.read'));
+  readonly canOpenProject = computed(() => this.session.hasPermission('projects.projects.read'));
   readonly tabs = computed<{ key: Tab; label: string }[]>(() => [...(this.canTeam() ? [{ key: 'capacity' as Tab, label: 'Capacity' }, { key: 'allocations' as Tab, label: 'Allocations' }] : []), ...(this.canRates() ? [{ key: 'rates' as Tab, label: 'Rate cards' }] : [])]);
   readonly tab = signal<Tab>(this.session.hasPermission('projects.team.manage') || this.session.hasPermission('projects.projects.read') ? 'capacity' : 'rates');
   readonly capacity = computed(() => this.config()?.weeklyCapacityHours ?? 40);

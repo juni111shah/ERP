@@ -14,7 +14,7 @@
               @if (row.milestoneTitle) { <span class="prj-muted"><span nz-icon nzType="flag"></span> {{ row.milestoneTitle }}</span> }
             </div>
           }
-          @case ('projectName') { <a [routerLink]="['/projects', row.projectId]" [queryParams]="{ tab: 'tasks' }" class="prj-link" (click)="$event.stopPropagation()">{{ row.projectName }}</a> }
+          @case ('projectName') { @if (canOpenProject()) { <a [routerLink]="['/projects', row.projectId]" [queryParams]="{ tab: 'tasks' }" class="prj-link" (click)="$event.stopPropagation()">{{ row.projectName }}</a> } @else { {{ row.projectName }} } }
           @case ('priority') { <erp-prj-tag kind="priority" [value]="row.priority" /> }
           @case ('status') {
             @if (canManage()) {

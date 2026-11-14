@@ -119,9 +119,9 @@ export class PartiesPage implements OnInit {
         this.list.setFilters([...roleFilter(type), ...groupFilter(this.groupFilterId())]);
         this.loadStats();
       }
-      // `?edit=<id>` (from the party detail page's Edit) opens the edit drawer for that party.
+      // `?edit=<id>` (from the party detail page's Edit) opens the edit drawer for that party; saving needs core.parties.write.
       const editId = qp.get('edit');
-      if (editId && !(this.drawerOpen() && this.editing()?.id === editId)) this.api.get(editId).subscribe((p) => this.edit(p));
+      if (editId && this.session.hasPermission('core.parties.write') && !(this.drawerOpen() && this.editing()?.id === editId)) this.api.get(editId).subscribe((p) => this.edit(p));
     });
   }
 

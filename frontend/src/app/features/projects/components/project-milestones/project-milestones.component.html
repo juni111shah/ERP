@@ -48,5 +48,5 @@
         </table>
       </div>
     </div>
-    <erp-record-drawer [title]="state.editing() ? 'Edit milestone' : 'Add milestone'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" [saving]="state.saving()" [errors]="state.errors()" testId="milestone-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+    <erp-record-drawer [title]="state.editing() ? 'Edit milestone' : 'Add milestone'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())" [saving]="state.saving()" [errors]="state.errors()" writePermission="projects.milestones.manage" testId="milestone-form" (submitted)="state.submit($event)" (closed)="state.close()" />
   

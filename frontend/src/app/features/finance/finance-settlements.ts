@@ -70,10 +70,10 @@ export function settlementKpis(doc: SettlementView, spec: SettlementPageSpec): K
   ];
 }
 
-/** Party, date, method, currency and reference. */
-export function settlementDescriptions(doc: SettlementView, spec: SettlementPageSpec): DescriptionItem[] {
+/** Party, date, method, currency and reference; the party links to its page only when the user may read parties. */
+export function settlementDescriptions(doc: SettlementView, spec: SettlementPageSpec, partyLink = true): DescriptionItem[] {
   return [
-    { label: spec.partyLabel, value: doc.partyName, routerLink: ['/parties', doc.partyId] },
+    { label: spec.partyLabel, value: doc.partyName, routerLink: partyLink ? ['/parties', doc.partyId] : undefined },
     { label: 'Date', value: displayDate(doc.date) },
     { label: 'Payment Method', value: displayLabel(doc.method) },
     { label: 'Currency', value: doc.currencyCode },

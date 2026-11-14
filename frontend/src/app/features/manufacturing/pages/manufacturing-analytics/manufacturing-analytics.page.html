@@ -9,8 +9,8 @@
       <erp-state-panel kind="error" title="The manufacturing figures could not be loaded" hint="Check your connection and try again." actionLabel="Try again" (action)="load()" />
     } @else {
       <div class="erp-stat-grid six" data-testid="manufacturing-analytics-stats">
-        <erp-stat-card label="Active BOMs" format="number" [value]="kpi()?.activeBomsCount ?? null" [loading]="loading()" link="/manufacturing/boms" [tone]="1" />
-        <erp-stat-card label="Open work orders" format="number" [value]="kpi()?.openWorkOrdersCount ?? null" caption="Planned or in progress" [loading]="loading()" link="/manufacturing/workorders" [tone]="3" />
+        <erp-stat-card label="Active BOMs" format="number" [value]="kpi()?.activeBomsCount ?? null" [loading]="loading()" [link]="('manufacturing.boms.read' | can) ? '/manufacturing/boms' : null" [tone]="1" />
+        <erp-stat-card label="Open work orders" format="number" [value]="kpi()?.openWorkOrdersCount ?? null" caption="Planned or in progress" [loading]="loading()" [link]="('manufacturing.workorders.read' | can) ? '/manufacturing/workorders' : null" [tone]="3" />
         <erp-stat-card label="Completed this month" format="number" [value]="kpi()?.completedWorkOrdersMonth ?? null" caption="Work orders" [loading]="loading()" tone="success" />
         <erp-stat-card label="Produced this month" format="number" [value]="kpi()?.totalProducedQuantityMonth ?? null" caption="Good units, all products" [loading]="loading()" [tone]="2" />
         <erp-stat-card label="Yield this month" format="percent" [value]="yieldRate()" [caption]="yieldRate() === null ? 'Nothing completed yet' : 'Good units against good plus scrapped'" [loading]="loading()" [tone]="4" />
@@ -19,7 +19,7 @@
 
       @if (kpi(); as k) {
         @if (k.activeBomsCount === 0 && k.openWorkOrdersCount === 0 && k.completedWorkOrdersMonth === 0) {
-          <erp-state-panel title="No production yet" hint="Add a bill of materials, then schedule a work order to see figures here." icon="tool" actionLabel="Go to bills of materials" (action)="goToBoms()" />
+          <erp-state-panel title="No production yet" hint="Add a bill of materials, then schedule a work order to see figures here." icon="tool" [actionLabel]="('manufacturing.boms.read' | can) ? 'Go to bills of materials' : null" (action)="goToBoms()" />
         }
       }
     }

@@ -10,6 +10,7 @@ import { PosReturnDto, PosReturnsApi, PosReturnSummaryDto } from '@core/api/pos.
 import { WorkspaceCurrencyService } from '@core/services/workspace-currency.service';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { PagedTableComponent, TableColumn } from '@shared/components/paged-table/paged-table.component';
 import { tenderName } from '../../pos-cart';
 
@@ -18,7 +19,7 @@ import { tenderName } from '../../pos-cart';
   selector: 'erp-pos-returns',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterModule, ErpDatePipe, NzButtonModule, NzDrawerModule, NzIconModule, HasPermissionDirective, PagedTableComponent],
+  imports: [DecimalPipe, RouterModule, ErpDatePipe, NzButtonModule, NzDrawerModule, NzIconModule, HasPermissionDirective, CanPipe, PagedTableComponent],
   templateUrl: './pos-returns.page.html',
   styleUrl: './pos-returns.page.scss',
 })

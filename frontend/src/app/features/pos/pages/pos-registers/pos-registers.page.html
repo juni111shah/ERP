@@ -1,5 +1,5 @@
 
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No registers yet. Add one to start selling." exportFilename="pos-registers" (rowClick)="onRow($event)">
+    <erp-paged-table [list]="list" [columns]="columns" [clickable]="canManage()" searchPlaceholder="Search code or name" emptyText="No registers yet. Add one to start selling." exportFilename="pos-registers" (rowClick)="onRow($event)">
       <button toolbar *erpHasPermission="'pos.registers.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="pos-register-new"><span nz-icon nzType="plus"></span>New register</button>
       <ng-template #cell let-reg let-column="column" let-value="value">
         @if (column.key === 'code') {
@@ -21,5 +21,5 @@
     </erp-paged-table>
 
     <erp-record-drawer [title]="state.editing() ? 'Edit register' : 'New register'" [open]="state.open()" [fields]="fields()" [value]="$any(state.editing())"
-      [saving]="state.saving()" [errors]="state.errors()" testId="pos-register-form" (submitted)="save($event)" (closed)="state.close()" />
+      [saving]="state.saving()" [errors]="state.errors()" writePermission="pos.registers.manage" testId="pos-register-form" (submitted)="save($event)" (closed)="state.close()" />
   

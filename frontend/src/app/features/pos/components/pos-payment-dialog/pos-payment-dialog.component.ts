@@ -59,6 +59,8 @@ export class PosPaymentDialogComponent {
 
   /** What the amount typed now would mean, for the one thing it cannot do. */
   readonly blocked = computed(() => {
+    // The permission can be taken away while the dialog is open: the method may still be chosen, but it can no longer be used.
+    if (this.method() === 'account' && !this.canUseAccount()) return 'Selling on account needs the on-account permission.';
     if (this.method() === 'account' && !this.hasCustomer()) return 'Choose a customer on the ticket first.';
     if (this.method() !== 'cash' && this.amount() > this.remaining()) return 'Only cash can be more than what is due.';
     return null;
@@ -66,6 +68,7 @@ export class PosPaymentDialogComponent {
 
   readonly canConfirm = computed(() => {
     if (this.busy()) return false;
+    if (!this.canUseAccount() && this.tenders().some((t) => t.method === 'account')) return false;
     if (tendersSettle(this.total(), this.tenders())) return true;
     // Nothing added yet, or the rest on the box: what is typed must finish the sale.
     return !this.blocked() && this.amount() > 0 && tendersSettle(this.total(), this.withEntry());
@@ -146,7 +149,7 @@ export class PosPaymentDialogComponent {
   }
 
   confirm(): void {
-    if (this.busy()) return;
+    if (!this.canConfirm()) return;
     const settled = tendersSettle(this.total(), this.tenders()) ? this.tenders() : this.withEntry();
     if (!tendersSettle(this.total(), settled)) return;
     this.tenders.set(settled);

@@ -1,6 +1,6 @@
 
     <h1 class="erp-page-title">Tax codes</h1>
-    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No tax codes yet" (rowClick)="state.edit($event)">
+    <erp-paged-table [list]="list" [columns]="columns" searchPlaceholder="Search code or name" emptyText="No tax codes yet" [clickable]="canWrite()" (rowClick)="edit($event)">
       <ng-template #cell let-row let-column="column" let-value="value">
         @switch (column.key) {
           @case ('code') {
@@ -23,4 +23,4 @@
       <button toolbar *erpHasPermission="'finance.tax.write'" nz-button nzType="primary" (click)="state.create()" data-testid="tax-new"><span nz-icon nzType="plus"></span>New tax code</button>
     </erp-paged-table>
     <erp-record-drawer [title]="state.editing() ? 'Edit tax code' : 'New tax code'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="tax-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="finance.tax.write" testId="tax-form" (submitted)="state.submit($event)" (closed)="state.close()" />

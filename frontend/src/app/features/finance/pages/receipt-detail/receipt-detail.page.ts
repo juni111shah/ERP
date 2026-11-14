@@ -20,6 +20,7 @@ import { EmailDocumentDrawerComponent } from '@shared/components/email-document-
 import { StatePanelComponent } from '@shared/components/state-panel/state-panel.component';
 import { SuccessPanelComponent } from '@shared/components/success-panel/success-panel.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { loadRecord } from '@shared/utils/load-record';
 import { askReason } from '@shared/utils/reason-prompt';
 import { formatMoney } from '../../finance-format';
@@ -31,7 +32,7 @@ const RECEIPT_PAGE: SettlementPageSpec = { listRoute: '/finance/receipts', permi
 @Component({
   selector: 'erp-receipt-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, NzButtonModuleForPanel, NzModalModule, NzSpinModule, NzTableModule, TranslatePipe, DetailPageComponent, EmailDocumentDrawerComponent, StatePanelComponent, SuccessPanelComponent, HasPermissionDirective],
+  imports: [CommonModule, RouterLink, NzButtonModuleForPanel, NzModalModule, NzSpinModule, NzTableModule, TranslatePipe, DetailPageComponent, EmailDocumentDrawerComponent, StatePanelComponent, SuccessPanelComponent, HasPermissionDirective, CanPipe],
   templateUrl: './receipt-detail.page.html',
 })
 export class ReceiptDetailPage implements OnInit {
@@ -64,7 +65,7 @@ export class ReceiptDetailPage implements OnInit {
 
   actions = computed((): ActionButton[] => { const rec = this.receipt(); return rec ? settlementActions(rec, RECEIPT_PAGE, this.router, () => this.voidReceipt(), () => this.emailOpen.set(true)) : []; });
   kpiCards = computed((): KpiCard[] => { const rec = this.receipt(); return rec ? settlementKpis(rec, RECEIPT_PAGE) : []; });
-  descriptions = computed((): DescriptionItem[] => { const rec = this.receipt(); return rec ? settlementDescriptions(rec, RECEIPT_PAGE) : []; });
+  descriptions = computed((): DescriptionItem[] => { const rec = this.receipt(); return rec ? settlementDescriptions(rec, RECEIPT_PAGE, this.session.hasPermission('core.parties.read')) : []; });
 
   money(v: number): string { return formatMoney(v, this.receipt()?.currencyCode); }
 

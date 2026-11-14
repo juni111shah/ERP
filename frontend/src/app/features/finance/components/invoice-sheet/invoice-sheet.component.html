@@ -22,7 +22,7 @@
           <div class="block" data-testid="sheet-bill-to">
             <h5>Bill to</h5>
             <div class="party-name">
-              @if (partyLink()) { <a [routerLink]="['/parties', inv.partyId]">{{ partyName() }}</a> } @else { {{ partyName() }} }
+              @if (partyLink() && ('core.parties.read' | can)) { <a [routerLink]="['/parties', inv.partyId]">{{ partyName() }}</a> } @else { {{ partyName() }} }
             </div>
             @if (extras()?.partyAddress) { <div class="muted">{{ extras()!.partyAddress }}</div> }
             @if (extras()?.partyPhone || extras()?.partyEmail) { <div class="muted">{{ [extras()!.partyPhone, extras()!.partyEmail].filter(truthy).join(' · ') }}</div> }

@@ -36,7 +36,7 @@
     </nz-table>
     }
     <erp-record-drawer [title]="state.editing() ? 'Edit shift' : 'New shift'" [open]="state.open()" [fields]="fields" [value]="$any(state.editing())"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="shift-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="hr.attendance.manage" testId="shift-form" (submitted)="state.submit($event)" (closed)="state.close()" />
     <nz-modal [nzVisible]="assigning() !== null" [nzTitle]="'Assign employees to ' + (assigning()?.name ?? '')" nzOkText="Assign" (nzOnOk)="assign()" (nzOnCancel)="assigning.set(null)">
       <ng-container *nzModalContent>
         <label class="sr" for="shift-employees">Employees</label>

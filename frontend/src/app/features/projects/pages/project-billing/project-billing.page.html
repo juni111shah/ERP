@@ -24,7 +24,7 @@
           <tbody>
             @for (row of bTable.data; track row.projectId) {
               <tr>
-                <td><a [routerLink]="['/projects', row.projectId]" [queryParams]="{ tab: 'money' }" class="prj-link">{{ row.projectNumber }} · {{ row.projectName }}</a></td>
+                <td>@if ('projects.projects.read' | can) { <a [routerLink]="['/projects', row.projectId]" [queryParams]="{ tab: 'money' }" class="prj-link">{{ row.projectNumber }} · {{ row.projectName }}</a> } @else { {{ row.projectNumber }} · {{ row.projectName }} }</td>
                 <td><erp-prj-tag kind="billing" [value]="row.billingType" /></td>
                 <td class="prj-num">{{ row.unbilledHours | number: '1.1-1' }}</td>
                 <td class="prj-num">{{ row.unbilledHoursAmount | number: '1.2-2' }}</td>

@@ -20,6 +20,7 @@ import { HasPermissionDirective } from '@shared/directives/has-permission.direct
 import { revealErrors } from '@shared/forms/form-validation';
 import { showFormSaveError } from '@shared/forms/save-errors';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
+import { loadInto } from '@shared/utils/load-into';
 import { userInitials, userStats } from '../../admin-access';
 
 /** Users: invite, change roles, deactivate / reactivate. The server refuses to deactivate yourself or the last administrator. */
@@ -53,9 +54,12 @@ export class UsersPage {
     fullName: [''], email: [''], temporaryPassword: [''], roleIds: [[] as string[], Validators.required],
   });
 
-  constructor() {
-    this.load();
-    this.rolesApi.list({ page: 1, pageSize: 100, sort: 'name' }).subscribe((r) => this.roles.set(r.items));
+  constructor() { this.load(); }
+
+  /** The role picker is only needed in the drawer (opened by people who may change users), so the list is asked for then. */
+  private loadRoles(): void {
+    if (this.roles().length) return;
+    loadInto(this.roles, this.rolesApi.list({ page: 1, pageSize: 100, sort: 'name' }), (r) => r.items);
   }
 
   initials(name?: string): string { return userInitials(name); }
@@ -69,6 +73,7 @@ export class UsersPage {
 
   /** Opens the drawer: inviting needs a name and a valid email, editing only changes the roles. */
   open(user: UserSummary | null): void {
+    this.loadRoles();
     this.editing.set(user);
     this.form.reset({ fullName: '', email: '', temporaryPassword: '', roleIds: user?.roleIds ?? [] });
     const invite = !user;

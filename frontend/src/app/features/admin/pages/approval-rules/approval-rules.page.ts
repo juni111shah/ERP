@@ -13,6 +13,7 @@ import { NzToolTipModule } from 'ng-zorro-antd/tooltip';
 import { ApprovalPoliciesApi, ApprovalPolicy, RolesApi } from '@core/api/admin.api';
 import { problemMessage } from '@core/http/problem-details';
 import { TranslatePipe } from '@core/i18n/translate.pipe';
+import { SessionStore } from '@core/session/session.store';
 import { RowActionsComponent } from '@shared/components/row-actions/row-actions.component';
 import { TableToolsComponent } from '@shared/components/table-tools/table-tools.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
@@ -31,11 +32,13 @@ export class ApprovalRulesPage {
   private readonly api = inject(ApprovalPoliciesApi);
   private readonly message = inject(NzMessageService);
   private readonly modal = inject(NzModalService);
+  private readonly session = inject(SessionStore);
   readonly rules = signal<ApprovalPolicy[]>([]);
   readonly active = signal<'active' | 'inactive' | null>(null);
   /** Client-side filter: GET /approval-policies takes no query parameters. */
   readonly shown = computed(() => this.rules().filter((r) => !this.active() || r.isActive === (this.active() === 'active')));
-  canWrite = true;
+  /** Adding, switching and deleting rules all need core.settings.write (POST, PUT and DELETE /approval-policies). */
+  readonly canWrite = computed(() => this.session.hasPermission('core.settings.write'));
   readonly documentTypes = APPROVAL_DOCUMENT_TYPES;
   readonly approverPermissions = signal<string[]>([DEFAULT_APPROVER]);
   documentType = 'bill';

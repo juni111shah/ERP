@@ -1,6 +1,6 @@
 
     <div class="seg" role="group" aria-label="View">
-      @for (v of views; track v.key) { <button type="button" [class.on]="view() === v.key" (click)="view.set(v.key)" [attr.data-testid]="'notes-' + v.key">{{ v.label }}</button> }
+      @for (v of views(); track v.key) { <button type="button" [class.on]="view() === v.key" (click)="view.set(v.key)" [attr.data-testid]="'notes-' + v.key">{{ v.label }}</button> }
     </div>
     @switch (view()) {
       @case ('discussion') {
@@ -15,7 +15,7 @@
           </div>
         </div>
       }
-      @case ('files') { <div class="prj-card"><erp-attachments ownerType="project" [ownerId]="projectId()" /></div> }
+      @case ('files') { @if (canSeeFiles()) { <div class="prj-card"><erp-attachments ownerType="project" [ownerId]="projectId()" writePermission="projects.projects.manage" /></div> } }
       @case ('activity') {
         <div class="prj-card" data-testid="activity">
           @for (a of activity(); track $index) {

@@ -8,12 +8,12 @@
         <erp-success-panel [title]="recordedTitle()" [detail]="recordedDetail()" (dismissed)="justRecorded.set(false)">
           <a actions nz-button nzType="primary" [href]="'/print/payment/' + p.id" target="_blank" rel="noopener" data-testid="success-print">Print payment</a>
           <button actions *erpHasPermission="'core.email.send'" nz-button type="button" (click)="emailOpen.set(true)" data-testid="success-email">Email to vendor</button>
-          <a actions nz-button [routerLink]="['/finance/payments']" [queryParams]="{ new: 1 }" data-testid="success-another">Record another</a>
+          <a actions *erpHasPermission="'finance.payments.write'" nz-button [routerLink]="['/finance/payments']" [queryParams]="{ new: 1 }" data-testid="success-another">Record another</a>
           <span loop>
             @if (p.unallocated > 0) {
               {{ money(p.unallocated) }} {{ 'ui.success.notAppliedBill' | translate: 'is not applied to a bill yet.' }}
-              <a [routerLink]="['/finance/payments']" [queryParams]="{ open: p.id }" data-testid="success-loop">{{ 'ui.success.applyIt' | translate: 'Apply it' }}</a>
-            } @else {
+              <a *erpHasPermission="'finance.payments.write'" [routerLink]="['/finance/payments']" [queryParams]="{ open: p.id }" data-testid="success-loop">{{ 'ui.success.applyIt' | translate: 'Apply it' }}</a>
+            } @else if ('core.parties.read' | can) {
               <a [routerLink]="['/parties', p.partyId]" data-testid="success-loop">{{ 'ui.success.seeWhatWeOwe' | translate: 'See what is still owed to this vendor' }}</a>
             }
           </span>
@@ -45,7 +45,7 @@
               <tbody>
                 @for (alloc of allocTable.data; track alloc.id) {
                   <tr>
-                    <td><a [routerLink]="['/finance/bills', alloc.billId]">{{ alloc.billNumber }}</a></td>
+                    <td>@if ('finance.bills.read' | can) { <a [routerLink]="['/finance/bills', alloc.billId]">{{ alloc.billNumber }}</a> } @else { {{ alloc.billNumber }} }</td>
                     <td style="text-align: end;">{{ money(alloc.amount) }}</td>
                   </tr>
                 }

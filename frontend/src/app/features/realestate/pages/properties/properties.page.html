@@ -54,4 +54,4 @@
       <button toolbar *erpHasPermission="'realestate.properties.manage'" nz-button nzType="primary" (click)="state.create()" data-testid="property-new"><span nz-icon nzType="plus"></span>New property</button>
     </erp-paged-table>
     <erp-record-drawer title="New property" [open]="state.open()" [fields]="fields" customFieldEntityType="realestate.property"
-                       [saving]="state.saving()" [errors]="state.errors()" testId="property-form" (submitted)="state.submit($event)" (closed)="state.close()" />
+                       [saving]="state.saving()" [errors]="state.errors()" writePermission="realestate.properties.manage" testId="property-form" (submitted)="state.submit($event)" (closed)="state.close()" />

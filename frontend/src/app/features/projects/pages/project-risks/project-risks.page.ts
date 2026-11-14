@@ -10,6 +10,7 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { ProjectsExtraApi, RiskDto, RiskInput } from '@core/api/projects-extra.api';
 import { FieldSpec, RecordDrawerComponent } from '@shared/components/record-drawer/record-drawer.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
+import { CanPipe } from '@shared/pipes/can.pipe';
 import { ErpDatePipe } from '@shared/pipes/display.pipes';
 import { MasterDataState } from '@shared/utils/master-data-state';
 import { ProjectTagComponent } from '../../components/project-tag/project-tag.component';
@@ -23,7 +24,7 @@ import { errorText, filterOptions, PRJ_STYLES, RISK_KINDS, RISK_SEVERITIES, RISK
   selector: 'erp-project-risks',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ErpDatePipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, RecordDrawerComponent, HasPermissionDirective, ProjectTagComponent],
+  imports: [ErpDatePipe, FormsModule, RouterModule, NzButtonModule, NzIconModule, NzModalModule, NzSelectModule, NzTableModule, RecordDrawerComponent, HasPermissionDirective, CanPipe, ProjectTagComponent],
   templateUrl: './project-risks.page.html',
   styles: [PRJ_STYLES],
 })
