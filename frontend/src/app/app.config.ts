@@ -17,6 +17,7 @@ import { moduleDisabledInterceptor } from '@core/http/module-disabled.intercepto
 import { OneToastMessageService } from '@core/http/one-toast-message.service';
 import { subscriptionGateInterceptor } from '@core/http/subscription-gate.interceptor';
 import { I18nService } from '@core/i18n/i18n.service';
+import { RealtimeService } from '@core/realtime/realtime.service';
 import { TenantThemeService } from '../theme/tenant-theme.service';
 import { routes } from './app.routes';
 import { APP_ICONS } from './icons';
@@ -42,5 +43,7 @@ export const appConfig: ApplicationConfig = {
     provideNzConfig({ message: { nzDuration: 4000, nzMaxStack: 3 } }),
     // Restore the session from the refresh cookie before the first navigation.
     provideAppInitializer(() => { inject(I18nService); return firstValueFrom(inject(AuthService).restore()); }),
+    // The live connection (SignalR): opens with the session, so permission changes and notifications arrive without a reload.
+    provideAppInitializer(() => { inject(RealtimeService); }),
   ],
 };

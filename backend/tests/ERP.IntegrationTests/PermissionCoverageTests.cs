@@ -213,7 +213,8 @@ public partial class PermissionCoverageTests(ApiFactory f) : IClassFixture<ApiFa
 
     private static string Trim(string s) => s.Length > 200 ? s[..200] + "..." : s;
 
-    [GeneratedRegex(@"^[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*$")]
+    // The action may be hyphenated (pos.orders.override-price); roles already store those keys.
+    [GeneratedRegex(@"^[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.[a-z][a-z0-9-]*$")]
     private static partial Regex KeyPattern();
 
     [GeneratedRegex(@"^regex\(\^\((.+)\)\$\)$")]

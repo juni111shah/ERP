@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { CanMatchFn, Router } from '@angular/router';
+import { CanMatchFn, Router, UrlTree } from '@angular/router';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { catchError, map, of } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
@@ -7,14 +7,32 @@ import { landsOnConsole } from '../format/subscription';
 import { I18nService } from '../i18n/i18n.service';
 import { SessionStore } from '../session/session.store';
 
+/**
+ * A page the person may not open: home, with a short message. Right after their access changed (the open page is being checked again,
+ * see AccessSync) the message says so; otherwise it is a direct link or a bookmark to a page they cannot use.
+ */
+export function refuseAccess(): UrlTree {
+  const session = inject(SessionStore);
+  const i18n = inject(I18nService);
+  inject(NzMessageService).warning(session.rechecking()
+    ? i18n.t('ui.access.pageLost', 'Your access has changed, so that page is no longer available to you.')
+    : i18n.t('ui.access.denied', 'You do not have access to that page.'));
+  return inject(Router).createUrlTree(['/']);
+}
+
 /** Lets the route match when the user has any one of these permissions. */
 export function anyPermissionGuard(...permissions: string[]): CanMatchFn {
-  return () => { const session = inject(SessionStore); return permissions.some((p) => session.hasPermission(p)) || inject(Router).createUrlTree(['/']); };
+  return () => { const session = inject(SessionStore); return permissions.some((p) => session.hasPermission(p)) || refuseAccess(); };
+}
+
+/** Lets the route match only when the user holds every one of these permissions. */
+export function allPermissionsGuard(...permissions: string[]): CanMatchFn {
+  return () => { const session = inject(SessionStore); return permissions.every((p) => session.hasPermission(p)) || refuseAccess(); };
 }
 
 /** canMatch guard: route only matches when the user holds the permission (<module>.<resource>.<action>). */
 export function permissionGuard(permission: string): CanMatchFn {
-  return () => inject(SessionStore).hasPermission(permission) || inject(Router).createUrlTree(['/']);
+  return () => inject(SessionStore).hasPermission(permission) || refuseAccess();
 }
 
 /**

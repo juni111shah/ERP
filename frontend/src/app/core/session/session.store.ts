@@ -50,6 +50,8 @@ export class SessionStore {
   readonly enabledModules = computed<ReadonlySet<string>>(() => new Set(['core', ...(this.me()?.enabledModules.map((m) => m.key) ?? [])]));
   readonly isAuthenticated = computed(() => !!this.accessToken());
   readonly isOrgAdmin = computed(() => this.permissions().has('*'));
+  /** True while the open page is checked again after this person's access changed (see AccessSync): a guard that refuses then says so. */
+  readonly rechecking = signal(false);
   /** A founder chose "Back to workspace": the root route shows the workspace in this tab rather than the console. */
   readonly stayInWorkspace = signal(sessionStorage.getItem(STAY_IN_WORKSPACE_KEY) === '1');
 
