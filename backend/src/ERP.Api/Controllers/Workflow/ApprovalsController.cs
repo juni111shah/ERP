@@ -11,17 +11,17 @@ namespace ERP.Api.Controllers.Workflow;
 public sealed class ApprovalsController(ISender mediator) : ApiControllerBase(mediator)
 {
     [HttpGet]
-    [Authorize]
+    [PermissionByRequest(typeof(ListApprovalsQuery))]
     public Task<IReadOnlyList<ApprovalDto>> List(string? scope, CancellationToken ct)
         => Mediator.Send(new ListApprovalsQuery(scope), ct);
 
     [HttpGet("{id:guid}")]
-    [Authorize]
+    [PermissionByRequest(typeof(GetApprovalByIdQuery))]
     public Task<ApprovalDto> GetById(Guid id, CancellationToken ct)
         => Mediator.Send(new GetApprovalByIdQuery(id), ct);
 
     [HttpPost]
-    [Authorize]
+    [SignedIn("Anyone may ask for an approval; only holders of the approver permission decide it")]
     public async Task<IActionResult> Submit(ApprovalInput input, CancellationToken ct)
     {
         var created = await Mediator.Send(new SubmitApprovalCommand(input), ct);
@@ -30,17 +30,17 @@ public sealed class ApprovalsController(ISender mediator) : ApiControllerBase(me
 
     /// <summary>The permission differs per level: the approval service checks it.</summary>
     [HttpPost("{id:guid}/approve")]
-    [Authorize]
+    [PermissionByRequest(typeof(DecideApprovalCommand))]
     public Task<ApprovalDto> Approve(Guid id, DecisionRequest? decision, CancellationToken ct)
         => Mediator.Send(new DecideApprovalCommand(id, true, decision?.Comment), ct);
 
     [HttpPost("{id:guid}/reject")]
-    [Authorize]
+    [PermissionByRequest(typeof(DecideApprovalCommand))]
     public Task<ApprovalDto> Reject(Guid id, DecisionRequest? decision, CancellationToken ct)
         => Mediator.Send(new DecideApprovalCommand(id, false, decision?.Comment), ct);
 
     [HttpPost("{id:guid}/withdraw")]
-    [Authorize]
+    [PermissionByRequest(typeof(WithdrawApprovalCommand))]
     public Task<ApprovalDto> Withdraw(Guid id, CancellationToken ct)
         => Mediator.Send(new WithdrawApprovalCommand(id), ct);
 

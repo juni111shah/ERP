@@ -48,7 +48,7 @@ public sealed class DealsController(ISender mediator) : ApiControllerBase(mediat
         => Mediator.Send(new PayDealAgentCommand(id, b.BankAccountId, b.Date), ct);
 
     [HttpPost("{id:guid}/stage")]
-    [Authorize]
+    [PermissionByRequest(typeof(MoveDealStageCommand))]
     public Task<DealDto> MoveStage(Guid id, DealStageRequest body, CancellationToken ct)
         => Mediator.Send(new MoveDealStageCommand(id, body.Stage, body.LostReason), ct);
 

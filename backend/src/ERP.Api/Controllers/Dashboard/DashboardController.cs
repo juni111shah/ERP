@@ -15,7 +15,7 @@ namespace ERP.Api.Controllers.Dashboard;
 public sealed class DashboardController(ISender mediator) : ApiControllerBase(mediator)
 {
     [HttpGet]
-    [Authorize]
+    [SignedIn("Each card is computed only for holders of its read permission")]
     public Task<DashboardDto> Get(Guid? legalEntityId, DateOnly? from, DateOnly? to, CancellationToken ct)
         => Mediator.Send(new GetDashboardQuery(legalEntityId, from, to), ct);
 

@@ -17,7 +17,7 @@ public sealed class SettingsController(ISender mediator) : ApiControllerBase(med
     public Task<IReadOnlyList<SettingView>> List(CancellationToken ct) => Mediator.Send(new ListSettingsQuery(), ct);
 
     [HttpPut]
-    [Authorize] // per-key permission is checked by the handler
+    [PermissionByRequest(typeof(UpdateSettingsCommand))] // core.settings.write, or <module>.settings.write for a module's keys
     public async Task<IActionResult> Update(Dictionary<string, JsonElement> values, CancellationToken ct)
     {
         await Mediator.Send(new UpdateSettingsCommand(values), ct);

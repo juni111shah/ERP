@@ -14,18 +14,18 @@ namespace ERP.Api.Controllers.Imports;
 public sealed class ImportsController(ISender mediator) : ApiControllerBase(mediator)
 {
     [HttpGet]
-    [Authorize]
+    [PermissionByRequest(typeof(ListImportsQuery))]
     public Task<IReadOnlyList<ImportDefinitionDto>> List(CancellationToken ct)
         => Mediator.Send(new ListImportsQuery(), ct);
 
     [HttpGet("{key}/template")]
-    [Authorize]
+    [PermissionByRequest(typeof(GetImportTemplateQuery))]
     public async Task<IActionResult> GetTemplate(string key, CancellationToken ct)
         => Content(await Mediator.Send(new GetImportTemplateQuery(key), ct), "text/csv");
 
     /// <summary>Multipart form with the CSV <c>file</c>; <c>dryRun</c> defaults to true.</summary>
     [HttpPost("{key}")]
-    [Authorize]
+    [PermissionByRequest(typeof(RunImportCommand))]
     public async Task<ImportResultDto> Run(string key, bool? dryRun, CancellationToken ct)
     {
         var form = await Request.ReadFormAsync(ct);

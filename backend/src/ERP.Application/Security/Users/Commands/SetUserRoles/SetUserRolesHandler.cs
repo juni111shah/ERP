@@ -5,7 +5,8 @@ using ERP.Domain.Identity;
 namespace ERP.Application.Security;
 
 internal sealed class SetUserRolesHandler(
-    IOrganizationMemberRepository members, IRoleRepository roles, IUserRoleRepository userRoles, IUserDirectory directory, PermissionGrants grants, IUnitOfWork unitOfWork, ICurrentUser currentUser)
+    IOrganizationMemberRepository members, IRoleRepository roles, IUserRoleRepository userRoles, IUserDirectory directory, PermissionGrants grants, IUnitOfWork unitOfWork, ICurrentUser currentUser,
+    IAccessChangeNotifier access)
     : ICommandHandler<SetUserRolesCommand, UserSummary>
 {
     public async Task<UserSummary> Handle(SetUserRolesCommand command, CancellationToken ct)
@@ -26,9 +27,12 @@ internal sealed class SetUserRolesHandler(
         if (losesAdmin) await grants.EnsureAnotherAdministratorAsync(command.UserId, adminRoleIds, ct);
 
         // 3. Apply the difference.
-        foreach (var ur in current.Where(ur => !roleIds.Contains(ur.RoleId))) userRoles.Remove(ur);
+        var taken = current.Where(ur => !roleIds.Contains(ur.RoleId)).ToList();
+        foreach (var ur in taken) userRoles.Remove(ur);
         userRoles.AddRange(added.Select(id => new UserRole { UserId = command.UserId, RoleId = id }));
         await unitOfWork.SaveChangesAsync(ct);
+        // 4. The member works with the new roles at once, without signing in again.
+        await access.UsersChangedAsync(member.OrgId, [command.UserId], AccessChangeReasons.RolesAssigned, narrowed: taken.Count > 0, ct);
         return (await directory.ListMembersAsync([member.UserId], ct)).First(u => u.Id == member.UserId);
     }
 }

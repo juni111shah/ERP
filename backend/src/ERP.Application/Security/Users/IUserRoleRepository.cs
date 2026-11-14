@@ -17,4 +17,7 @@ public interface IUserRoleRepository : IRepository<UserRole>
 
     /// <summary>The distinct users holding a role that grants <paramref name="permission"/> (or every permission).</summary>
     Task<List<Guid>> ListUsersWithPermissionAsync(string permission, CancellationToken ct);
+
+    /// <summary>The distinct users holding role <paramref name="roleId"/>.</summary>
+    Task<List<Guid>> ListHoldersAsync(Guid roleId, CancellationToken ct);
 }

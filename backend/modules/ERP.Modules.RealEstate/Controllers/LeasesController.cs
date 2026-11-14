@@ -54,7 +54,7 @@ public sealed class LeasesController(ISender mediator) : ApiControllerBase(media
         => (await Mediator.Send(new GetLeaseQuery(id), ct)).Schedule;
 
     [HttpPost]
-    [Authorize] // leases.create, or leases.activate with ActivateNow: the command declares which
+    [PermissionByRequest(typeof(CreateLeaseCommand))] // leases.create, or leases.activate with ActivateNow
     public async Task<IActionResult> Create(LeaseInput input, CancellationToken ct)
     {
         var created = await Mediator.Send(new CreateLeaseCommand(input), ct);

@@ -12,7 +12,8 @@ namespace ERP.Modularity.Features;
 
 internal sealed class ChangeIndustryHandler(
     IRepository<Organization> organizations, ModuleRegistry modules, IModuleAccess access, ISettingsService settings,
-    IRoleRepository roles, IAccountRepository accounts, IUnitOfWork unitOfWork, ICurrentUser user, ISender sender) : ICommandHandler<ChangeIndustryCommand, ChangeIndustryResult>
+    IRoleRepository roles, IAccountRepository accounts, IUnitOfWork unitOfWork, ICurrentUser user, ISender sender,
+    IAccessChangeNotifier accessChanges) : ICommandHandler<ChangeIndustryCommand, ChangeIndustryResult>
 {
     public async Task<ChangeIndustryResult> Handle(ChangeIndustryCommand command, CancellationToken ct)
     {
@@ -53,6 +54,8 @@ internal sealed class ChangeIndustryHandler(
 
         org.IndustryCode = template.Key;
         await unitOfWork.SaveChangesAsync(ct);
+        // The industry's own words for menu items (and any modules switched on above) reach every member at once.
+        await accessChanges.WorkspaceChangedAsync(org.Id, AccessChangeReasons.IndustryChanged, ct);
         var rolesNow = await roles.ListNamesAsync(ct);
         var codesNow = await accounts.ListCodesAsync(ct);
         return new(template.Key, added, rolesNow.Except(rolesBefore).ToList(), codesNow.Except(codesBefore).ToList(), refused);

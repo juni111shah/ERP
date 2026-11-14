@@ -124,7 +124,11 @@ public sealed class LocalFileStore(IConfiguration config) : IFileStore
 }
 
 /// <summary>Used when no real-time transport is registered (tests, background jobs); the API host swaps in SignalR.</summary>
-public sealed class NullNotificationPusher : INotificationPusher { public Task PushAsync(Guid userId, object payload, CancellationToken ct = default) => Task.CompletedTask; }
+public sealed class NullNotificationPusher : INotificationPusher
+{
+    public Task PushAsync(Guid userId, object payload, CancellationToken ct = default) => Task.CompletedTask;
+    public Task SendAsync(Guid userId, string eventName, object payload, CancellationToken ct = default) => Task.CompletedTask;
+}
 
 /// <summary>Every setting known to this deployment: the core's plus those declared by installed modules.</summary>
 public sealed class SettingsCatalog(ModuleRegistry modules) : ISettingsCatalog

@@ -11,12 +11,12 @@ namespace ERP.Api.Controllers.Workflow;
 public sealed class NotificationsController(ISender mediator) : ApiControllerBase(mediator)
 {
     [HttpGet]
-    [Authorize]
+    [SignedIn("The caller's own notifications")]
     public Task<NotificationList> List(CancellationToken ct)
         => Mediator.Send(new ListNotificationsQuery(), ct);
 
     [HttpPost("read-all")]
-    [Authorize]
+    [SignedIn("The caller's own notifications")]
     public async Task<IActionResult> MarkAllRead(CancellationToken ct)
     {
         await Mediator.Send(new MarkAllNotificationsReadCommand(), ct);
@@ -24,7 +24,7 @@ public sealed class NotificationsController(ISender mediator) : ApiControllerBas
     }
 
     [HttpPost("{id:guid}/read")]
-    [Authorize]
+    [SignedIn("The caller's own notifications")]
     public async Task<IActionResult> MarkRead(Guid id, CancellationToken ct)
     {
         await Mediator.Send(new MarkNotificationReadCommand(id), ct);

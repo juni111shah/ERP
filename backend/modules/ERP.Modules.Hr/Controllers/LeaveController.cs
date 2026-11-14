@@ -61,10 +61,10 @@ public sealed class LeaveController(ISender mediator) : ApiControllerBase(mediat
 
     // approver permission or line manager: checked in the handler
     [HttpPost("{id:guid}/approve")]
-    [Authorize]
+    [PermissionByRequest(typeof(ApproveLeaveRequestCommand))]
     public Task<LeaveRequestDto> Approve(Guid id, LeaveDecisionInput? body, CancellationToken ct) => Mediator.Send(new ApproveLeaveRequestCommand(id, body?.Comment), ct);
 
     [HttpPost("{id:guid}/reject")]
-    [Authorize]
+    [PermissionByRequest(typeof(RejectLeaveRequestCommand))]
     public Task<LeaveRequestDto> Reject(Guid id, LeaveDecisionInput? body, CancellationToken ct) => Mediator.Send(new RejectLeaveRequestCommand(id, body?.Comment), ct);
 }

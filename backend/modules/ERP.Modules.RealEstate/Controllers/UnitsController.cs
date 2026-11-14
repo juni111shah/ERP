@@ -48,7 +48,7 @@ public sealed class UnitsController(ISender mediator) : ApiControllerBase(mediat
 
     // Reserve/release need units.reserve, the rest units.manage: the command declares the permission for its action.
     [HttpPost("{id:guid}/status")]
-    [Authorize]
+    [PermissionByRequest(typeof(ChangeUnitStatusCommand))]
     public Task<UnitDto> ChangeStatus(Guid id, UnitStatusRequest body, CancellationToken ct)
         => Mediator.Send(new ChangeUnitStatusCommand(id, body.Action, body.Until, body.Reason), ct);
 

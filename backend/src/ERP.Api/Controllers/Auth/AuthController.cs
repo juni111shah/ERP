@@ -47,21 +47,21 @@ public sealed class AuthController(ISender mediator) : ApiControllerBase(mediato
     }
 
     [HttpGet("2fa")]
-    [Authorize]
+    [SignedIn("The caller's own two-factor sign-in settings")]
     public Task<TwoFactorStatus> GetTwoFactorStatus(CancellationToken ct) => Mediator.Send(new GetTwoFactorStatusQuery(), ct);
 
     [HttpPost("2fa/setup")]
-    [Authorize]
+    [SignedIn("The caller's own two-factor sign-in settings")]
     [EnableRateLimiting("login")]
     public Task<TwoFactorSetup> BeginTwoFactorSetup(CancellationToken ct) => Mediator.Send(new BeginTwoFactorSetupCommand(), ct);
 
     [HttpPost("2fa/enable")]
-    [Authorize]
+    [SignedIn("The caller's own two-factor sign-in settings")]
     [EnableRateLimiting("login")]
     public Task<TwoFactorEnabled> EnableTwoFactor(TwoFactorCodeRequest r, CancellationToken ct) => Mediator.Send(new EnableTwoFactorCommand(r.Code), ct);
 
     [HttpPost("2fa/disable")]
-    [Authorize]
+    [SignedIn("The caller's own two-factor sign-in settings")]
     [EnableRateLimiting("login")]
     public async Task<IActionResult> DisableTwoFactor(DisableTwoFactorRequest r, CancellationToken ct)
     {
@@ -109,7 +109,7 @@ public sealed class AuthController(ISender mediator) : ApiControllerBase(mediato
     }
 
     [HttpPost("switch-workspace")]
-    [Authorize]
+    [SignedIn("Moves the caller's own session to another workspace they are a member of")]
     public async Task<IActionResult> SwitchWorkspace(SwitchWorkspaceRequest r, [FromServices] IOptions<AuthOptions> o, CancellationToken ct)
     {
         var (jti, exp) = TokenInfo();
@@ -138,7 +138,7 @@ public sealed class AuthController(ISender mediator) : ApiControllerBase(mediato
     }
 
     [HttpPost("change-password")]
-    [Authorize]
+    [SignedIn("The caller's own password")]
     [EnableRateLimiting("login")]
     public async Task<IActionResult> ChangePassword(ChangePasswordRequest r, CancellationToken ct)
     {

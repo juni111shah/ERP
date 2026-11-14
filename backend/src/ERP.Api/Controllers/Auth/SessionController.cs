@@ -8,7 +8,7 @@ namespace ERP.Api.Controllers.Auth;
 
 /// <summary>The signed-in user's session: who they are, their workspace and their menu.</summary>
 [Route("api/v1")]
-[Authorize]
+[SignedIn("The caller's own session: profile, workspaces and a menu narrowed to their permissions")]
 public sealed class SessionController(ISender mediator) : ApiControllerBase(mediator)
 {
     [HttpGet("me")]

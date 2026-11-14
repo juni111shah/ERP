@@ -11,7 +11,7 @@ namespace ERP.Api.Controllers.Dashboard;
 public sealed class SearchController(ISender mediator) : ApiControllerBase(mediator)
 {
     [HttpGet]
-    [Authorize]
+    [SignedIn("Each search provider returns hits only for record types the caller may read")]
     public Task<SearchResult> Search(string q, CancellationToken ct)
         => Mediator.Send(new GlobalSearchQuery(q), ct);
 }

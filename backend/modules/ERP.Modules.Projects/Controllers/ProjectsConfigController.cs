@@ -13,7 +13,7 @@ namespace ERP.Modules.Projects.Controllers;
 public sealed class ProjectsConfigController(ISender mediator) : ApiControllerBase(mediator)
 {
     [HttpGet]
-    [Authorize]
+    [SignedIn("The workspace's timesheet rules, needed by every time-entry screen")]
     public Task<ProjectsConfigDto> Get(CancellationToken ct)
         => Mediator.Send(new GetProjectsConfigQuery(), ct);
 }

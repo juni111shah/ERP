@@ -24,7 +24,7 @@ public sealed class CustomFieldsController(ISender mediator) : ApiControllerBase
 
     /// <summary>Form metadata: active definitions for rendering, readable by anyone who can read the entity type (checked by the handler).</summary>
     [HttpGet("form/{entityType}")]
-    [Authorize]
+    [PermissionByRequest(typeof(GetFormFieldsQuery))]
     public Task<IReadOnlyList<CustomFieldDefinitionDto>> GetFormFields(string entityType, CancellationToken ct)
         => Mediator.Send(new GetFormFieldsQuery(entityType), ct);
 
@@ -47,12 +47,12 @@ public sealed class CustomFieldsController(ISender mediator) : ApiControllerBase
         => Mediator.Send(new DeactivateCustomFieldDefinitionCommand(id), ct);
 
     [HttpGet("values/{entityType}/{id:guid}")]
-    [Authorize]
+    [PermissionByRequest(typeof(GetCustomFieldValuesQuery))]
     public Task<JsonObject> GetValues(string entityType, Guid id, CancellationToken ct)
         => Mediator.Send(new GetCustomFieldValuesQuery(entityType, id), ct);
 
     [HttpPut("values/{entityType}/{id:guid}")]
-    [Authorize]
+    [PermissionByRequest(typeof(SetCustomFieldValuesCommand))]
     public Task<JsonObject> SetValues(string entityType, Guid id, JsonObject values, CancellationToken ct)
         => Mediator.Send(new SetCustomFieldValuesCommand(entityType, id, values), ct);
 }

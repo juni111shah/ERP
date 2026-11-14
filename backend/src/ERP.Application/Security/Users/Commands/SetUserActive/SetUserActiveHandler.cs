@@ -5,7 +5,7 @@ namespace ERP.Application.Security;
 
 internal sealed class SetUserActiveHandler(
     IOrganizationMemberRepository members, IUserRoleRepository userRoles, IUserDirectory directory, PermissionGrants grants, IUnitOfWork unitOfWork, ICurrentUser currentUser,
-    ERP.Application.Auth.IAuthService auth, ERP.Application.Platform.ISubscriptionLimits limits) : ICommandHandler<SetUserActiveCommand, UserSummary>
+    ERP.Application.Auth.IAuthService auth, ERP.Application.Platform.ISubscriptionLimits limits, IAccessChangeNotifier access) : ICommandHandler<SetUserActiveCommand, UserSummary>
 {
     public async Task<UserSummary> Handle(SetUserActiveCommand command, CancellationToken ct)
     {
@@ -22,7 +22,12 @@ internal sealed class SetUserActiveHandler(
         // 2. Switch, and sign a deactivated member out.
         member.IsActive = command.IsActive;
         await unitOfWork.SaveChangesAsync(ct);
-        if (!command.IsActive) await auth.RevokeSessionsAsync(member.UserId, member.OrgId, "member-deactivated", ct);
+        if (!command.IsActive)
+        {
+            await auth.RevokeSessionsAsync(member.UserId, member.OrgId, "member-deactivated", ct);
+            // Open screens find out now: their refresh fails and they go to the sign-in page.
+            await access.UsersChangedAsync(member.OrgId, [member.UserId], AccessChangeReasons.MemberDeactivated, narrowed: true, ct);
+        }
         return (await directory.ListMembersAsync([member.UserId], ct)).First(u => u.Id == member.UserId);
     }
 }

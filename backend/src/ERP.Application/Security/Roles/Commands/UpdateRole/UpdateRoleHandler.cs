@@ -3,7 +3,8 @@ using ERP.Domain.Identity;
 
 namespace ERP.Application.Security;
 
-internal sealed class UpdateRoleHandler(IRoleRepository roles, IRolePermissionRepository rolePermissions, PermissionGrants grants) : ICommandHandler<UpdateRoleCommand, CreatedRoleDto>
+internal sealed class UpdateRoleHandler(
+    IRoleRepository roles, IRolePermissionRepository rolePermissions, IUserRoleRepository userRoles, PermissionGrants grants, IAccessChangeNotifier access) : ICommandHandler<UpdateRoleCommand, CreatedRoleDto>
 {
     public async Task<CreatedRoleDto> Handle(UpdateRoleCommand command, CancellationToken ct)
     {
@@ -21,10 +22,14 @@ internal sealed class UpdateRoleHandler(IRoleRepository roles, IRolePermissionRe
         role.Name = name; role.Description = i.Description;
         // Apply only the difference: removing and re-adding an unchanged permission would collide with its unique index.
         var wanted = i.Permissions.Distinct().ToHashSet();
-        foreach (var removed in role.Permissions.Where(p => !wanted.Contains(p.Permission)).ToList()) { role.Permissions.Remove(removed); rolePermissions.Remove(removed); }
+        var taken = role.Permissions.Where(p => !wanted.Contains(p.Permission)).ToList();
+        foreach (var removed in taken) { role.Permissions.Remove(removed); rolePermissions.Remove(removed); }
         // Explicit Add: a new child with a client-generated key attached only through the navigation would be tracked as existing (Modified).
         rolePermissions.AddRange(wanted.Where(w => role.Permissions.All(p => p.Permission != w)).Select(w => new RolePermission { RoleId = role.Id, Permission = w }));
         await roles.SaveChangesAsync(ct);
+
+        // 3. Everyone holding the role works with its new permissions at once.
+        await access.UsersChangedAsync(role.OrgId, await userRoles.ListHoldersAsync(role.Id, ct), AccessChangeReasons.RoleChanged, narrowed: taken.Count > 0, ct);
         return new(role.Id, role.Name);
     }
 }

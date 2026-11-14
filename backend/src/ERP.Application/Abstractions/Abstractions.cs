@@ -103,7 +103,13 @@ public interface ISettingsService
 }
 
 /// <summary>Pushes real-time events (implemented with SignalR in the API host).</summary>
-public interface INotificationPusher { Task PushAsync(Guid userId, object payload, CancellationToken ct = default); }
+public interface INotificationPusher
+{
+    /// <summary>A new in-app notification for the user (client event "notification").</summary>
+    Task PushAsync(Guid userId, object payload, CancellationToken ct = default);
+    /// <summary>Any other real-time event for the user's open screens, e.g. "access-changed".</summary>
+    Task SendAsync(Guid userId, string eventName, object payload, CancellationToken ct = default);
+}
 
 /// <summary>User accounts (ASP.NET Identity lives behind this). Workspace membership and roles are ordinary repositories.</summary>
 public interface IUserDirectory

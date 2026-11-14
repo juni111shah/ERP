@@ -11,7 +11,7 @@ namespace ERP.Modules.Hr.Controllers;
 /// <summary>Self-service: signed-in users with a linked employee need no permission; the employee comes from the link.</summary>
 [ModuleGate(HrModule.Key)]
 [Route("api/v1/m/hr/me")]
-[Authorize]
+[SignedIn("The caller's own employee record, leave requests and payslips")]
 public sealed class SelfServiceController(ISender mediator) : ApiControllerBase(mediator)
 {
     private const string Base = "/api/v1/m/hr";

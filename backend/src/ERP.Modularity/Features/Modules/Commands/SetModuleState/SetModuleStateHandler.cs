@@ -8,7 +8,7 @@ namespace ERP.Modularity.Features;
 
 internal sealed class SetModuleStateHandler(
     ModuleRegistry modules, IModuleAccess access, IOrganizationModuleRepository organizationModules, ERP.Application.Platform.ISubscriptionLimits limits,
-    IAccountRepository accounts, IRoleRepository roles) : ICommandHandler<SetModuleStateCommand, ModuleState>
+    IAccountRepository accounts, IRoleRepository roles, IOrgContext org, IAccessChangeNotifier accessChanges) : ICommandHandler<SetModuleStateCommand, ModuleState>
 {
     public async Task<ModuleState> Handle(SetModuleStateCommand command, CancellationToken ct)
     {
@@ -23,6 +23,7 @@ internal sealed class SetModuleStateHandler(
             throw new ConflictException($"Disable {string.Join(", ", dependents)} first.");
 
         // 2. Switch it, provisioning what an enabled module needs.
+        var changed = false;
         var row = await organizationModules.FindForUpdateAsync(command.Key, ct);
         if (row is null) { row = new OrganizationModule { ModuleKey = command.Key }; organizationModules.Add(row); }
         if (row.IsEnabled != command.Enable)
@@ -31,8 +32,11 @@ internal sealed class SetModuleStateHandler(
             if (command.Enable) row.EnabledAt = DateTime.UtcNow; else row.DisabledAt = DateTime.UtcNow;
             if (command.Enable) await ProvisionAsync(module, ct);
             await organizationModules.SaveChangesAsync(ct);
+            changed = true;
         }
         access.Invalidate();
+        // 3. A module's permissions and menu come and go with it: every member works with the new set at once.
+        if (changed && org.OrgId is { } orgId) await accessChanges.WorkspaceChangedAsync(orgId, AccessChangeReasons.ModulesChanged, ct);
         return new(command.Key, command.Enable ? "enabled" : "disabled");
     }
 

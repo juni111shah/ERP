@@ -43,7 +43,7 @@ public sealed class WorkOrdersController(ISender mediator) : ApiControllerBase(m
         => Mediator.Send(new SetWorkOrderCostBasisCommand(id, input), ct);
 
     [HttpPost("{id:guid}/status")]
-    [Authorize] // permission depends on the target status
+    [PermissionByRequest(typeof(ChangeWorkOrderStatusCommand))] // the permission depends on the target status
     public Task<WorkOrderDto> ChangeStatus(Guid id, WorkOrderStatusRequest body, CancellationToken ct)
         => Mediator.Send(new ChangeWorkOrderStatusCommand(id, body.Status, body.ActualCost, body.ResolutionNotes), ct);
 

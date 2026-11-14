@@ -162,3 +162,9 @@ public interface IRequirePermission
 {
     string RequiredPermission { get; }
 }
+
+/// <summary>
+/// Marks a MediatR request whose handler checks the permission itself because it differs per item: each setting key, each import
+/// definition, each approval level, the leave approver of a team. The handler throws <c>ForbiddenException</c> (403) when it fails.
+/// </summary>
+public interface IAuthorizesInHandler { }
